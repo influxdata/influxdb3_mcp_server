@@ -35,6 +35,7 @@ export function createTools(influxService: InfluxDBMasterService): McpTool[] {
     ...createQueryTools(influxService),
     ...createTokenTools(influxService),
     ...createCloudTokenTools(influxService),
+    // ...createSchemaTools(influxService),
     ...createHealthTools(influxService),
   ];
 }

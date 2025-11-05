@@ -5,15 +5,16 @@
  */
 
 import axios, { AxiosInstance } from "axios";
+import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 
 export class HttpClientService {
   private axiosInstance: AxiosInstance;
 
-  constructor(baseURL?: string, token?: string) {
+  constructor(baseURL?: string, token?: string, influxType?: string) {
     this.axiosInstance = axios.create({
       baseURL: baseURL?.replace(/\/$/, ""),
       timeout: 30000,
-      headers: this.createAuthHeaders(token),
+      headers: this.createAuthHeaders(token, influxType),
     });
 
     this.axiosInstance.interceptors.response.use(
@@ -27,16 +28,23 @@ export class HttpClientService {
   }
 
   /**
-   * Create authentication headers with bearer token
+   * Create authentication headers with appropriate format for InfluxDB type
    */
-  private createAuthHeaders(token?: string): Record<string, string> {
+  private createAuthHeaders(
+    token?: string,
+    influxType?: string,
+  ): Record<string, string> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Accept: "application/json",
     };
 
     if (token?.trim()) {
-      headers["Authorization"] = `Bearer ${token}`;
+      if (influxType === InfluxProductType.CloudServerless) {
+        headers["Authorization"] = `Token ${token}`;
+      } else {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
     }
 
     return headers;
@@ -106,7 +114,11 @@ export class HttpClientService {
   /**
    * Create a configured instance for InfluxDB API calls
    */
-  static createInfluxClient(baseUrl: string, token: string): HttpClientService {
-    return new HttpClientService(baseUrl, token);
+  static createInfluxClient(
+    baseUrl: string,
+    token: string,
+    influxType?: string,
+  ): HttpClientService {
+    return new HttpClientService(baseUrl, token, influxType);
   }
 }

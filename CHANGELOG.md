@@ -5,6 +5,65 @@ All notable changes to the official InfluxDB MCP Server will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-11-05
+
+### Added
+
+- **InfluxDB Cloud Serverless Support**: Complete support for InfluxDB Cloud Serverless instances
+
+  - Full database management with Cloud Serverless specific parameters: `description`, `retentionPeriod`
+  - Support for bucket operations (Cloud Serverless databases are called "buckets")
+  - Enhanced `create_database` and `update_database` tools with Cloud Serverless configuration
+  - Bucket renaming support via `newName` parameter in `update_database`
+  - Specialized response parsing for Cloud Serverless `_fields` array format
+  - Schema exploration via `information_schema` queries compatible with Cloud Serverless
+  - New configuration files: `env.cloud-serverless.example` and `example-cloud-serverless.mcp.json`
+
+- **Custom Context System**: Optional user-provided database context and documentation
+
+  - New `ContextFileService` for flexible context file discovery
+  - `context-file` MCP resource exposing custom documentation via `influx://context`
+  - `load-context` MCP prompt for one-click context loading
+  - `load_database_context` tool for agents to access user-provided context
+  - Support for multiple context file formats: JSON, Markdown, and plain text
+  - Flexible file placement: `/context/` folder or files with "context" in name
+
+### Enhanced
+
+- **Query Operations**:
+
+  - Universal CAST requirements documentation for both Cloud Dedicated and Cloud Serverless
+  - Enhanced query tools with product-specific guidance for aggregation functions
+  - Proper handling of Cloud Serverless response format with `_fields` arrays
+  - Updated query examples with correct CAST syntax for v3 cloud products
+
+- **Database Management**:
+
+  - Cloud Serverless bucket lifecycle management (create, update, delete, list)
+  - Retention period enforcement awareness and error handling
+  - Product-specific parameter validation and configuration
+  - Enhanced database listing with Cloud Serverless metadata
+
+- **Write Operations**:
+
+  - Retention period violation handling for cloud instances
+  - Improved error messages for timestamp-related write failures
+  - Enhanced line protocol validation and troubleshooting guidance
+
+- **Help System**:
+  - Updated help content with Cloud Serverless specific requirements
+  - Added retention period error guidance for cloud instances
+  - Enhanced query documentation with CAST requirements for cloud products
+  - Context system usage documentation
+
+### Technical Improvements
+
+- Product type detection and response parsing for Cloud Serverless
+- Enhanced error handling for retention period violations
+- Improved type safety for multi-product database operations
+- Context file service with flexible discovery patterns
+- Better separation of cloud-specific vs universal query requirements
+
 ## [1.1.0] - 2025-06-23
 
 ### Added
