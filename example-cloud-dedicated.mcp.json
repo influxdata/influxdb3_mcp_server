@@ -2,7 +2,7 @@
   "mcpServers": {
     "influxdb": {
       "command": "npx",
-      "args": ["-y", "@plavno/influx-mcp-server@latest"],
+      "args": ["-y", "@influx/influx-mcp-server@latest"],
       "env": {
         "INFLUX_DB_PRODUCT_TYPE": "cloud-dedicated",
         "INFLUX_DB_CLUSTER_ID": "your_cluster_id_here",

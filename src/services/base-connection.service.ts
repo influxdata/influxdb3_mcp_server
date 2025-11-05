@@ -37,6 +37,9 @@ export class BaseConnectionService {
     if (influx.type === InfluxProductType.CloudDedicated && influx.cluster_id) {
       return `https://${influx.cluster_id}.a.influxdb.io`;
     }
+    if (influx.type === InfluxProductType.CloudServerless) {
+      return influx.url;
+    }
     return influx.url;
   }
 
@@ -47,6 +50,9 @@ export class BaseConnectionService {
     const influx = this.config.influx;
     if (influx.type === InfluxProductType.CloudDedicated) {
       return "https://console.influxdata.com";
+    }
+    if (influx.type === InfluxProductType.CloudServerless) {
+      return influx.url;
     }
     return influx.url;
   }
@@ -76,6 +82,9 @@ export class BaseConnectionService {
     if (config.type === InfluxProductType.CloudDedicated) {
       return !!(config.cluster_id && config.token);
     }
+    if (config.type === InfluxProductType.CloudServerless) {
+      return !!(config.url && config.token);
+    }
     return !!(config.url && config.token);
   }
 
@@ -98,6 +107,9 @@ export class BaseConnectionService {
         config.management_token
       );
     }
+    if (config.type === InfluxProductType.CloudServerless) {
+      return !!(config.url && config.token);
+    }
     return !!(config.url && config.token);
   }
 
@@ -117,6 +129,17 @@ export class BaseConnectionService {
         if (!config.token) {
           throw new Error(
             "Cloud Dedicated data operations require database token in configuration",
+          );
+        }
+      } else if (config.type === InfluxProductType.CloudServerless) {
+        if (!config.url) {
+          throw new Error(
+            "Cloud Serverless data operations require url (region-specific endpoint) in configuration",
+          );
+        }
+        if (!config.token) {
+          throw new Error(
+            "Cloud Serverless data operations require database token in configuration",
           );
         }
       } else {
@@ -149,6 +172,17 @@ export class BaseConnectionService {
         throw new Error(
           `Cloud Dedicated management operations require: ${missing.join(", ")}`,
         );
+      } else if (config.type === InfluxProductType.CloudServerless) {
+        if (!config.url) {
+          throw new Error(
+            "Cloud Serverless management operations require url (region-specific endpoint) in configuration",
+          );
+        }
+        if (!config.token) {
+          throw new Error(
+            "Cloud Serverless management operations require database token in configuration",
+          );
+        }
       } else {
         if (!config.url) {
           throw new Error(
@@ -182,6 +216,8 @@ export class BaseConnectionService {
               return "Enterprise";
             case InfluxProductType.CloudDedicated:
               return "Cloud Dedicated";
+            case InfluxProductType.CloudServerless:
+              return "Cloud Serverless";
             default:
               return type;
           }
@@ -195,7 +231,9 @@ export class BaseConnectionService {
             ? "Enterprise"
             : currentType === InfluxProductType.CloudDedicated
               ? "Cloud Dedicated"
-              : currentType;
+              : currentType === InfluxProductType.CloudServerless
+                ? "Cloud Serverless"
+                : currentType;
 
       throw new Error(
         `Operation '${operation}' is not supported for ${currentName}. Supported types: ${supportedNames}`,
@@ -232,7 +270,6 @@ export class BaseConnectionService {
     build?: string;
     message?: string;
   }> {
-    const _influxType = this.config.influx.type;
     const url = this.getDataHost();
     if (!url) {
       return { ok: false, message: "No data host configured" };
@@ -314,7 +351,7 @@ export class BaseConnectionService {
       token = influxConfig.token || "";
     }
 
-    return HttpClientService.createInfluxClient(host, token);
+    return HttpClientService.createInfluxClient(host, token, influxConfig.type);
   }
 
   /**

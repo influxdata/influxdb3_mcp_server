@@ -45,7 +45,7 @@ export function loadConfig(): McpServerConfig {
     },
     server: {
       name: "influxdb-mcp-server",
-      version: "1.0.0",
+      version: "1.2.0",
     },
   };
 }
@@ -62,10 +62,11 @@ export function validateConfig(config: McpServerConfig): void {
       InfluxProductType.Enterprise,
       InfluxProductType.Core,
       InfluxProductType.CloudDedicated,
+      InfluxProductType.CloudServerless,
     ].includes(config.influx.type as InfluxProductType)
   ) {
     errors.push(
-      `INFLUX_DB_PRODUCT_TYPE is required and must be one of: ${InfluxProductType.Enterprise}, ${InfluxProductType.Core}, ${InfluxProductType.CloudDedicated}`,
+      `INFLUX_DB_PRODUCT_TYPE is required and must be one of: ${InfluxProductType.Enterprise}, ${InfluxProductType.Core}, ${InfluxProductType.CloudDedicated}, ${InfluxProductType.CloudServerless}`,
     );
   }
 
@@ -82,6 +83,13 @@ export function validateConfig(config: McpServerConfig): void {
       errors.push(
         "For cloud-dedicated, provide at least either: (CLUSTER_ID + DB TOKEN) for query/write, or (CLUSTER_ID + ACCOUNT_ID + MANAGEMENT TOKEN) for management API.",
       );
+    }
+  } else if (config.influx.type === InfluxProductType.CloudServerless) {
+    if (!config.influx.url) {
+      errors.push("INFLUX_DB_INSTANCE_URL is required for cloud-serverless");
+    }
+    if (!config.influx.token) {
+      errors.push("INFLUX_DB_TOKEN is required for cloud-serverless");
     }
   } else if (
     [InfluxProductType.Enterprise, InfluxProductType.Core].includes(

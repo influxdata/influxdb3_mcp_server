@@ -38,6 +38,7 @@ Common Errors:
 - Missing field (at least one field required)
 - Invalid timestamp format
 - Unescaped special characters in tag values
+- Retention period violations (Cloud instances): Writing data outside retention window
 
 === QUERYING DATA ===
 
@@ -55,10 +56,25 @@ Common Queries:
 - Recent data: SELECT * FROM measurement ORDER BY time DESC LIMIT 10
 - Aggregates: SELECT AVG(field1), MAX(field2) FROM measurement WHERE time >= now() - interval '1 day'
 
+Cloud Dedicated & Cloud Serverless Additional Requirements:
+- CAST aggregations: Use CAST(COUNT(*) AS DOUBLE), CAST(AVG(field) AS DOUBLE), etc.
+- GROUP BY compliance: Include all grouped columns in SELECT clause
+- Information schema: Use SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'iox'
+- Schema queries: SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'measurement' AND table_schema = 'iox'
+- Required for: COUNT, SUM, AVG, MIN, MAX aggregation functions
+- Without CAST: Aggregations may return empty results or be missing from response
+
+Cloud Examples with CAST:
+- Count records: SELECT building, CAST(COUNT(*) AS DOUBLE) AS count FROM sensors GROUP BY building
+- Averages: SELECT region, CAST(AVG(cpu_usage) AS DOUBLE) AS avg_cpu FROM metrics GROUP BY region
+- Mixed aggregations: SELECT service, CAST(SUM(requests) AS DOUBLE) AS total_requests, CAST(AVG(response_time) AS DOUBLE) AS avg_response FROM app_metrics GROUP BY service
+
 Performance Tips:
 - Always include time filters for better performance
 - Use specific field names instead of SELECT *
 - Index on tags for filtering, not fields
+- Use LIMIT for large datasets to avoid memory issues
+- Test with COUNT(*) first to check data size before complex queries
 
 === TOKEN MANAGEMENT ===
 
@@ -152,8 +168,8 @@ Best Practices:
 === DATABASE MANAGEMENT ===
 
 Database Operations:
-- Create: Use create_database tool (provide database name, optional Cloud Dedicated parameters)
-- Update: Use update_database tool (Cloud Dedicated only - modify maxTables, maxColumnsPerTable, retentionPeriod)
+- Create: Use create_database tool (provide database name, optional configuration parameters)
+- Update: Use update_database tool (Cloud Dedicated and Cloud Serverless only - see parameters below)
 - List: Use list_databases tool (no parameters - shows all databases)
 - Delete: Use delete_database tool (provide exact database name - PERMANENT, no recovery)
 
@@ -161,6 +177,11 @@ Cloud Dedicated Parameters (create_database and update_database):
 - maxTables: Maximum number of tables (default: 500)
 - maxColumnsPerTable: Maximum columns per table (default: 200)
 - retentionPeriod: Retention period in nanoseconds (default: 0 = no expiration)
+
+Cloud Serverless Parameters (create_database and update_database):
+- description: Bucket description for documentation
+- retentionPeriod: Retention period in nanoseconds (default: 30 days)
+- newName: New bucket name (update_database only - for renaming buckets)
 
 Naming Rules:
 - Alphanumeric characters, dashes (-), underscores (_), forward slashes (/)
@@ -171,7 +192,7 @@ Naming Rules:
 Database Structure:
 - Contains measurements (tables)
 - Each measurement has tags (indexed) and fields (data)
-- No explicit schema required - schema evolves with data
+- Schema evolves dynamically with data (all InfluxDB versions)
 
 Best Practices:
 - Use descriptive database names
@@ -212,6 +233,7 @@ Write Errors:
 - Missing required fields
 - Tag value formatting issues
 - Database doesn't exist
+- Retention period violations (Cloud instances): Data timestamp outside allowed retention window
 
 Performance Issues:
 - Add time range filters to queries

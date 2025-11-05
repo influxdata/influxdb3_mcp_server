@@ -16,15 +16,16 @@ export function createQueryTools(
 
 Large Dataset Warning: InfluxDB might contain massive time-series data. Always use COUNT(*) first to check size, then LIMIT/OFFSET for large results (>1000 rows).
 
-Cloud Dedicated (v3) Requirements:
+Cloud Dedicated & Cloud Serverless (v3) Requirements:
 - GROUP BY: Include all group columns in SELECT (e.g., SELECT place, COUNT(*) ... GROUP BY place)
-- Aggregations: Cast and alias COUNT (e.g., CAST(COUNT(*) AS DOUBLE) AS count)`,
+- Aggregations: Cast and alias COUNT (e.g., CAST(COUNT(*) AS DOUBLE) AS count)
+- Note: Both products require CAST for all aggregation functions (COUNT, SUM, AVG, MIN, MAX) to ensure results appear properly in response`,
       inputSchema: {
         type: "object",
         properties: {
           database: {
             type: "string",
-            description: "Name of the database to query",
+            description: "Name of the database/bucket to query",
           },
           query: {
             type: "string",
@@ -41,7 +42,7 @@ Cloud Dedicated (v3) Requirements:
         additionalProperties: false,
       },
       zodSchema: z.object({
-        database: z.string().describe("Name of the database to query"),
+        database: z.string().describe("Name of the database/bucket to query"),
         query: z.string().describe("SQL query to execute"),
         format: z
           .enum(["json", "csv", "parquet", "jsonl", "pretty"])
@@ -88,13 +89,14 @@ Cloud Dedicated (v3) Requirements:
     {
       name: "get_measurements",
       description:
-        "Get a list of all measurements (tables) in a database (all versions). Uses the InfluxDB information_schema.columns to discover tables.",
+        "Get a list of all measurements (tables) in a database/bucket (all versions). Uses the InfluxDB information_schema.columns to discover tables.",
       inputSchema: {
         type: "object",
         properties: {
           database: {
             type: "string",
-            description: "Name of the database to list measurements from",
+            description:
+              "Name of the database/bucket to list measurements from",
           },
         },
         required: ["database"],
@@ -103,7 +105,7 @@ Cloud Dedicated (v3) Requirements:
       zodSchema: z.object({
         database: z
           .string()
-          .describe("Name of the database to list measurements from"),
+          .describe("Name of the database/bucket to list measurements from"),
       }),
       handler: async (args) => {
         try {
@@ -145,7 +147,8 @@ Cloud Dedicated (v3) Requirements:
         properties: {
           database: {
             type: "string",
-            description: "Name of the database containing the measurement",
+            description:
+              "Name of the database/bucket containing the measurement",
           },
           measurement: {
             type: "string",
@@ -158,7 +161,7 @@ Cloud Dedicated (v3) Requirements:
       zodSchema: z.object({
         database: z
           .string()
-          .describe("Name of the database containing the measurement"),
+          .describe("Name of the database/bucket containing the measurement"),
         measurement: z.string().describe("Name of the measurement to describe"),
       }),
       handler: async (args) => {

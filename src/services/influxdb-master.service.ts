@@ -13,7 +13,9 @@ import { WriteService } from "./write.service.js";
 import { DatabaseManagementService } from "./database-management.service.js";
 import { TokenManagementService } from "./token-management.service.js";
 import { CloudTokenManagementService } from "./cloud-token-management.service.js";
+import { SchemaManagementService } from "./serverless-schema-management.service.js";
 import { HelpService } from "./help.service.js";
+import { ContextFileService } from "./context-file.service.js";
 import { McpServerConfig } from "../config.js";
 
 export class InfluxDBMasterService {
@@ -23,7 +25,9 @@ export class InfluxDBMasterService {
   private databaseService: DatabaseManagementService;
   private tokenService: TokenManagementService;
   private cloudTokenService: CloudTokenManagementService;
+  private schemaService: SchemaManagementService;
   private helpService: HelpService;
+  private contextFileService: ContextFileService;
 
   constructor(config: McpServerConfig) {
     this.baseConnection = new BaseConnectionService(config);
@@ -34,7 +38,9 @@ export class InfluxDBMasterService {
     this.cloudTokenService = new CloudTokenManagementService(
       this.baseConnection,
     );
+    this.schemaService = new SchemaManagementService(this.baseConnection);
     this.helpService = new HelpService();
+    this.contextFileService = new ContextFileService();
   }
 
   // ===== Connection & Health Methods =====
@@ -109,10 +115,36 @@ export class InfluxDBMasterService {
     return this.cloudTokenService;
   }
 
+  // ===== Schema Management Service Access =====
+
+  get schema() {
+    return this.schemaService;
+  }
+
+  /**
+   * Get the schema management service instance
+   */
+  getSchemaManagementService() {
+    return this.schemaService;
+  }
+
   // ===== Help Service Access =====
 
   get help() {
     return this.helpService;
+  }
+
+  // ===== Context File Service Access =====
+
+  get contextFile() {
+    return this.contextFileService;
+  }
+
+  /**
+   * Get the context file service instance
+   */
+  getContextFileService() {
+    return this.contextFileService;
   }
 
   /**

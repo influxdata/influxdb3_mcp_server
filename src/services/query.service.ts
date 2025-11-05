@@ -50,6 +50,8 @@ export class QueryService {
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
         return this.executeCloudDedicatedQuery(query, database);
+      case InfluxProductType.CloudServerless:
+        return this.executeCloudServerlessQuery(query, database);
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
         return this.executeCoreEnterpriseQuery(query, database, format);
@@ -127,6 +129,27 @@ export class QueryService {
   }
 
   /**
+   * Query for cloud-serverless (influxdb3 client)
+   */
+  private async executeCloudServerlessQuery(
+    query: string,
+    database: string,
+  ): Promise<any> {
+    try {
+      const client = this.baseService.getClient();
+      if (!client) throw new Error("InfluxDB client not initialized");
+      const result = client.queryPoints(query, database, { type: "sql" });
+      const rows: any[] = [];
+      for await (const row of result) {
+        rows.push(row);
+      }
+      return rows;
+    } catch (error: any) {
+      this.handleQueryError(error);
+    }
+  }
+
+  /**
    * Centralized error handler for query methods
    */
   private handleQueryError(error: any): never {
@@ -165,6 +188,8 @@ export class QueryService {
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
         return this.getMeasurementsCloudDedicated(database);
+      case InfluxProductType.CloudServerless:
+        return this.getMeasurementsCloudServerless(database);
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
         return this.getMeasurementsCoreEnterprise(database);
@@ -230,6 +255,35 @@ export class QueryService {
   }
 
   /**
+   * Get measurements for cloud-serverless
+   * Parses the Cloud Serverless response format with _fields arrays
+   */
+  private async getMeasurementsCloudServerless(
+    database: string,
+  ): Promise<MeasurementInfo[]> {
+    try {
+      const query =
+        "SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'iox'";
+      const result = await this.executeQuery(query, database, {
+        format: "json",
+      });
+
+      if (Array.isArray(result)) {
+        return result
+          .map((row: any) => {
+            // Cloud Serverless format: { "_fields": { "table_name": ["string", "actual_value"] } }
+            const tableName = row._fields?.table_name?.[1];
+            return { name: tableName };
+          })
+          .filter((item: any) => item.name); // Filter out undefined names
+      }
+      return [];
+    } catch (error: any) {
+      throw new Error(`Failed to get measurements: ${error.message}`);
+    }
+  }
+
+  /**
    * Get schema information for a measurement/table
    * Uses SHOW FIELD KEYS + SHOW TAG KEYS for cloud-dedicated (HTTP), information_schema for others
    */
@@ -243,6 +297,8 @@ export class QueryService {
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
         return this.getMeasurementSchemaCloudDedicated(measurement, database);
+      case InfluxProductType.CloudServerless:
+        return this.getMeasurementSchemaCloudServerless(measurement, database);
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
         return this.getMeasurementSchemaCoreEnterprise(measurement, database);
@@ -370,6 +426,60 @@ export class QueryService {
         return { columns };
       }
       return result;
+    } catch (error: any) {
+      if (error.message.includes("not found")) {
+        throw new Error(
+          `Table '${measurement}' does not exist in database '${database}'`,
+        );
+      }
+      throw new Error(
+        `Failed to get schema for measurement '${measurement}': ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Get measurement schema for cloud-serverless
+   * Parses the Cloud Serverless response format with _fields arrays
+   */
+  private async getMeasurementSchemaCloudServerless(
+    measurement: string,
+    database: string,
+  ): Promise<SchemaInfo> {
+    try {
+      const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${measurement}' AND table_schema = 'iox'`;
+      const result = await this.executeQuery(query, database, {
+        format: "json",
+      });
+
+      if (Array.isArray(result)) {
+        const columns = result
+          .map((row: any) => {
+            const columnName = row._fields?.column_name?.[1];
+            const dataType = row._fields?.data_type?.[1];
+
+            let category: "time" | "tag" | "field" = "field";
+
+            if (columnName === "time") {
+              category = "time";
+            } else if (
+              dataType?.includes("Dictionary") ||
+              dataType === "string" ||
+              dataType === "text"
+            ) {
+              category = "tag";
+            }
+
+            return {
+              name: columnName,
+              type: dataType,
+              category,
+            };
+          })
+          .filter((col: any) => col.name);
+        return { columns };
+      }
+      return { columns: [] };
     } catch (error: any) {
       if (error.message.includes("not found")) {
         throw new Error(
