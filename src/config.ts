@@ -63,10 +63,11 @@ export function validateConfig(config: McpServerConfig): void {
       InfluxProductType.Core,
       InfluxProductType.CloudDedicated,
       InfluxProductType.CloudServerless,
+      InfluxProductType.Clustered,
     ].includes(config.influx.type as InfluxProductType)
   ) {
     errors.push(
-      `INFLUX_DB_PRODUCT_TYPE is required and must be one of: ${InfluxProductType.Enterprise}, ${InfluxProductType.Core}, ${InfluxProductType.CloudDedicated}, ${InfluxProductType.CloudServerless}`,
+      `INFLUX_DB_PRODUCT_TYPE is required and must be one of: ${InfluxProductType.Enterprise}, ${InfluxProductType.Core}, ${InfluxProductType.CloudDedicated}, ${InfluxProductType.CloudServerless}, ${InfluxProductType.Clustered}`,
     );
   }
 
@@ -79,6 +80,16 @@ export function validateConfig(config: McpServerConfig): void {
       config.influx.cluster_id &&
       config.influx.account_id &&
       config.influx.management_token;
+    if (!hasQueryWrite && !hasManagement) {
+      errors.push(
+        "For cloud-dedicated, provide at least either: (CLUSTER_ID + DB TOKEN) for query/write, or (CLUSTER_ID + ACCOUNT_ID + MANAGEMENT TOKEN) for management API.",
+      );
+    }
+  } else if (config.influx.type === InfluxProductType.Clustered) {
+    const hasQueryWrite = config.influx.token;
+    const hasManagement = config.influx.management_token;
+    config.influx.account_id = "11111111-1111-1111-1111-111111111111";
+    config.influx.cluster_id = "11111111-1111-1111-1111-111111111111";
     if (!hasQueryWrite && !hasManagement) {
       errors.push(
         "For cloud-dedicated, provide at least either: (CLUSTER_ID + DB TOKEN) for query/write, or (CLUSTER_ID + ACCOUNT_ID + MANAGEMENT TOKEN) for management API.",

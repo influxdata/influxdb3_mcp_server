@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "influxdb": {
+      "command": "node",
+      "args": ["/path/to/influx-mcp-standalone/build/index.js"],
+      "env": {
+        "INFLUX_DB_PRODUCT_TYPE": "clustered",
+        "INFLUX_DB_INSTANCE_URL": "https://your-cluster.example.com",
+        "INFLUX_DB_TOKEN": "your_database_token_here",
+        "INFLUX_DB_MANAGEMENT_TOKEN": "your_management_token_here"
+      }
+    }
+  }
+}
