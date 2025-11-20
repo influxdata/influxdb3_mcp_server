@@ -46,6 +46,7 @@ export class DatabaseManagementService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
+      case InfluxProductType.Clustered:
         return this.listDatabasesCloudDedicated();
       case InfluxProductType.CloudServerless:
         return this.listDatabasesCloudServerless();
@@ -75,6 +76,7 @@ export class DatabaseManagementService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
+      case InfluxProductType.Clustered:
         return this.createDatabaseCloudDedicated(
           name,
           config as CloudDedicatedDatabaseConfig,
@@ -109,12 +111,14 @@ export class DatabaseManagementService {
     this.baseService.validateOperationSupport("update_database", [
       InfluxProductType.CloudDedicated,
       InfluxProductType.CloudServerless,
+      InfluxProductType.Clustered,
     ]);
     this.baseService.validateManagementCapabilities();
 
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
+      case InfluxProductType.Clustered:
         return this.updateDatabaseCloudDedicated(
           name,
           config as Partial<CloudDedicatedDatabaseConfig>,
@@ -149,6 +153,7 @@ export class DatabaseManagementService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
+      case InfluxProductType.Clustered:
         return this.deleteDatabaseCloudDedicated(name);
       case InfluxProductType.CloudServerless:
         return this.deleteDatabaseCloudServerless(name);

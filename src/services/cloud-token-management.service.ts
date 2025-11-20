@@ -47,6 +47,7 @@ export class CloudTokenManagementService {
   async listTokens(): Promise<CloudTokenInfo[]> {
     this.baseService.validateOperationSupport("list_cloud_tokens", [
       InfluxProductType.CloudDedicated,
+      InfluxProductType.Clustered,
     ]);
     this.baseService.validateManagementCapabilities();
 
@@ -70,6 +71,7 @@ export class CloudTokenManagementService {
   async getToken(tokenId: string): Promise<CloudTokenInfo> {
     this.baseService.validateOperationSupport("get_cloud_token", [
       InfluxProductType.CloudDedicated,
+      InfluxProductType.Clustered,
     ]);
     this.baseService.validateManagementCapabilities();
 
@@ -93,6 +95,7 @@ export class CloudTokenManagementService {
   async createToken(request: CreateCloudTokenRequest): Promise<CloudTokenInfo> {
     this.baseService.validateOperationSupport("create_cloud_token", [
       InfluxProductType.CloudDedicated,
+      InfluxProductType.Clustered,
     ]);
     this.baseService.validateManagementCapabilities();
 
@@ -119,6 +122,7 @@ export class CloudTokenManagementService {
   ): Promise<CloudTokenInfo> {
     this.baseService.validateOperationSupport("update_cloud_token", [
       InfluxProductType.CloudDedicated,
+      InfluxProductType.Clustered,
     ]);
     this.baseService.validateManagementCapabilities();
 
@@ -145,6 +149,7 @@ export class CloudTokenManagementService {
   async deleteToken(tokenId: string): Promise<boolean> {
     this.baseService.validateOperationSupport("delete_cloud_token", [
       InfluxProductType.CloudDedicated,
+      InfluxProductType.Clustered,
     ]);
     this.baseService.validateManagementCapabilities();
 

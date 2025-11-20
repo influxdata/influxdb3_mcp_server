@@ -6,7 +6,7 @@
  */
 
 import { InfluxDBClient } from "@influxdata/influxdb3-client";
-import { McpServerConfig, InfluxConfig } from "../config.js";
+import { InfluxConfig, McpServerConfig } from "../config.js";
 import { HttpClientService } from "./http-client.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 
@@ -107,6 +107,9 @@ export class BaseConnectionService {
         config.management_token
       );
     }
+    if (config.type === InfluxProductType.Clustered) {
+      return !!config.management_token;
+    }
     if (config.type === InfluxProductType.CloudServerless) {
       return !!(config.url && config.token);
     }
@@ -164,13 +167,16 @@ export class BaseConnectionService {
   validateManagementCapabilities(): void {
     if (!this.hasManagementCapabilities()) {
       const config = this.config.influx;
-      if (config.type === InfluxProductType.CloudDedicated) {
+      if (
+        config.type === InfluxProductType.CloudDedicated ||
+        config.type === InfluxProductType.Clustered
+      ) {
         const missing = [];
         if (!config.cluster_id) missing.push("cluster_id");
         if (!config.account_id) missing.push("account_id");
         if (!config.management_token) missing.push("management_token");
         throw new Error(
-          `Cloud Dedicated management operations require: ${missing.join(", ")}`,
+          `Cloud Dedicated/Clustered management operations require: ${missing.join(", ")}`,
         );
       } else if (config.type === InfluxProductType.CloudServerless) {
         if (!config.url) {
@@ -218,6 +224,8 @@ export class BaseConnectionService {
               return "Cloud Dedicated";
             case InfluxProductType.CloudServerless:
               return "Cloud Serverless";
+            case InfluxProductType.Clustered:
+              return "Clustered";
             default:
               return type;
           }
@@ -233,7 +241,9 @@ export class BaseConnectionService {
               ? "Cloud Dedicated"
               : currentType === InfluxProductType.CloudServerless
                 ? "Cloud Serverless"
-                : currentType;
+                : currentType === InfluxProductType.Clustered
+                  ? "Clustered"
+                  : currentType;
 
       throw new Error(
         `Operation '${operation}' is not supported for ${currentName}. Supported types: ${supportedNames}`,
@@ -344,7 +354,8 @@ export class BaseConnectionService {
     let token: string = "";
     if (
       forManagement &&
-      influxConfig.type === InfluxProductType.CloudDedicated
+      (influxConfig.type === InfluxProductType.CloudDedicated ||
+        influxConfig.type === InfluxProductType.Clustered)
     ) {
       token = influxConfig.management_token || "";
     } else {

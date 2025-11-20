@@ -51,6 +51,7 @@ export class WriteService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
+      case InfluxProductType.Clustered:
         return this.writeCloudDedicated(lineProtocolData, database, options);
       case InfluxProductType.CloudServerless:
         return this.writeCloudServerless(lineProtocolData, database, options);

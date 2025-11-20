@@ -49,6 +49,7 @@ export class QueryService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
+      case InfluxProductType.Clustered:
         return this.executeCloudDedicatedQuery(query, database);
       case InfluxProductType.CloudServerless:
         return this.executeCloudServerlessQuery(query, database);
@@ -187,6 +188,7 @@ export class QueryService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
+      case InfluxProductType.Clustered:
         return this.getMeasurementsCloudDedicated(database);
       case InfluxProductType.CloudServerless:
         return this.getMeasurementsCloudServerless(database);
@@ -296,6 +298,7 @@ export class QueryService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
+      case InfluxProductType.Clustered:
         return this.getMeasurementSchemaCloudDedicated(measurement, database);
       case InfluxProductType.CloudServerless:
         return this.getMeasurementSchemaCloudServerless(measurement, database);
