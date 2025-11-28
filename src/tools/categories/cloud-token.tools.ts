@@ -1,5 +1,5 @@
 /**
- * Cloud Token Management Tools (Cloud-Dedicated)
+ * Cloud Token Management Tools (Cloud-Dedicated/Clustered)
  */
 
 import { z } from "zod";
@@ -13,7 +13,7 @@ export function createCloudTokenTools(
     {
       name: "cloud_list_database_tokens",
       description:
-        "List all database tokens for InfluxDB Cloud-Dedicated cluster. Returns token information including permissions and creation dates.",
+        "List all database tokens for InfluxDB Cloud-Dedicated/Clustered cluster. Returns token information including permissions and creation dates.",
       inputSchema: {
         type: "object",
         properties: {},
@@ -38,7 +38,7 @@ export function createCloudTokenTools(
             content: [
               {
                 type: "text",
-                text: `Found ${tokenCount} database token${tokenCount !== 1 ? "s" : ""} in Cloud-Dedicated cluster:\n\n${tokenList || "None"}\n\nFull details:\n${JSON.stringify(tokens, null, 2)}`,
+                text: `Found ${tokenCount} database token${tokenCount !== 1 ? "s" : ""} in Cloud-Dedicated/Clustered cluster:\n\n${tokenList || "None"}\n\nFull details:\n${JSON.stringify(tokens, null, 2)}`,
               },
             ],
           };
@@ -59,7 +59,7 @@ export function createCloudTokenTools(
     {
       name: "cloud_get_database_token",
       description:
-        "Get details of a specific database token by ID for InfluxDB Cloud-Dedicated cluster.",
+        "Get details of a specific database token by ID for InfluxDB Cloud-Dedicated/Clustered cluster.",
       inputSchema: {
         type: "object",
         properties: {
@@ -112,7 +112,7 @@ export function createCloudTokenTools(
     {
       name: "cloud_create_database_token",
       description:
-        'Create a new database token for InfluxDB Cloud-Dedicated cluster. Specify exact permissions per database or create a no-access token.\n\nPermissions format: [{"database": "db_name", "action": "read|write"}, ...]\nExamples:\n• No access: omit permissions field or use []\n• Read-only on \'analytics\': [{"database": "analytics", "action": "read"}]\n• Mixed permissions: [{"database": "logs", "action": "read"}, {"database": "metrics", "action": "write"}]\n• Full access: [{"database": "*", "action": "read"}, {"database": "*", "action": "write"}]',
+        'Create a new database token for InfluxDB Cloud-Dedicated/Clustered cluster. Specify exact permissions per database or create a no-access token.\n\nPermissions format: [{"database": "db_name", "action": "read|write"}, ...]\nExamples:\n• No access: omit permissions field or use []\n• Read-only on \'analytics\': [{"database": "analytics", "action": "read"}]\n• Mixed permissions: [{"database": "logs", "action": "read"}, {"database": "metrics", "action": "write"}]\n• Full access: [{"database": "*", "action": "read"}, {"database": "*", "action": "write"}]',
       inputSchema: {
         type: "object",
         properties: {
@@ -210,7 +210,7 @@ export function createCloudTokenTools(
     {
       name: "cloud_update_database_token",
       description:
-        'Update an existing database token for InfluxDB Cloud-Dedicated cluster. Can update description and/or permissions with precise control.\n\nPermissions format: [{"database": "db_name", "action": "read|write"}, ...]\nNote: Permissions completely replace existing ones - include all desired permissions.\nExamples:\n• No access: use []\n• Read-only on \'analytics\': [{"database": "analytics", "action": "read"}]\n• Mixed permissions: [{"database": "logs", "action": "read"}, {"database": "metrics", "action": "write"}]\n• Full access: [{"database": "*", "action": "read"}, {"database": "*", "action": "write"}]',
+        'Update an existing database token for InfluxDB Cloud-Dedicated/Clustered cluster. Can update description and/or permissions with precise control.\n\nPermissions format: [{"database": "db_name", "action": "read|write"}, ...]\nNote: Permissions completely replace existing ones - include all desired permissions.\nExamples:\n• No access: use []\n• Read-only on \'analytics\': [{"database": "analytics", "action": "read"}]\n• Mixed permissions: [{"database": "logs", "action": "read"}, {"database": "metrics", "action": "write"}]\n• Full access: [{"database": "*", "action": "read"}, {"database": "*", "action": "write"}]',
       inputSchema: {
         type: "object",
         properties: {
@@ -324,7 +324,7 @@ export function createCloudTokenTools(
     {
       name: "cloud_delete_database_token",
       description:
-        "Delete a database token from InfluxDB Cloud-Dedicated cluster. This action cannot be undone.",
+        "Delete a database token from InfluxDB Cloud-Dedicated/Clustered cluster. This action cannot be undone.",
       inputSchema: {
         type: "object",
         properties: {

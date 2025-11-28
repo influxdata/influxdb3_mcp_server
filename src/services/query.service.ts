@@ -35,6 +35,7 @@ export class QueryService {
    * Execute SQL query (single entrypoint for all product types)
    * For core/enterprise: HTTP API
    * For cloud-dedicated: influxdb3 client
+   * For clustered: HTTP API (/query)
    */
   async executeQuery(
     query: string,
@@ -49,8 +50,9 @@ export class QueryService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
-      case InfluxProductType.Clustered:
         return this.executeCloudDedicatedQuery(query, database);
+      case InfluxProductType.Clustered:
+        return this.executeClusteredQuery(query, database);
       case InfluxProductType.CloudServerless:
         return this.executeCloudServerlessQuery(query, database);
       case InfluxProductType.Core:
@@ -109,7 +111,7 @@ export class QueryService {
   }
 
   /**
-   * Query for cloud-dedicated (influxdb3 client)
+   * Query for cloud-dedicated/clustered (influxdb3 client)
    */
   private async executeCloudDedicatedQuery(
     query: string,
@@ -124,6 +126,27 @@ export class QueryService {
         rows.push(row);
       }
       return rows;
+    } catch (error: any) {
+      this.handleQueryError(error);
+    }
+  }
+
+  /**
+   * Query for clustered (HTTP API)
+   */
+  private async executeClusteredQuery(
+    query: string,
+    database: string,
+  ): Promise<any> {
+    try {
+      const httpClient = this.baseService.getInfluxHttpClient();
+      const response = await httpClient.get("/query", {
+        params: {
+          db: database,
+          q: query,
+        },
+      });
+      return response;
     } catch (error: any) {
       this.handleQueryError(error);
     }
@@ -180,7 +203,7 @@ export class QueryService {
 
   /**
    * Get all measurements/tables in a database
-   * Uses SHOW MEASUREMENTS for cloud-dedicated (HTTP), information_schema for others
+   * Uses SHOW MEASUREMENTS for cloud-dedicated/clustered (HTTP), information_schema for others
    */
   async getMeasurements(database: string): Promise<MeasurementInfo[]> {
     this.baseService.validateDataCapabilities();
@@ -188,8 +211,9 @@ export class QueryService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
-      case InfluxProductType.Clustered:
         return this.getMeasurementsCloudDedicated(database);
+      case InfluxProductType.Clustered:
+        return this.getMeasurementsClustered(database);
       case InfluxProductType.CloudServerless:
         return this.getMeasurementsCloudServerless(database);
       case InfluxProductType.Core:
@@ -203,9 +227,41 @@ export class QueryService {
   }
 
   /**
-   * Get measurements for cloud-dedicated (HTTP client with InfluxQL)
+   * Get measurements for cloud-dedicated/clustered (HTTP client with InfluxQL)
    */
   private async getMeasurementsCloudDedicated(
+    database: string,
+  ): Promise<MeasurementInfo[]> {
+    try {
+      const httpClient = this.baseService.getInfluxHttpClient();
+      const response = await httpClient.get("/query", {
+        params: {
+          db: database,
+          q: "SHOW MEASUREMENTS",
+        },
+      });
+
+      if (
+        response.results &&
+        response.results[0] &&
+        response.results[0].series
+      ) {
+        const series = response.results[0].series[0];
+        if (series.name === "measurements" && series.values) {
+          return series.values.map((value: any[]) => ({ name: value[0] }));
+        }
+      }
+
+      return [];
+    } catch (error: any) {
+      throw new Error(`Failed to get measurements: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get measurements for clustered (HTTP client with InfluxQL)
+   */
+  private async getMeasurementsClustered(
     database: string,
   ): Promise<MeasurementInfo[]> {
     try {
@@ -287,7 +343,7 @@ export class QueryService {
 
   /**
    * Get schema information for a measurement/table
-   * Uses SHOW FIELD KEYS + SHOW TAG KEYS for cloud-dedicated (HTTP), information_schema for others
+   * Uses SHOW FIELD KEYS + SHOW TAG KEYS for cloud-dedicated/clustered (HTTP), information_schema for others
    */
   async getMeasurementSchema(
     measurement: string,
@@ -298,8 +354,9 @@ export class QueryService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
-      case InfluxProductType.Clustered:
         return this.getMeasurementSchemaCloudDedicated(measurement, database);
+      case InfluxProductType.Clustered:
+        return this.getMeasurementSchemaClustered(measurement, database);
       case InfluxProductType.CloudServerless:
         return this.getMeasurementSchemaCloudServerless(measurement, database);
       case InfluxProductType.Core:
@@ -313,9 +370,94 @@ export class QueryService {
   }
 
   /**
-   * Get measurement schema for cloud-dedicated (HTTP client with InfluxQL)
+   * Get measurement schema for cloud-dedicated/clustered (HTTP client with InfluxQL)
    */
   private async getMeasurementSchemaCloudDedicated(
+    measurement: string,
+    database: string,
+  ): Promise<SchemaInfo> {
+    try {
+      const httpClient = this.baseService.getInfluxHttpClient();
+
+      const fieldKeysResponse = await httpClient.get("/query", {
+        params: {
+          db: database,
+          q: `SHOW FIELD KEYS FROM ${measurement}`,
+        },
+      });
+
+      const tagKeysResponse = await httpClient.get("/query", {
+        params: {
+          db: database,
+          q: `SHOW TAG KEYS FROM ${measurement}`,
+        },
+      });
+      const columns: {
+        name: string;
+        type: string;
+        category: "time" | "tag" | "field";
+      }[] = [];
+
+      if (
+        fieldKeysResponse.results &&
+        fieldKeysResponse.results[0] &&
+        fieldKeysResponse.results[0].series
+      ) {
+        const fieldSeries = fieldKeysResponse.results[0].series[0];
+        if (fieldSeries && fieldSeries.values) {
+          fieldSeries.values.forEach((value: any[]) => {
+            columns.push({
+              name: value[0],
+              type: value[1],
+              category: "field",
+            });
+          });
+        }
+      }
+
+      if (
+        tagKeysResponse.results &&
+        tagKeysResponse.results[0] &&
+        tagKeysResponse.results[0].series
+      ) {
+        const tagSeries = tagKeysResponse.results[0].series[0];
+        if (tagSeries && tagSeries.values) {
+          tagSeries.values.forEach((value: any[]) => {
+            columns.push({
+              name: value[0],
+              type: "string",
+              category: "tag",
+            });
+          });
+        }
+      }
+
+      columns.unshift({
+        name: "time",
+        type: "timestamp",
+        category: "time",
+      });
+
+      return { columns };
+    } catch (error: any) {
+      if (
+        error.response?.status === 404 ||
+        error.message.includes("not found")
+      ) {
+        throw new Error(
+          `Measurement '${measurement}' does not exist in database '${database}'`,
+        );
+      }
+      throw new Error(
+        `Failed to get schema for measurement '${measurement}': ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Get measurement schema for clustered (HTTP client with InfluxQL)
+   */
+  private async getMeasurementSchemaClustered(
     measurement: string,
     database: string,
   ): Promise<SchemaInfo> {

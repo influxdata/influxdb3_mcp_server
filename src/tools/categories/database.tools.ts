@@ -13,7 +13,7 @@ export function createDatabaseTools(
     {
       name: "create_database",
       description:
-        "Create a new database in InfluxDB. Database names must follow InfluxDB naming rules: alphanumeric characters, dashes (-), underscores (_), and forward slashes (/) are allowed. Must start with a letter or number. Maximum 64 characters. For Cloud Dedicated: maxTables, maxColumnsPerTable, retentionPeriod. For Cloud Serverless: description, retentionPeriod.",
+        "Create a new database in InfluxDB. Database names must follow InfluxDB naming rules: alphanumeric characters, dashes (-), underscores (_), and forward slashes (/) are allowed. Must start with a letter or number. Maximum 64 characters. For Cloud Dedicated/Clustered: maxTables, maxColumnsPerTable, retentionPeriod. For Cloud Serverless: description, retentionPeriod.",
       inputSchema: {
         type: "object",
         properties: {
@@ -32,19 +32,19 @@ export function createDatabaseTools(
           maxTables: {
             type: "number",
             description:
-              "Maximum number of tables (Cloud Dedicated only, default: 500)",
+              "Maximum number of tables (Cloud Dedicated/Clustered only, default: 500)",
             minimum: 1,
           },
           maxColumnsPerTable: {
             type: "number",
             description:
-              "Maximum columns per table (Cloud Dedicated only, default: 200)",
+              "Maximum columns per table (Cloud Dedicated/Clustered only, default: 200)",
             minimum: 1,
           },
           retentionPeriod: {
             type: "number",
             description:
-              "Retention period in nanoseconds (Cloud Dedicated: default 0 = no expiration, Cloud Serverless: default 30 days)",
+              "Retention period in nanoseconds (Cloud Dedicated/Clustered: default 0 = no expiration, Cloud Serverless: default 30 days)",
             minimum: 0,
           },
         },
@@ -75,12 +75,16 @@ export function createDatabaseTools(
           .number()
           .min(1)
           .optional()
-          .describe("Maximum number of tables (Cloud Dedicated only)"),
+          .describe(
+            "Maximum number of tables (Cloud Dedicated/Clustered only)",
+          ),
         maxColumnsPerTable: z
           .number()
           .min(1)
           .optional()
-          .describe("Maximum columns per table (Cloud Dedicated only)"),
+          .describe(
+            "Maximum columns per table (Cloud Dedicated/Clustered only)",
+          ),
         retentionPeriod: z
           .number()
           .min(0)
@@ -138,7 +142,7 @@ export function createDatabaseTools(
     {
       name: "update_database",
       description:
-        "Update database configuration for InfluxDB Cloud Dedicated clusters and Cloud Serverless buckets. For Cloud Dedicated: modify maxTables, maxColumnsPerTable, and retentionPeriod. For Cloud Serverless: modify bucket name, description, and retentionPeriod. Not available for Core/Enterprise installations.",
+        "Update database configuration for InfluxDB Cloud Dedicated/Clustered clusters and Cloud Serverless buckets. For Cloud Dedicated/Clustered: modify maxTables, maxColumnsPerTable, and retentionPeriod. For Cloud Serverless: modify bucket name, description, and retentionPeriod. Not available for Core/Enterprise installations.",
       inputSchema: {
         type: "object",
         properties: {
@@ -157,18 +161,20 @@ export function createDatabaseTools(
           },
           maxTables: {
             type: "number",
-            description: "Maximum number of tables (Cloud Dedicated only)",
+            description:
+              "Maximum number of tables (Cloud Dedicated/Clustered only)",
             minimum: 1,
           },
           maxColumnsPerTable: {
             type: "number",
-            description: "Maximum columns per table (Cloud Dedicated only)",
+            description:
+              "Maximum columns per table (Cloud Dedicated/Clustered only)",
             minimum: 1,
           },
           retentionPeriod: {
             type: "number",
             description:
-              "Retention period in nanoseconds (Cloud Dedicated and Cloud Serverless)",
+              "Retention period in nanoseconds (Cloud Dedicated/Clustered and Cloud Serverless)",
             minimum: 0,
           },
         },
@@ -189,12 +195,16 @@ export function createDatabaseTools(
           .number()
           .min(1)
           .optional()
-          .describe("Maximum number of tables (Cloud Dedicated only)"),
+          .describe(
+            "Maximum number of tables (Cloud Dedicated/Clustered only)",
+          ),
         maxColumnsPerTable: z
           .number()
           .min(1)
           .optional()
-          .describe("Maximum columns per table (Cloud Dedicated only)"),
+          .describe(
+            "Maximum columns per table (Cloud Dedicated/Clustered only)",
+          ),
         retentionPeriod: z
           .number()
           .min(0)

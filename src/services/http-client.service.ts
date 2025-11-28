@@ -6,16 +6,25 @@
 
 import axios, { AxiosInstance } from "axios";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
+import { Agent } from "https";
 
 export class HttpClientService {
   private axiosInstance: AxiosInstance;
 
   constructor(baseURL?: string, token?: string, influxType?: string) {
-    this.axiosInstance = axios.create({
+    const axiosConfig: any = {
       baseURL: baseURL?.replace(/\/$/, ""),
       timeout: 30000,
       headers: this.createAuthHeaders(token, influxType),
-    });
+    };
+
+    if (influxType === InfluxProductType.Clustered) {
+      axiosConfig.httpsAgent = new Agent({
+        rejectUnauthorized: false,
+      });
+    }
+
+    this.axiosInstance = axios.create(axiosConfig);
 
     this.axiosInstance.interceptors.response.use(
       (response: any) => {

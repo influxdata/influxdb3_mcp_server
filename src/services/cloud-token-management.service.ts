@@ -1,7 +1,7 @@
 /**
- * InfluxDB Cloud-Dedicated Token Management Service
+ * InfluxDB Cloud-Dedicated/Clustered Token Management Service
  *
- * Handles database token operations for InfluxDB Cloud-Dedicated clusters
+ * Handles database token operations for InfluxDB Cloud-Dedicated and Clustered clusters
  * Uses REST API endpoints instead of SQL queries
  */
 
@@ -41,7 +41,7 @@ export class CloudTokenManagementService {
   }
 
   /**
-   * List all database tokens for the cloud-dedicated cluster
+   * List all database tokens for the cloud-dedicated/clustered cluster
    * GET /api/v0/accounts/{accountId}/clusters/{clusterId}/tokens
    */
   async listTokens(): Promise<CloudTokenInfo[]> {

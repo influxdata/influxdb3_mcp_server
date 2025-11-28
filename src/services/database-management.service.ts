@@ -37,7 +37,7 @@ export class DatabaseManagementService {
   /**
    * List all databases (single entrypoint for all product types)
    * For core/enterprise: GET /api/v3/configure/database?format=json
-   * For cloud-dedicated: GET /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases
+   * For cloud-dedicated/clustered: GET /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases
    * For cloud-serverless: GET /api/v2/buckets (databases are called "buckets" in v2 API)
    */
   async listDatabases(): Promise<DatabaseInfo[]> {
@@ -63,7 +63,7 @@ export class DatabaseManagementService {
   /**
    * Create a new database (single entrypoint for all product types)
    * For core/enterprise: POST /api/v3/configure/database
-   * For cloud-dedicated: POST /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases
+   * For cloud-dedicated/clustered: POST /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases
    * For cloud-serverless: POST /api/v2/buckets (databases are called "buckets" in v2 API)
    */
   async createDatabase(
@@ -97,8 +97,8 @@ export class DatabaseManagementService {
   }
 
   /**
-   * Update database configuration (cloud-dedicated and cloud-serverless)
-   * For cloud-dedicated: PATCH /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
+   * Update database configuration (cloud-dedicated/clustered and cloud-serverless)
+   * For cloud-dedicated/clustered: PATCH /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
    * For cloud-serverless: PATCH /api/v2/buckets/{bucketID}
    */
   async updateDatabase(
@@ -143,7 +143,7 @@ export class DatabaseManagementService {
   /**
    * Delete a database (single entrypoint for all product types)
    * For core/enterprise: DELETE /api/v3/configure/database?db={name}
-   * For cloud-dedicated: DELETE /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
+   * For cloud-dedicated/clustered: DELETE /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
    * For cloud-serverless: DELETE /api/v2/buckets/{bucketID} (databases are called "buckets" in v2 API)
    */
   async deleteDatabase(name: string): Promise<boolean> {
@@ -168,7 +168,7 @@ export class DatabaseManagementService {
   }
 
   /**
-   * List databases for cloud-dedicated
+   * List databases for cloud-dedicated/clustered
    */
   private async listDatabasesCloudDedicated(): Promise<DatabaseInfo[]> {
     try {
@@ -221,7 +221,7 @@ export class DatabaseManagementService {
   }
 
   /**
-   * Create database for cloud-dedicated
+   * Create database for cloud-dedicated/clustered
    */
   private async createDatabaseCloudDedicated(
     name: string,
@@ -261,7 +261,7 @@ export class DatabaseManagementService {
   }
 
   /**
-   * Update database configuration for cloud-dedicated
+   * Update database configuration for cloud-dedicated/clustered
    */
   private async updateDatabaseCloudDedicated(
     name: string,
@@ -299,7 +299,7 @@ export class DatabaseManagementService {
   }
 
   /**
-   * Delete database for cloud-dedicated
+   * Delete database for cloud-dedicated/clustered
    */
   private async deleteDatabaseCloudDedicated(name: string): Promise<boolean> {
     try {

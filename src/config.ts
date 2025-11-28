@@ -88,11 +88,11 @@ export function validateConfig(config: McpServerConfig): void {
   } else if (config.influx.type === InfluxProductType.Clustered) {
     const hasQueryWrite = config.influx.token;
     const hasManagement = config.influx.management_token;
-    config.influx.account_id = "11111111-1111-1111-1111-111111111111";
-    config.influx.cluster_id = "11111111-1111-1111-1111-111111111111";
+    config.influx.account_id = "11111111-1111-1111-1111-111111111111"; // Dummy account ID for clustered for compatibility with cloud-dedicated handlers
+    config.influx.cluster_id = "11111111-1111-1111-1111-111111111111"; // Dummy cluster ID for clustered for compatibility with cloud-dedicated handlers
     if (!hasQueryWrite && !hasManagement) {
       errors.push(
-        "For cloud-dedicated, provide at least either: (CLUSTER_ID + DB TOKEN) for query/write, or (CLUSTER_ID + ACCOUNT_ID + MANAGEMENT TOKEN) for management API.",
+        "For clustered, provide at least either: DB TOKEN for query/write, or MANAGEMENT TOKEN for management API.",
       );
     }
   } else if (config.influx.type === InfluxProductType.CloudServerless) {

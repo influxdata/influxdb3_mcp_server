@@ -32,8 +32,9 @@ export class WriteService {
 
   /**
    * Write data (single entrypoint for all product types)
-   * For core/enterprise: HTTP API
+   * For core/enterprise: HTTP API (/api/v3/write_lp)
    * For cloud-dedicated: influxdb3 client
+   * For clustered: HTTP API (/api/v2/write)
    * For cloud-serverless: influxdb3 client
    */
   async writeLineProtocol(
@@ -51,8 +52,9 @@ export class WriteService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
-      case InfluxProductType.Clustered:
         return this.writeCloudDedicated(lineProtocolData, database, options);
+      case InfluxProductType.Clustered:
+        return this.writeClustered(lineProtocolData, database, options);
       case InfluxProductType.CloudServerless:
         return this.writeCloudServerless(lineProtocolData, database, options);
       case InfluxProductType.Core:
@@ -102,7 +104,7 @@ export class WriteService {
   }
 
   /**
-   * Write for cloud-dedicated (influxdb3 client)
+   * Write for cloud-dedicated/clustered (influxdb3 client)
    */
   private async writeCloudDedicated(
     lineProtocolData: string,
@@ -121,6 +123,40 @@ export class WriteService {
         writeOptions.precision = options.precision;
       }
       await client.write(lineProtocolData, database, undefined, writeOptions);
+    } catch (error: any) {
+      this.handleWriteError(error, database);
+    }
+  }
+
+  /**
+   * Write for clustered (HTTP API)
+   */
+  private async writeClustered(
+    lineProtocolData: string,
+    database: string,
+    options: {
+      precision: Precision;
+      acceptPartial?: boolean;
+      noSync?: boolean;
+    },
+  ): Promise<void> {
+    const { precision } = options;
+    try {
+      const httpClient = this.baseService.getInfluxHttpClient();
+      const params = new URLSearchParams({
+        bucket: database,
+        precision: this.mapPrecisionForCloud(precision),
+      });
+      await httpClient.post(
+        `/api/v2/write?${params.toString()}`,
+        lineProtocolData,
+        {
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            Accept: "application/json",
+          },
+        },
+      );
     } catch (error: any) {
       this.handleWriteError(error, database);
     }

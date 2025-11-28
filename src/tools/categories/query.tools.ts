@@ -16,7 +16,7 @@ export function createQueryTools(
 
 Large Dataset Warning: InfluxDB might contain massive time-series data. Always use COUNT(*) first to check size, then LIMIT/OFFSET for large results (>1000 rows).
 
-Cloud Dedicated & Cloud Serverless (v3) Requirements:
+Cloud Dedicated/Clustered & Cloud Serverless (v3) Requirements:
 - GROUP BY: Include all group columns in SELECT (e.g., SELECT place, COUNT(*) ... GROUP BY place)
 - Aggregations: Cast and alias COUNT (e.g., CAST(COUNT(*) AS DOUBLE) AS count)
 - Note: Both products require CAST for all aggregation functions (COUNT, SUM, AVG, MIN, MAX) to ensure results appear properly in response`,
