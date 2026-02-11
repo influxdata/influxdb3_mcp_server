@@ -50,7 +50,7 @@
   "dependencies": {
     "@influxdata/influxdb3-client": "^1.1.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "axios": "^1.12.0",
+    "axios": "^1.13.5",
     "dotenv": "^16.5.0"
   },
   "devDependencies": {
