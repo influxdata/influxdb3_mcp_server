@@ -3,7 +3,6 @@
 The following individuals are maintainers of this project:
 
 - @garylfowler
-- @Anaisdg
 
 ## Responsibilities
 
