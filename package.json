@@ -1,6 +1,6 @@
 {
   "name": "influxdb-mcp-server",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "Official InfluxDB MCP server for Model Context Protocol integration",
   "license": "(Apache-2.0 OR MIT)",
   "private": false,

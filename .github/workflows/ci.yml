@@ -7,6 +7,34 @@ on:
     branches: [main]
 
 jobs:
+  check-versions:
+    name: Version consistency check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Verify package.json, config.ts, and CHANGELOG.md versions match
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          CONFIG_VERSION=$(node -p "require('fs').readFileSync('src/config.ts','utf8').match(/version: \"([^\"]+)\"/)[1]")
+          CHANGELOG_VERSION=$(node -p "require('fs').readFileSync('CHANGELOG.md','utf8').match(/^## \\[([^\\]]+)\\]/m)[1]")
+
+          echo "package.json:  $PKG_VERSION"
+          echo "config.ts:     $CONFIG_VERSION"
+          echo "CHANGELOG.md:  $CHANGELOG_VERSION"
+
+          if [ "$PKG_VERSION" != "$CONFIG_VERSION" ]; then
+            echo "::error::package.json ($PKG_VERSION) and config.ts ($CONFIG_VERSION) versions differ"
+            exit 1
+          fi
+          if [ "$PKG_VERSION" != "$CHANGELOG_VERSION" ]; then
+            echo "::error::package.json ($PKG_VERSION) and CHANGELOG.md ($CHANGELOG_VERSION) versions differ"
+            exit 1
+          fi
+          echo "All versions match: $PKG_VERSION"
+
   test-protocol:
     name: Protocol tests
     runs-on: ubuntu-latest
