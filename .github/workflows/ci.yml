@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   check-versions:
@@ -101,7 +102,35 @@ jobs:
         if: always()
         run: docker stop influxdb3-core && docker rm influxdb3-core
 
+  test-integration-cloud-serverless:
+    name: Integration tests (InfluxDB Cloud Serverless)
+    runs-on: ubuntu-latest
+    if: >-
+      github.repository_owner == 'influxdata' &&
+      github.ref == 'refs/heads/main'
+    environment: cloud-serverless
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Integration tests
+        run: npm run test:integration
+        env:
+          INFLUX_TEST_ENABLED: "true"
+          INFLUX_DB_INSTANCE_URL: ${{ secrets.INFLUXDB_CLOUD_URL }}
+          INFLUX_DB_TOKEN: ${{ secrets.INFLUXDB_CLOUD_TOKEN }}
+          INFLUX_DB_PRODUCT_TYPE: "cloud-serverless"
+
   # Future: test-integration-enterprise
   # Requires Enterprise Docker image and license key.
   # Gate with: if: github.repository_owner == 'influxdata'
-  # Pass license via: secrets.INFLUXDB_ENTERPRISE_LICENSE
+  # Environment: enterprise (with INFLUXDB_ENTERPRISE_LICENSE secret)
