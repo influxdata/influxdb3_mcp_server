@@ -18,7 +18,7 @@ InfluxDB 3 Core or Enterprise instances.
 
 ## Prerequisites
 
-- Node.js v18+ and npm v9+
+- Node.js and npm (see `engines` in `package.json` for minimum version)
 - A running InfluxDB 3 Core or Enterprise instance (default port: `8181`).
   When running both Core and Enterprise on the same host for testing, each
   needs a distinct port (e.g., Core on `8181`, Enterprise on `8281`).
