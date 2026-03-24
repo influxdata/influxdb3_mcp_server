@@ -5,6 +5,26 @@ All notable changes to the official InfluxDB MCP Server will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-03-24
+
+### Added
+
+- **E2E test suite**: Protocol compliance tests (vitest) that verify server startup, MCP handshake, tool/resource/prompt registration, and error handling — no InfluxDB required
+- **Integration tests**: Live InfluxDB tests for `health_check`, `list_databases`, and `execute_query`, gated behind `INFLUX_TEST_ENABLED`
+- **CI workflow**: GitHub Actions with protocol tests on every PR and integration tests against InfluxDB 3 Core via Docker
+- **Docker test infrastructure**: `docker-compose.test.yml` for local Core testing with preconfigured admin token
+- **CLAUDE.md**: Architecture overview and codebase conventions for Claude Code
+- **Claude Code skills**: Build/run workflow for Core/Enterprise and testing workflow
+
+### Fixed
+
+- Server-level error catch now sets `isError: true`, consistent with handler-level error responses
+
+### Changed
+
+- Minimum Node.js version raised to v20.11 (Node 18 is EOL; vitest 4.x and `import.meta.dirname` require v20.11+)
+- `@modelcontextprotocol/sdk` updated from `^1.12.1` to `^1.27.1`
+
 ## [1.2.0] - 2025-11-05
 
 ### Added
