@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-protocol:
+    name: Protocol tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  test-integration-core:
+    name: Integration tests (InfluxDB 3 Core)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Start InfluxDB 3 Core
+        run: |
+          docker run -d --name influxdb3-core \
+            -p 8181:8181 \
+            -v "${{ github.workspace }}/tests/fixtures/admin-token.json:/run/secrets/admin-token:ro" \
+            influxdb:3-core \
+            serve --node-id=ci-test --object-store=memory --admin-token-file=/run/secrets/admin-token
+
+      - name: Wait for InfluxDB to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf -H "Authorization: Bearer apiv3_test" http://localhost:8181/ping > /dev/null 2>&1; then
+              echo "InfluxDB ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "InfluxDB failed to start"
+          docker logs influxdb3-core
+          exit 1
+
+      - name: Integration tests
+        run: npm run test:integration
+        env:
+          INFLUX_TEST_ENABLED: "true"
+          INFLUX_DB_INSTANCE_URL: "http://localhost:8181/"
+          INFLUX_DB_TOKEN: "apiv3_test"
+          INFLUX_DB_PRODUCT_TYPE: "core"
+
+      - name: Stop InfluxDB
+        if: always()
+        run: docker stop influxdb3-core && docker rm influxdb3-core
+
+  # Future: test-integration-enterprise
+  # Requires Enterprise Docker image and license key.
+  # Gate with: if: github.repository_owner == 'influxdata'
+  # Pass license via: secrets.INFLUXDB_ENTERPRISE_LICENSE

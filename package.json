@@ -5,6 +5,9 @@
   "license": "(Apache-2.0 OR MIT)",
   "private": false,
   "type": "module",
+  "engines": {
+    "node": ">=20.11.0"
+  },
   "main": "./build/index.js",
   "bin": {
     "influxdb-mcp-server": "./build/index.js"
@@ -21,6 +24,8 @@
     "test": "vitest run",
     "test:integration": "INFLUX_TEST_ENABLED=true vitest run tests/integration.test.ts",
     "test:watch": "vitest",
+    "test:infra:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "test:infra:down": "docker compose -f docker-compose.test.yml down",
     "MCP inspector": "npx @modelcontextprotocol/inspector node build/index.js",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",

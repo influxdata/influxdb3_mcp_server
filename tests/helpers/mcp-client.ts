@@ -21,7 +21,7 @@ export async function createTestClient(
   const transport = new StdioClientTransport({
     command: "node",
     args: [SERVER_PATH],
-    env: { ...(process.env as NodeJS.ProcessEnv), ...BASE_ENV, ...env } as NodeJS.ProcessEnv,
+    env: { ...BASE_ENV, ...env },
     stderr: "pipe",
   });
 

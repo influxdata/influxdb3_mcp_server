@@ -41,17 +41,41 @@ entirely from the server's in-memory registrations.
 
 ### Integration tests (live InfluxDB)
 
+Start InfluxDB 3 Core via the provided Docker Compose file:
+
+```bash
+npm run test:infra:up
+```
+
+This starts an ephemeral Core container on port `8181` using a static admin
+token from `tests/fixtures/admin-token.json` (Docker secrets pattern,
+`--object-store memory` — no persistent state).
+
+Run integration tests against it:
+
+```bash
+source env.test.example && npm run test:integration
+```
+
+Tear down when done:
+
+```bash
+npm run test:infra:down
+```
+
+For a custom InfluxDB instance (different port, Enterprise, etc.), set the
+env vars directly instead of sourcing the example file:
+
 ```bash
 INFLUX_TEST_ENABLED=true \
-INFLUX_DB_INSTANCE_URL=http://localhost:8181/ \
-INFLUX_DB_TOKEN=<token> \
-INFLUX_DB_PRODUCT_TYPE=core \
+INFLUX_DB_INSTANCE_URL=http://localhost:8281/ \
+INFLUX_DB_TOKEN=<your_token> \
+INFLUX_DB_PRODUCT_TYPE=enterprise \
 npm run test:integration
 ```
 
-Runs `tests/integration.test.ts` against a real InfluxDB 3 Core or Enterprise
-instance. Tests call `health_check`, `list_databases`, and `execute_query`
-through the MCP protocol.
+Tests call `health_check`, `list_databases`, and `execute_query` through the
+MCP protocol.
 
 ### Watch mode
 

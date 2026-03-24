@@ -124,40 +124,41 @@ To add a new test file (e.g., `tests/write.test.ts`):
 For integration tests that need InfluxDB, use the same
 `describe.skipIf(!process.env.INFLUX_TEST_ENABLED)` gate pattern.
 
-## CI Usage
+## Local Docker Infrastructure
 
-### Gating dependency updates (Dependabot, Renovate)
+`docker-compose.test.yml` starts InfluxDB 3 Core with:
+- `--object-store memory` — ephemeral, no volumes
+- Docker secrets to inject `tests/fixtures/admin-token.json` as
+  `--admin-token-file=/run/secrets/admin-token`
+- Healthcheck on `/ping` with `start_period: 10s`
 
-Add to the CI workflow:
+The static token `apiv3_test` in the fixture file is only for ephemeral
+test containers. The `env.test.example` file is pre-filled to match.
 
-```yaml
-- run: npm ci
-- run: npm run build
-- run: npm test
-```
+## CI Workflow
 
-The protocol tests verify:
-1. TypeScript compiles with updated deps (build step)
-2. Server process starts without runtime errors (initialize handshake)
-3. MCP SDK client/server are compatible (protocol handshake succeeds)
-4. All tools, resources, and prompts register correctly (count + name checks)
+The CI workflow at `.github/workflows/ci.yml` has two jobs:
 
-This catches the majority of breaking changes from dependency updates.
+### `test-protocol` (always runs, no InfluxDB)
 
-### Optional live integration in CI
+Runs `npm ci`, `npm run build`, `npm test`. Gates every PR and push to main.
+The protocol tests catch dependency breakage within seconds.
 
-```yaml
-services:
-  influxdb:
-    image: influxdb3-core:latest
-    ports: ["8181:8181"]
-steps:
-  - run: npm ci && npm run build
-  - run: npm test
-  - run: npm run test:integration
-    env:
-      INFLUX_TEST_ENABLED: "true"
-      INFLUX_DB_INSTANCE_URL: "http://localhost:8181/"
-      INFLUX_DB_TOKEN: "${{ secrets.INFLUX_TOKEN }}"
-      INFLUX_DB_PRODUCT_TYPE: "core"
-```
+### `test-integration-core` (InfluxDB 3 Core)
+
+Uses `docker run` (not `services:`) because Core requires
+`--admin-token-file` for token bootstrapping, and the `services:` block
+cannot pass container CMD arguments.
+
+The job:
+1. Checks out the repo (which includes `tests/fixtures/admin-token.json`)
+2. Bind-mounts the token file into the container at `/run/secrets/admin-token`
+3. Polls `/ping` until Core is ready (up to 30 seconds)
+4. Runs `npm run test:integration` with the static test token
+5. Stops the container in an `if: always()` cleanup step
+
+### Future: Enterprise
+
+A third job for Enterprise will be gated on
+`github.repository_owner == 'influxdata'` and require the Enterprise Docker
+image plus a license key stored in `secrets.INFLUXDB_ENTERPRISE_LICENSE`.
