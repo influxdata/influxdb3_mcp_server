@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createTestClient, TestClient } from "./helpers/mcp-client.js";
 
-const RUN = !!process.env.INFLUX_TEST_ENABLED;
+const RUN =
+  process.env.INFLUX_TEST_ENABLED === "true" ||
+  process.env.INFLUX_TEST_ENABLED === "1";
 
 describe.skipIf(!RUN)("live InfluxDB integration", () => {
   let testClient: TestClient;
