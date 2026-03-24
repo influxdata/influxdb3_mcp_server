@@ -1,0 +1,23 @@
+services:
+  influxdb3-core:
+    image: influxdb:3-core
+    ports:
+      - "8181:8181"
+    command:
+      - influxdb3
+      - serve
+      - --node-id=local-test
+      - --object-store=memory
+      - --admin-token-file=/run/secrets/admin-token
+    secrets:
+      - admin-token
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-H", "Authorization: Bearer apiv3_test", "http://localhost:8181/ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+secrets:
+  admin-token:
+    file: tests/fixtures/admin-token.json

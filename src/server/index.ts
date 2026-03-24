@@ -78,6 +78,7 @@ export function createServer(): Server {
             text: `Error: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
+        isError: true,
       };
     }
   });

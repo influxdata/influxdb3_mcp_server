@@ -1,0 +1,5 @@
+{
+  "token": "apiv3_test",
+  "name": "admin",
+  "description": "Static token for ephemeral test containers only — not a real credential"
+}
