@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `@modelcontextprotocol/sdk` updated from `^1.12.1` to `^1.27.1`
 - All dependencies updated to latest within semver ranges
 - Version aligned across `package.json`, `config.ts`, and `CHANGELOG.md` (previously divergent)
+- npm package renamed from `influxdb-mcp-server` to `@influxdata/influxdb3-mcp-server`
+- All dependencies pinned to exact versions (no caret ranges)
 
 ## [1.2.0] - 2025-11-05
 
