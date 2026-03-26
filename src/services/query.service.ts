@@ -178,8 +178,8 @@ export class QueryService {
    */
   private handleQueryError(error: any): never {
     const errorMessage =
-      error.response?.data?.error ||
       error.response?.data?.message ||
+      error.response?.data?.error ||
       (typeof error.response?.data === "string" ? error.response.data : null) ||
       error.response?.statusText ||
       error.message;

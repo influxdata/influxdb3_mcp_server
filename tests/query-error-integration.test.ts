@@ -11,11 +11,11 @@ describe.skipIf(!RUN)(
     let testClient: TestClient;
 
     beforeAll(async () => {
-      testClient = await createTestClient({
-        INFLUX_DB_INSTANCE_URL: process.env.INFLUX_DB_INSTANCE_URL ?? "",
-        INFLUX_DB_TOKEN: process.env.INFLUX_DB_TOKEN ?? "",
-        INFLUX_DB_PRODUCT_TYPE: process.env.INFLUX_DB_PRODUCT_TYPE ?? "core",
-      });
+      const env: Record<string, string> = {};
+      if (process.env.INFLUX_DB_INSTANCE_URL) env.INFLUX_DB_INSTANCE_URL = process.env.INFLUX_DB_INSTANCE_URL;
+      if (process.env.INFLUX_DB_TOKEN) env.INFLUX_DB_TOKEN = process.env.INFLUX_DB_TOKEN;
+      if (process.env.INFLUX_DB_PRODUCT_TYPE) env.INFLUX_DB_PRODUCT_TYPE = process.env.INFLUX_DB_PRODUCT_TYPE;
+      testClient = await createTestClient(env);
     });
 
     afterAll(async () => {
