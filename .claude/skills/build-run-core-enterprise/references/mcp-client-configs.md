@@ -36,7 +36,7 @@ to npm first:
   "mcpServers": {
     "influxdb": {
       "command": "npx",
-      "args": ["-y", "influxdb-mcp-server"],
+      "args": ["-y", "@influxdata/influxdb3-mcp-server"],
       "env": {
         "INFLUX_DB_INSTANCE_URL": "http://localhost:8181/",
         "INFLUX_DB_TOKEN": "<YOUR_TOKEN>",

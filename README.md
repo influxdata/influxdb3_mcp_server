@@ -205,7 +205,7 @@ See corresponding `env.<instancetype>.example` for examples and detailed info.
      "mcpServers": {
        "influxdb": {
          "command": "npx",
-         "args": ["-y", "@modelcontextprotocol/server-influxdb"],
+         "args": ["-y", "@influxdata/influxdb3-mcp-server"],
          "env": {
            "INFLUX_DB_INSTANCE_URL": "http://localhost:8181/",
            "INFLUX_DB_TOKEN": "<YOUR_INFLUXDB_TOKEN>",
