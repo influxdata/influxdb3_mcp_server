@@ -63,6 +63,10 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 
 ---
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/influxdata-influxdb3-mcp-server).
+
 ## Setup & Integration Guide
 
 ### 1. Environment Variables
