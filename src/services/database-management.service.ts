@@ -636,6 +636,7 @@ export class DatabaseManagementService {
     const originalMessage =
       error.response?.data?.message ||
       error.response?.data?.error ||
+      (typeof error.response?.data === "string" ? error.response.data : null) ||
       error.response?.statusText;
     const statusText = error.response?.statusText || "";
 

@@ -1,5 +1,10 @@
 # InfluxDB MCP Server
 
+[![CI](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/ci.yml/badge.svg)](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/ci.yml)
+<!-- [![Unit Tests](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/unit.yml/badge.svg)](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/unit.yml) -->
+<!-- [![Lint](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/lint.yml/badge.svg)](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/lint.yml) -->
+[![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/influxdata/influxdb3_mcp_server)](https://archestra.ai/mcp-catalog/influxdata__influxdb3_mcp_server)
+
 Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, resources, and prompts for interacting with InfluxDB v3 (Core/Enterprise/Cloud Dedicated/Clustered/Cloud Serverless) via MCP clients.
 
 ---
@@ -200,7 +205,7 @@ See corresponding `env.<instancetype>.example` for examples and detailed info.
      "mcpServers": {
        "influxdb": {
          "command": "npx",
-         "args": ["-y", "@modelcontextprotocol/server-influxdb"],
+         "args": ["-y", "@influxdata/influxdb3-mcp-server"],
          "env": {
            "INFLUX_DB_INSTANCE_URL": "http://localhost:8181/",
            "INFLUX_DB_TOKEN": "<YOUR_INFLUXDB_TOKEN>",
