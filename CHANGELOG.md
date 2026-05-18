@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All dependencies updated to latest within semver ranges
 - Version aligned across `package.json`, `config.ts`, and `CHANGELOG.md` (previously divergent)
 - npm package renamed from `influxdb-mcp-server` to `@influxdata/influxdb3-mcp-server`
+- Scoped package configured for public publish (`publishConfig.access: "public"`)
 - All dependencies pinned to exact versions (no caret ranges)
 
 ## [1.2.0] - 2025-11-05
