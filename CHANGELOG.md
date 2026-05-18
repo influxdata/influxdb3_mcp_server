@@ -27,7 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Minimum Node.js version raised to v20.11 (Node 18 is EOL; vitest 4.x and `import.meta.dirname` require v20.11+)
-- `@modelcontextprotocol/sdk` updated from `^1.12.1` to `^1.27.1`
+- `@modelcontextprotocol/sdk` updated from `^1.12.1` to `1.27.1`
+- `@influxdata/influxdb3-client` updated from `^1.1.0` to `1.4.0`
 - All dependencies updated to latest within semver ranges
 - Version aligned across `package.json`, `config.ts`, and `CHANGELOG.md` (previously divergent)
 - npm package renamed from `influxdb-mcp-server` to `@influxdata/influxdb3-mcp-server`
