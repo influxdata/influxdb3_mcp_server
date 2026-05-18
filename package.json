@@ -4,6 +4,9 @@
   "description": "Official InfluxDB MCP server for Model Context Protocol integration",
   "license": "(Apache-2.0 OR MIT)",
   "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "engines": {
     "node": ">=20.11.0"

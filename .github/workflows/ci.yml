@@ -105,7 +105,12 @@ jobs:
   test-integration-cloud-serverless:
     name: Integration tests (InfluxDB Cloud Serverless)
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'influxdata'
+    # Skip on forked PRs — environment secrets (INFLUXDB_CLOUD_URL/TOKEN) are
+    # not exposed to fork runs, which would fail on empty credentials.
+    if: |
+      github.repository_owner == 'influxdata' &&
+      (github.event_name == 'push' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     environment: cloud-serverless
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
