@@ -359,7 +359,8 @@ export class DatabaseManagementService {
 
   /**
    * Update database configuration for core/enterprise
-   * Only supports retentionPeriod (retention_period_ns)
+   * Only supports retentionPeriod (retention_period)
+   * Uses PUT /api/v3/configure/database with db and retention_period in body
    */
   private async updateDatabaseCoreEnterprise(
     name: string,
@@ -367,13 +368,15 @@ export class DatabaseManagementService {
   ): Promise<boolean> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
-      const endpoint = `/api/v3/configure/database/${encodeURIComponent(name)}`;
+      const endpoint = `/api/v3/configure/database`;
 
-      const payload: any = {};
+      const payload: any = {
+        db: name
+      };
 
-      // Core/Enterprise only supports retention_period_ns
+      // Core/Enterprise only supports retention_period (not retention_period_ns)
       if (config.retentionPeriod !== undefined) {
-        payload.retention_period_ns = config.retentionPeriod;
+        payload.retention_period = this.formatRetentionPeriod(config.retentionPeriod);
       }
 
       // Warn if unsupported parameters are provided
@@ -383,17 +386,38 @@ export class DatabaseManagementService {
         );
       }
 
-      if (Object.keys(payload).length === 0) {
+      if (!payload.retention_period) {
         throw new Error(
           "No valid configuration parameters provided for Core/Enterprise update. Only retentionPeriod is supported."
         );
       }
 
-      await httpClient.patch(endpoint, payload);
+      await httpClient.put(endpoint, payload);
       return true;
     } catch (error: any) {
       this.handleDatabaseError(error, `update database '${name}'`);
     }
+  }
+
+  /**
+   * Format retention period from nanoseconds to duration string (e.g., "7d", "1y")
+   */
+  private formatRetentionPeriod(retentionPeriodNs: number): string {
+    const seconds = retentionPeriodNs / 1_000_000_000;
+    const days = seconds / (24 * 60 * 60);
+    
+    // If exactly divisible by 365.25, use years
+    if (days >= 365.25 && days % 365.25 === 0) {
+      return `${Math.floor(days / 365.25)}y`;
+    }
+    
+    // If exactly divisible by 30, use months (approximately)
+    if (days >= 30 && days % 30 === 0) {
+      return `${Math.floor(days / 30)}mo`;
+    }
+    
+    // Otherwise use days
+    return `${Math.floor(days)}d`;
   }
 
   /**
