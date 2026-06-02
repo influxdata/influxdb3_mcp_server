@@ -123,7 +123,7 @@ export function createDatabaseTools(
     {
       name: "update_database",
       description:
-        "Update database configuration for InfluxDB Cloud Dedicated clusters only. Allows modification of maxTables, maxColumnsPerTable, and retentionPeriod settings. Not available for Core/Enterprise installations.",
+        "Update database configuration for InfluxDB. For Cloud Dedicated: modify maxTables, maxColumnsPerTable, and retentionPeriod. For Core/Enterprise: modify retentionPeriod only (retention_period_ns). Not available for Cloud Serverless.",
       inputSchema: {
         type: "object",
         properties: {
@@ -133,17 +133,17 @@ export function createDatabaseTools(
           },
           maxTables: {
             type: "number",
-            description: "Maximum number of tables (optional)",
+            description: "Maximum number of tables (Cloud Dedicated only)",
             minimum: 1,
           },
           maxColumnsPerTable: {
             type: "number",
-            description: "Maximum columns per table (optional)",
+            description: "Maximum columns per table (Cloud Dedicated only)",
             minimum: 1,
           },
           retentionPeriod: {
             type: "number",
-            description: "Retention period in nanoseconds (optional)",
+            description: "Retention period in nanoseconds (Cloud Dedicated and Core/Enterprise)",
             minimum: 0,
           },
         },
@@ -156,17 +156,17 @@ export function createDatabaseTools(
           .number()
           .min(1)
           .optional()
-          .describe("Maximum number of tables"),
+          .describe("Maximum number of tables (Cloud Dedicated only)"),
         maxColumnsPerTable: z
           .number()
           .min(1)
           .optional()
-          .describe("Maximum columns per table"),
+          .describe("Maximum columns per table (Cloud Dedicated only)"),
         retentionPeriod: z
           .number()
           .min(0)
           .optional()
-          .describe("Retention period in nanoseconds"),
+          .describe("Retention period in nanoseconds (Cloud Dedicated and Core/Enterprise)"),
       }),
       handler: async (args) => {
         try {

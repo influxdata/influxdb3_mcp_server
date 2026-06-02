@@ -77,17 +77,15 @@ export class DatabaseManagementService {
   }
 
   /**
-   * Update database configuration (only for cloud-dedicated)
-   * PATCH /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
+   * Update database configuration
+   * For cloud-dedicated: PATCH /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
+   * For core/enterprise: PATCH /api/v3/configure/database/{name}
    */
   async updateDatabase(
     name: string,
     config: Partial<CloudDedicatedDatabaseConfig>,
   ): Promise<boolean> {
     if (!name) throw new Error("Database name is required");
-    this.baseService.validateOperationSupport("update_database", [
-      InfluxProductType.CloudDedicated,
-    ]);
     this.baseService.validateManagementCapabilities();
 
     const connectionInfo = this.baseService.getConnectionInfo();
@@ -96,9 +94,7 @@ export class DatabaseManagementService {
         return this.updateDatabaseCloudDedicated(name, config);
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
-        throw new Error(
-          "Database update is not supported for core/enterprise InfluxDB",
-        );
+        return this.updateDatabaseCoreEnterprise(name, config);
       default:
         throw new Error(
           `Unsupported InfluxDB product type: ${connectionInfo.type}`,
@@ -358,6 +354,45 @@ export class DatabaseManagementService {
       return true;
     } catch (error: any) {
       this.handleDatabaseError(error, `delete database '${name}'`);
+    }
+  }
+
+  /**
+   * Update database configuration for core/enterprise
+   * Only supports retentionPeriod (retention_period_ns)
+   */
+  private async updateDatabaseCoreEnterprise(
+    name: string,
+    config: Partial<CloudDedicatedDatabaseConfig>,
+  ): Promise<boolean> {
+    try {
+      const httpClient = this.baseService.getInfluxHttpClient();
+      const endpoint = `/api/v3/configure/database/${encodeURIComponent(name)}`;
+
+      const payload: any = {};
+
+      // Core/Enterprise only supports retention_period_ns
+      if (config.retentionPeriod !== undefined) {
+        payload.retention_period_ns = config.retentionPeriod;
+      }
+
+      // Warn if unsupported parameters are provided
+      if (config.maxTables !== undefined || config.maxColumnsPerTable !== undefined) {
+        console.warn(
+          "Warning: maxTables and maxColumnsPerTable are not supported for Core/Enterprise. Only retentionPeriod is supported."
+        );
+      }
+
+      if (Object.keys(payload).length === 0) {
+        throw new Error(
+          "No valid configuration parameters provided for Core/Enterprise update. Only retentionPeriod is supported."
+        );
+      }
+
+      await httpClient.patch(endpoint, payload);
+      return true;
+    } catch (error: any) {
+      this.handleDatabaseError(error, `update database '${name}'`);
     }
   }
 

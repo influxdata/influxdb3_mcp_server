@@ -5,6 +5,23 @@ All notable changes to the official InfluxDB MCP Server will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Enterprise/Core Retention Policy Support**: Added database retention policy configuration for Core/Enterprise instances via `update_database` tool
+  - New method `updateDatabaseCoreEnterprise()` in `DatabaseManagementService` for PATCH `/api/v3/configure/database/{name}`
+  - Support for `retentionPeriod` parameter on Core/Enterprise (sets `retention_period_ns` field)
+  - Warning when unsupported parameters (maxTables, maxColumnsPerTable) are provided for Core/Enterprise
+  - Enhanced tool description to indicate Enterprise support for retention configuration
+
+### Enhanced
+
+- **Tool Availability**: Updated `update_database` from "Cloud Dedicated only" to "All versions"
+  - Cloud Dedicated: supports maxTables, maxColumnsPerTable, retentionPeriod
+  - Core/Enterprise: supports retentionPeriod only
+- **Documentation**: Added retention policy examples for Enterprise and common retention period reference table
+
 ## [1.1.0] - 2025-06-23
 
 ### Added

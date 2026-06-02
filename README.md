@@ -20,7 +20,7 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 | `get_help`                    | Get help and troubleshooting guidance for InfluxDB operations  | All versions         |
 | `write_line_protocol`         | Write data using InfluxDB line protocol                        | All versions         |
 | `create_database`             | Create a new database (with Cloud Dedicated config options)    | All versions         |
-| `update_database`             | Update database configuration (maxTables, retention, etc.)     | Cloud Dedicated only |
+| `update_database`             | Update database configuration (retention for all, maxTables/maxColumns for Cloud Dedicated) | All versions |
 | `delete_database`             | Delete a database by name (irreversible)                       | All versions         |
 | `execute_query`               | Run a SQL query against a database (supports multiple formats) | All versions         |
 | `get_measurements`            | List all measurements (tables) in a database                   | All versions         |
@@ -237,6 +237,37 @@ Use `host.docker.internal` as the InfluxDB URL so the MCP server container can r
   - `example-docker.mcp.json` - Docker-based setup
   - `example-cloud-dedicated.mcp.json` - Cloud Dedicated with all variables
 - See the `env.example` and `env.cloud-dedicated.example` files for environment variable templates.
+
+### Database Retention Policy Examples
+
+#### Core/Enterprise - Set 90-day Retention
+```typescript
+// Set 90-day retention policy on Enterprise instance
+await mcp.update_database({
+  name: "my_database",
+  retentionPeriod: 7776000000000000  // 90 days in nanoseconds
+});
+```
+
+#### Cloud Dedicated - Update Multiple Settings
+```typescript
+// Update retention, maxTables, and maxColumnsPerTable
+await mcp.update_database({
+  name: "my_database",
+  retentionPeriod: 7776000000000000,  // 90 days
+  maxTables: 1000,
+  maxColumnsPerTable: 250
+});
+```
+
+#### Common Retention Periods
+| Duration | Nanoseconds |
+|----------|-------------|
+| 7 days | 604,800,000,000,000 |
+| 30 days | 2,592,000,000,000,000 |
+| 90 days | 7,776,000,000,000,000 |
+| 180 days | 15,552,000,000,000,000 |
+| 1 year | 31,536,000,000,000,000 |
 
 ---
 
