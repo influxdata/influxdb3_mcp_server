@@ -87,18 +87,18 @@ Reruns on file changes. Useful during development.
 
 ## What the Tests Cover
 
-| Test | What it verifies |
-|---|---|
-| Initialize handshake | Server starts, SDK handshake succeeds, capabilities reported |
-| Server version | Name is `"influxdb-mcp-server"`, version is defined |
-| Tool count | `tools/list` returns exactly `EXPECTED_TOOL_COUNT` tools |
-| Tool structure | Each tool has `name`, `description`, `inputSchema` with `type: "object"` |
-| Core tool names | Spot-checks `health_check`, `execute_query`, `write_line_protocol`, `list_databases`, `create_admin_token` |
-| Resource URIs | 4 resources with correct `influx://` URIs |
-| Resource structure | Each resource has `name`, `uri`, `description` |
-| Prompt names | 3 prompts: `list-databases`, `check-health`, `load-context` |
-| Ping | Server responds to ping |
-| Unknown tool error | Calling nonexistent tool throws `McpError` |
+| Test                 | What it verifies                                                                                           |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Initialize handshake | Server starts, SDK handshake succeeds, capabilities reported                                               |
+| Server version       | Name is `"influxdb-mcp-server"`, version is defined                                                        |
+| Tool count           | `tools/list` returns exactly `EXPECTED_TOOL_COUNT` tools                                                   |
+| Tool structure       | Each tool has `name`, `description`, `inputSchema` with `type: "object"`                                   |
+| Core tool names      | Spot-checks `health_check`, `execute_query`, `write_line_protocol`, `list_databases`, `create_admin_token` |
+| Resource URIs        | 4 resources with correct `influx://` URIs                                                                  |
+| Resource structure   | Each resource has `name`, `uri`, `description`                                                             |
+| Prompt names         | 3 prompts: `list-databases`, `check-health`, `load-context`                                                |
+| Ping                 | Server responds to ping                                                                                    |
+| Unknown tool error   | Calling nonexistent tool throws `McpError`                                                                 |
 
 ## Analyzing Failures
 
@@ -112,6 +112,7 @@ The most common failure after code changes. The constant in
 below for documentation.
 
 To find the current count, start the server briefly and check stderr:
+
 ```bash
 npm run build && INFLUX_DB_INSTANCE_URL=http://localhost:19999/ \
 INFLUX_DB_TOKEN=fake INFLUX_DB_PRODUCT_TYPE=core \
@@ -122,6 +123,7 @@ sleep 1 && kill $!
 Look for: `[MCP] Server initialized with N tools, N resources, N prompts`
 
 The tool count breakdown by category file:
+
 - `help.tools.ts` (2) + `write.tools.ts` (1) + `database.tools.ts` (4)
 - `query.tools.ts` (3) + `token.tools.ts` (6) + `cloud-token.tools.ts` (5)
 - `health.tools.ts` (1) = **22 total**
@@ -136,6 +138,7 @@ message if the build artifact is missing.
 ### Initialize handshake timeout
 
 The server process failed to start. Common causes:
+
 - Build is stale after source changes — rebuild with `npm run build`
 - Missing or invalid env vars — protocol tests use a fake config internally,
   so this usually means `createTestClient` was called with bad overrides
@@ -143,6 +146,7 @@ The server process failed to start. Common causes:
 ### Integration test: "HEALTHY" not found
 
 InfluxDB instance is unreachable or unhealthy. Verify:
+
 1. Instance is running: `curl http://localhost:8181/ping`
 2. Token is valid
 3. `INFLUX_DB_PRODUCT_TYPE` matches the actual instance type

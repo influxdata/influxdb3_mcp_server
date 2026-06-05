@@ -52,9 +52,9 @@ describe("handleQueryError – Cloud Serverless (SDK async iterator)", () => {
     );
     const svc = new QueryService(base);
 
-    await expect(
-      svc.executeQuery("SELECT 1", "mybucket"),
-    ).rejects.toThrow(/unknown query type/);
+    await expect(svc.executeQuery("SELECT 1", "mybucket")).rejects.toThrow(
+      /unknown query type/,
+    );
   });
 
   it("404: surfaces error message from SDK HttpError", async () => {
@@ -64,9 +64,9 @@ describe("handleQueryError – Cloud Serverless (SDK async iterator)", () => {
     );
     const svc = new QueryService(base);
 
-    await expect(
-      svc.executeQuery("SELECT 1", "nonexistent"),
-    ).rejects.toThrow(/could not find bucket/);
+    await expect(svc.executeQuery("SELECT 1", "nonexistent")).rejects.toThrow(
+      /could not find bucket/,
+    );
   });
 });
 
@@ -82,9 +82,9 @@ describe("handleQueryError – Serverless {code,message} via axios path", () => 
     );
     const svc = new QueryService(base);
 
-    await expect(
-      svc.executeQuery("SELECT 1", "mydb"),
-    ).rejects.toThrow(/unknown query type/);
+    await expect(svc.executeQuery("SELECT 1", "mydb")).rejects.toThrow(
+      /unknown query type/,
+    );
   });
 
   it("404: surfaces message from {code, message} JSON response", async () => {
@@ -94,8 +94,8 @@ describe("handleQueryError – Serverless {code,message} via axios path", () => 
     );
     const svc = new QueryService(base);
 
-    await expect(
-      svc.executeQuery("SELECT 1", "nonexistent"),
-    ).rejects.toThrow(/could not find bucket/);
+    await expect(svc.executeQuery("SELECT 1", "nonexistent")).rejects.toThrow(
+      /could not find bucket/,
+    );
   });
 });

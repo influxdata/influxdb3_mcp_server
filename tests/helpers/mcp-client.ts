@@ -25,9 +25,7 @@ export async function createTestClient(
     stderr: "pipe",
   });
 
-  const client = new Client(
-    { name: "test-client", version: "1.0.0" },
-  );
+  const client = new Client({ name: "test-client", version: "1.0.0" });
 
   await client.connect(transport);
 

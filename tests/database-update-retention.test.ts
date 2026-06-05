@@ -59,7 +59,9 @@ describe("updateDatabase – Core/Enterprise retention", () => {
     const { svc, put } = serviceWithPut(base);
 
     // 90 minutes -> floors to 1h (never 0d)
-    await svc.updateDatabase("mydb", { retentionPeriod: 90 * 60 * 1_000_000_000 });
+    await svc.updateDatabase("mydb", {
+      retentionPeriod: 90 * 60 * 1_000_000_000,
+    });
 
     expect(put.mock.calls[0][1].retention_period).toBe("1h");
   });

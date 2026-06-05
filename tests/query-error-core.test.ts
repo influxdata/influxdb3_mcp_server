@@ -29,9 +29,7 @@ describe("handleQueryError – Core (axios) error path", () => {
     );
     const svc = new QueryService(base);
 
-    await expect(
-      svc.executeQuery("SELECT 1", "nonexistent"),
-    ).rejects.toThrow(
+    await expect(svc.executeQuery("SELECT 1", "nonexistent")).rejects.toThrow(
       /^Database not found: query error: database not found: nonexistent$/,
     );
   });
@@ -43,9 +41,7 @@ describe("handleQueryError – Core (axios) error path", () => {
     );
     const svc = new QueryService(base);
 
-    await expect(
-      svc.executeQuery("SELECT 1", "mydb"),
-    ).rejects.toThrow(
+    await expect(svc.executeQuery("SELECT 1", "mydb")).rejects.toThrow(
       /^Bad request: partial write of line protocol occurred$/,
     );
   });
@@ -57,8 +53,8 @@ describe("handleQueryError – Core (axios) error path", () => {
     );
     const svc = new QueryService(base);
 
-    await expect(
-      svc.executeQuery("THIS IS NOT SQL", "mydb"),
-    ).rejects.toThrow(/^Query failed:.*ParserError.*Expected: an SQL statement/);
+    await expect(svc.executeQuery("THIS IS NOT SQL", "mydb")).rejects.toThrow(
+      /^Query failed:.*ParserError.*Expected: an SQL statement/,
+    );
   });
 });
