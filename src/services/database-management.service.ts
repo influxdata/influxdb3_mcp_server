@@ -21,6 +21,12 @@ export interface CloudDedicatedDatabaseConfig {
   retentionPeriod?: number;
 }
 
+export interface CloudServerlessBucketConfig {
+  name?: string;
+  description?: string;
+  retentionPeriod?: number;
+}
+
 export class DatabaseManagementService {
   private baseService: BaseConnectionService;
 
@@ -31,7 +37,8 @@ export class DatabaseManagementService {
   /**
    * List all databases (single entrypoint for all product types)
    * For core/enterprise: GET /api/v3/configure/database?format=json
-   * For cloud-dedicated: GET /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases
+   * For cloud-dedicated/clustered: GET /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases
+   * For cloud-serverless: GET /api/v2/buckets (databases are called "buckets" in v2 API)
    */
   async listDatabases(): Promise<DatabaseInfo[]> {
     this.baseService.validateManagementCapabilities();
@@ -39,7 +46,10 @@ export class DatabaseManagementService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
+      case InfluxProductType.Clustered:
         return this.listDatabasesCloudDedicated();
+      case InfluxProductType.CloudServerless:
+        return this.listDatabasesCloudServerless();
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
         return this.listDatabasesCoreEnterprise();
@@ -53,11 +63,12 @@ export class DatabaseManagementService {
   /**
    * Create a new database (single entrypoint for all product types)
    * For core/enterprise: POST /api/v3/configure/database
-   * For cloud-dedicated: POST /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases
+   * For cloud-dedicated/clustered: POST /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases
+   * For cloud-serverless: POST /api/v2/buckets (databases are called "buckets" in v2 API)
    */
   async createDatabase(
     name: string,
-    config?: CloudDedicatedDatabaseConfig,
+    config?: CloudDedicatedDatabaseConfig | CloudServerlessBucketConfig,
   ): Promise<boolean> {
     if (!name) throw new Error("Database name is required");
     this.baseService.validateManagementCapabilities();
@@ -65,7 +76,16 @@ export class DatabaseManagementService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
-        return this.createDatabaseCloudDedicated(name, config);
+      case InfluxProductType.Clustered:
+        return this.createDatabaseCloudDedicated(
+          name,
+          config as CloudDedicatedDatabaseConfig,
+        );
+      case InfluxProductType.CloudServerless:
+        return this.createDatabaseCloudServerless(
+          name,
+          config as CloudServerlessBucketConfig,
+        );
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
         return this.createDatabaseCoreEnterprise(name);
@@ -77,21 +97,40 @@ export class DatabaseManagementService {
   }
 
   /**
-   * Update database configuration
-   * For cloud-dedicated: PATCH /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
-   * For core/enterprise: PATCH /api/v3/configure/database/{name}
+   * Update database configuration (single entrypoint for all product types)
+   * For cloud-dedicated/clustered: PATCH /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
+   * For cloud-serverless: PATCH /api/v2/buckets/{bucketID}
+   * For core/enterprise: PUT /api/v3/configure/database with db and retention_period (humantime duration string)
    */
   async updateDatabase(
     name: string,
-    config: Partial<CloudDedicatedDatabaseConfig>,
+    config:
+      | Partial<CloudDedicatedDatabaseConfig>
+      | Partial<CloudServerlessBucketConfig>,
   ): Promise<boolean> {
     if (!name) throw new Error("Database name is required");
+    this.baseService.validateOperationSupport("update_database", [
+      InfluxProductType.CloudDedicated,
+      InfluxProductType.CloudServerless,
+      InfluxProductType.Clustered,
+      InfluxProductType.Core,
+      InfluxProductType.Enterprise,
+    ]);
     this.baseService.validateManagementCapabilities();
 
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
-        return this.updateDatabaseCloudDedicated(name, config);
+      case InfluxProductType.Clustered:
+        return this.updateDatabaseCloudDedicated(
+          name,
+          config as Partial<CloudDedicatedDatabaseConfig>,
+        );
+      case InfluxProductType.CloudServerless:
+        return this.updateDatabaseCloudServerless(
+          name,
+          config as Partial<CloudServerlessBucketConfig>,
+        );
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
         return this.updateDatabaseCoreEnterprise(name, config);
@@ -105,7 +144,8 @@ export class DatabaseManagementService {
   /**
    * Delete a database (single entrypoint for all product types)
    * For core/enterprise: DELETE /api/v3/configure/database?db={name}
-   * For cloud-dedicated: DELETE /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
+   * For cloud-dedicated/clustered: DELETE /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
+   * For cloud-serverless: DELETE /api/v2/buckets/{bucketID} (databases are called "buckets" in v2 API)
    */
   async deleteDatabase(name: string): Promise<boolean> {
     if (!name) throw new Error("Database name is required");
@@ -114,7 +154,10 @@ export class DatabaseManagementService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
+      case InfluxProductType.Clustered:
         return this.deleteDatabaseCloudDedicated(name);
+      case InfluxProductType.CloudServerless:
+        return this.deleteDatabaseCloudServerless(name);
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
         return this.deleteDatabaseCoreEnterprise(name);
@@ -126,7 +169,7 @@ export class DatabaseManagementService {
   }
 
   /**
-   * List databases for cloud-dedicated
+   * List databases for cloud-dedicated/clustered
    */
   private async listDatabasesCloudDedicated(): Promise<DatabaseInfo[]> {
     try {
@@ -179,7 +222,7 @@ export class DatabaseManagementService {
   }
 
   /**
-   * Create database for cloud-dedicated
+   * Create database for cloud-dedicated/clustered
    */
   private async createDatabaseCloudDedicated(
     name: string,
@@ -219,7 +262,7 @@ export class DatabaseManagementService {
   }
 
   /**
-   * Update database configuration for cloud-dedicated
+   * Update database configuration for cloud-dedicated/clustered
    */
   private async updateDatabaseCloudDedicated(
     name: string,
@@ -257,7 +300,7 @@ export class DatabaseManagementService {
   }
 
   /**
-   * Delete database for cloud-dedicated
+   * Delete database for cloud-dedicated/clustered
    */
   private async deleteDatabaseCloudDedicated(name: string): Promise<boolean> {
     try {
@@ -359,8 +402,9 @@ export class DatabaseManagementService {
 
   /**
    * Update database configuration for core/enterprise
-   * Only supports retentionPeriod (retention_period)
-   * Uses PUT /api/v3/configure/database with db and retention_period in body
+   * Only supports retentionPeriod. Sends PUT /api/v3/configure/database with db
+   * and retention_period (humantime duration string such as "60d").
+   * Verified against Core 3.9.3; Core requires v3.2.0+ to update retention.
    */
   private async updateDatabaseCoreEnterprise(
     name: string,
@@ -370,27 +414,26 @@ export class DatabaseManagementService {
       const httpClient = this.baseService.getInfluxHttpClient();
       const endpoint = `/api/v3/configure/database`;
 
-      const payload: any = {
-        db: name
-      };
-
-      // Core/Enterprise only supports retention_period (not retention_period_ns)
-      if (config.retentionPeriod !== undefined) {
-        payload.retention_period = this.formatRetentionPeriod(config.retentionPeriod);
-      }
-
       // Warn if unsupported parameters are provided
-      if (config.maxTables !== undefined || config.maxColumnsPerTable !== undefined) {
+      if (
+        config.maxTables !== undefined ||
+        config.maxColumnsPerTable !== undefined
+      ) {
         console.warn(
-          "Warning: maxTables and maxColumnsPerTable are not supported for Core/Enterprise. Only retentionPeriod is supported."
+          "Warning: maxTables and maxColumnsPerTable are not supported for Core/Enterprise. Only retentionPeriod is supported.",
         );
       }
 
-      if (!payload.retention_period) {
+      if (config.retentionPeriod === undefined) {
         throw new Error(
-          "No valid configuration parameters provided for Core/Enterprise update. Only retentionPeriod is supported."
+          "No valid configuration parameters provided for Core/Enterprise update. Only retentionPeriod is supported.",
         );
       }
+
+      const payload = {
+        db: name,
+        retention_period: this.formatRetentionPeriod(config.retentionPeriod),
+      };
 
       await httpClient.put(endpoint, payload);
       return true;
@@ -400,24 +443,255 @@ export class DatabaseManagementService {
   }
 
   /**
-   * Format retention period from nanoseconds to duration string (e.g., "7d", "1y")
+   * List databases for cloud-serverless (using buckets from /api/v2)
+   */
+  private async listDatabasesCloudServerless(): Promise<DatabaseInfo[]> {
+    try {
+      const httpClient = this.baseService.getInfluxHttpClient(true);
+
+      const response = await httpClient.get<{ buckets?: any[] }>(
+        "/api/v2/buckets",
+      );
+
+      if (!response || typeof response !== "object") {
+        throw new Error(
+          "Invalid response format from InfluxDB Cloud Serverless API",
+        );
+      }
+
+      let buckets: any[] = [];
+      if (Array.isArray(response.buckets)) {
+        buckets = response.buckets;
+      } else if (Array.isArray(response)) {
+        buckets = response as any[];
+      } else {
+        const possibleBuckets =
+          (response as any).data?.buckets ||
+          (response as any).result?.buckets ||
+          (response as any).buckets;
+        if (Array.isArray(possibleBuckets)) {
+          buckets = possibleBuckets;
+        } else {
+          throw new Error(
+            `Unexpected response structure: ${JSON.stringify(response)}`,
+          );
+        }
+      }
+
+      return buckets
+        .filter((bucket) => bucket.type !== "system")
+        .map((bucket) => {
+          if (typeof bucket === "string") {
+            return { name: bucket };
+          } else if (bucket && typeof bucket === "object" && bucket.name) {
+            const databaseInfo: DatabaseInfo = {
+              name: bucket.name,
+              retentionPeriod: bucket.retentionRules?.[0]?.everySeconds
+                ? bucket.retentionRules[0].everySeconds * 1000000000
+                : undefined,
+            };
+
+            if (bucket.id) {
+              (databaseInfo as any).bucketId = bucket.id;
+            }
+            if (bucket.orgID) {
+              (databaseInfo as any).organizationId = bucket.orgID;
+            }
+            if (bucket.storageType) {
+              (databaseInfo as any).storageType = bucket.storageType;
+            }
+            if (bucket.createdAt) {
+              (databaseInfo as any).createdAt = bucket.createdAt;
+            }
+            if (bucket.updatedAt) {
+              (databaseInfo as any).updatedAt = bucket.updatedAt;
+            }
+            if (bucket.description) {
+              (databaseInfo as any).description = bucket.description;
+            }
+            if (bucket.rp) {
+              (databaseInfo as any).retentionPolicy = bucket.rp;
+            }
+
+            return databaseInfo;
+          } else {
+            return { name: String(bucket) };
+          }
+        });
+    } catch (error: any) {
+      this.handleDatabaseError(error, "list databases (buckets)");
+    }
+  }
+
+  /**
+   * Create database for cloud-serverless (create bucket via /api/v2)
+   */
+  private async createDatabaseCloudServerless(
+    name: string,
+    config?: CloudServerlessBucketConfig,
+  ): Promise<boolean> {
+    try {
+      const httpClient = this.baseService.getInfluxHttpClient(true);
+
+      const orgsResponse = await httpClient.get<{ orgs?: any[] }>(
+        "/api/v2/orgs",
+      );
+      let orgID: string;
+
+      if (orgsResponse?.orgs && orgsResponse.orgs.length > 0) {
+        orgID = orgsResponse.orgs[0].id;
+      } else {
+        throw new Error("Could not find organization ID for bucket creation");
+      }
+
+      const payload: any = {
+        name,
+        orgID,
+        retentionRules: [
+          {
+            type: "expire",
+            everySeconds: config?.retentionPeriod
+              ? Math.floor(config.retentionPeriod / 1000000000)
+              : 2592000,
+          },
+        ],
+      };
+
+      if (config?.description) {
+        payload.description = config.description;
+      }
+
+      await httpClient.post("/api/v2/buckets", payload);
+      return true;
+    } catch (error: any) {
+      this.handleDatabaseError(error, `create database (bucket) '${name}'`);
+    }
+  }
+
+  /**
+   * Convert a retention period in nanoseconds to a humantime duration string.
+   * Emits whole days when evenly divisible, otherwise whole hours, so a sub-day
+   * value is never rounded down to "0d" (which would mark all data for immediate
+   * deletion). Core/Enterprise accept units h, d, w, mo, y — not s or m.
    */
   private formatRetentionPeriod(retentionPeriodNs: number): string {
-    const seconds = retentionPeriodNs / 1_000_000_000;
-    const days = seconds / (24 * 60 * 60);
-    
-    // If exactly divisible by 365.25, use years
-    if (days >= 365.25 && days % 365.25 === 0) {
-      return `${Math.floor(days / 365.25)}y`;
+    const seconds = Math.floor(retentionPeriodNs / 1_000_000_000);
+    const hours = seconds / 3600;
+
+    if (hours < 1) {
+      throw new Error(
+        "retentionPeriod must be at least 1 hour (3600000000000 ns) for Core/Enterprise.",
+      );
     }
-    
-    // If exactly divisible by 30, use months (approximately)
-    if (days >= 30 && days % 30 === 0) {
-      return `${Math.floor(days / 30)}mo`;
+
+    if (hours % 24 === 0) {
+      return `${hours / 24}d`;
     }
-    
-    // Otherwise use days
-    return `${Math.floor(days)}d`;
+
+    return `${Math.floor(hours)}h`;
+  }
+
+  /**
+   * Delete database for cloud-serverless (delete bucket via /api/v2)
+   */
+  private async deleteDatabaseCloudServerless(name: string): Promise<boolean> {
+    try {
+      const httpClient = this.baseService.getInfluxHttpClient(true);
+
+      const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
+        "/api/v2/buckets",
+      );
+      let bucketID: string | undefined;
+
+      if (bucketsResponse?.buckets) {
+        const bucket = bucketsResponse.buckets.find(
+          (b) => b.name === name && b.type !== "system",
+        );
+        if (bucket) {
+          bucketID = bucket.id;
+        }
+      }
+
+      if (!bucketID) {
+        throw new Error(`Database (bucket) '${name}' not found`);
+      }
+
+      await httpClient.delete(`/api/v2/buckets/${bucketID}`);
+      return true;
+    } catch (error: any) {
+      this.handleDatabaseError(error, `delete database (bucket) '${name}'`);
+    }
+  }
+
+  /**
+   * Update database (bucket) for cloud-serverless via /api/v2
+   * PATCH /api/v2/buckets/{bucketID}
+   */
+  private async updateDatabaseCloudServerless(
+    name: string,
+    config: Partial<CloudServerlessBucketConfig>,
+  ): Promise<boolean> {
+    try {
+      const httpClient = this.baseService.getInfluxHttpClient(true);
+
+      const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
+        "/api/v2/buckets",
+      );
+      let bucket: any;
+
+      if (bucketsResponse?.buckets) {
+        bucket = bucketsResponse.buckets.find(
+          (b) => b.name === name && b.type !== "system",
+        );
+      }
+
+      if (!bucket) {
+        throw new Error(`Database (bucket) '${name}' not found`);
+      }
+
+      const updatePayload: any = {};
+
+      if (config.name && config.name !== bucket.name) {
+        updatePayload.name = config.name;
+      }
+
+      if (config.description !== undefined) {
+        updatePayload.description = config.description;
+      }
+
+      if (config.retentionPeriod !== undefined) {
+        updatePayload.retentionRules = [
+          {
+            type: "expire",
+            everySeconds: Math.floor(config.retentionPeriod / 1000000000),
+          },
+        ];
+      } else {
+        updatePayload.retentionRules = bucket.retentionRules || [
+          {
+            type: "expire",
+            everySeconds: 2592000,
+          },
+        ];
+      }
+
+      if (
+        !updatePayload.retentionRules ||
+        updatePayload.retentionRules.length === 0
+      ) {
+        updatePayload.retentionRules = [
+          {
+            type: "expire",
+            everySeconds: 2592000,
+          },
+        ];
+      }
+
+      await httpClient.patch(`/api/v2/buckets/${bucket.id}`, updatePayload);
+      return true;
+    } catch (error: any) {
+      this.handleDatabaseError(error, `update database (bucket) '${name}'`);
+    }
   }
 
   /**
@@ -428,6 +702,7 @@ export class DatabaseManagementService {
     const originalMessage =
       error.response?.data?.message ||
       error.response?.data?.error ||
+      (typeof error.response?.data === "string" ? error.response.data : null) ||
       error.response?.statusText;
     const statusText = error.response?.statusText || "";
 

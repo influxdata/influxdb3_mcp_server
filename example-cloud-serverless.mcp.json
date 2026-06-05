@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "influxdb": {
+      "command": "node",
+      "args": ["/path/to/influx-mcp-standalone/build/index.js"],
+      "env": {
+        "INFLUX_DB_PRODUCT_TYPE": "cloud-serverless",
+        "INFLUX_DB_INSTANCE_URL": "https://your-region.aws.cloud2.influxdata.com",
+        "INFLUX_DB_TOKEN": "your_database_token_here"
+      }
+    }
+  }
+}

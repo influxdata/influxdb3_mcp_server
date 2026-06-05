@@ -25,9 +25,9 @@ please responsibly disclose it by contacting security@influxdata.com.
 More details about security vulnerability reporting can be found on the InfluxData:
 [How to Report Vulnerabilities](https://www.influxdata.com/how-to-report-security-vulnerabilities/) page.
 
-
 ## Best Practices
 
 When deploying this MCP server:
+
 - Only run on the same device as your trusted Agent
 - Review the permissions and capabilities exposed

@@ -175,5 +175,83 @@ export function createResources(
         }
       },
     },
+
+    {
+      name: "context-file",
+      uri: "influx://context",
+      description:
+        "Custom context file with user-defined database descriptions or documentation",
+      handler: async () => {
+        try {
+          const contextFile = await influxService.contextFile.loadContextFile();
+
+          if (!contextFile) {
+            return {
+              contents: [
+                {
+                  uri: "influx://context",
+                  text: JSON.stringify(
+                    {
+                      timestamp: new Date().toISOString(),
+                      status: "not_found",
+                      message:
+                        "No context file found. Create a file in /context/ folder or name a file with 'context' in the name (.json, .txt, .md)",
+                      searchPaths: [
+                        "./context/ (any .json, .txt, .md file)",
+                        "./ (files with 'context' in name)",
+                      ],
+                    },
+                    null,
+                    2,
+                  ),
+                  mimeType: "application/json",
+                },
+              ],
+            };
+          }
+
+          let mimeType = "text/plain";
+          switch (contextFile.extension) {
+            case "json":
+              mimeType = "application/json";
+              break;
+            case "md":
+              mimeType = "text/markdown";
+              break;
+            case "txt":
+            default:
+              mimeType = "text/plain";
+              break;
+          }
+
+          return {
+            contents: [
+              {
+                uri: "influx://context",
+                text: contextFile.content,
+                mimeType: mimeType,
+              },
+            ],
+          };
+        } catch (error: any) {
+          const errorInfo = {
+            timestamp: new Date().toISOString(),
+            status: "error",
+            error: error.message,
+            message: "Failed to load context file",
+          };
+
+          return {
+            contents: [
+              {
+                uri: "influx://context",
+                text: JSON.stringify(errorInfo, null, 2),
+                mimeType: "application/json",
+              },
+            ],
+          };
+        }
+      },
+    },
   ];
 }

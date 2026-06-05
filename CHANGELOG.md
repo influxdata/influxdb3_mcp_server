@@ -10,10 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Enterprise/Core Retention Policy Support**: Added database retention policy configuration for Core/Enterprise instances via `update_database` tool
-  - New method `updateDatabaseCoreEnterprise()` in `DatabaseManagementService` for PATCH `/api/v3/configure/database/{name}`
-  - Support for `retentionPeriod` parameter on Core/Enterprise (sets `retention_period_ns` field)
+  - New method `updateDatabaseCoreEnterprise()` in `DatabaseManagementService` for PUT `/api/v3/configure/database`
+  - Support for `retentionPeriod` parameter on Core/Enterprise (sent as `retention_period`, a humantime duration string such as `"60d"`)
   - Warning when unsupported parameters (maxTables, maxColumnsPerTable) are provided for Core/Enterprise
-  - Enhanced tool description to indicate Enterprise support for retention configuration
+  - Enhanced tool description to indicate Core/Enterprise support for retention configuration
 
 ### Enhanced
 
@@ -21,6 +21,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cloud Dedicated: supports maxTables, maxColumnsPerTable, retentionPeriod
   - Core/Enterprise: supports retentionPeriod only
 - **Documentation**: Added retention policy examples for Enterprise and common retention period reference table
+
+## [1.3.0] - 2026-05-18
+
+### Added
+
+- **E2E test suite**: Protocol compliance tests (vitest) that verify server startup, MCP handshake, tool/resource/prompt registration, and error handling — no InfluxDB required
+- **Integration tests**: Live InfluxDB tests for `health_check`, `list_databases`, and `execute_query`, gated behind `INFLUX_TEST_ENABLED`
+- **Error-path unit tests**: Tests with recorded error fixtures from live Core and Cloud Serverless instances covering JSON, plain-text, and `{code, message}` error formats
+- **CI workflow**: GitHub Actions with protocol tests on every PR, integration tests against InfluxDB 3 Core via Docker, and Cloud Serverless integration tests via GitHub environment secrets
+- **Docker test infrastructure**: `docker-compose.test.yml` for local Core testing with preconfigured admin token
+- **Version consistency CI check**: Verifies `package.json`, `config.ts`, and `CHANGELOG.md` versions match on every PR
+- **CLAUDE.md**: Architecture overview and codebase conventions for Claude Code
+- **Claude Code skills**: Build/run workflow for Core/Enterprise and testing workflow
+
+### Fixed
+
+- Server-level error catch now sets `isError: true`, consistent with handler-level error responses
+- Plain-text error responses from InfluxDB Core (HTTP 500) are now surfaced in all 4 services instead of falling through to generic "Internal Server Error"
+- Query error handler now checks `data.message` for Cloud Serverless `{code, message}` JSON error format, matching the other 3 services
+
+### Changed
+
+- Minimum Node.js version raised to v20.11 (Node 18 is EOL; vitest 4.x and `import.meta.dirname` require v20.11+)
+- `@modelcontextprotocol/sdk` updated from `^1.12.1` to `1.27.1`
+- `@influxdata/influxdb3-client` updated from `^1.1.0` to `1.4.0`
+- All dependencies updated to latest within semver ranges
+- Version aligned across `package.json`, `config.ts`, and `CHANGELOG.md` (previously divergent)
+- npm package renamed from `influxdb-mcp-server` to `@influxdata/influxdb3-mcp-server`
+- Scoped package configured for public publish (`publishConfig.access: "public"`)
+- All dependencies pinned to exact versions (no caret ranges)
+
+## [1.2.0] - 2025-11-05
+
+### Added
+
+- **InfluxDB Cloud Serverless Support**: Complete support for InfluxDB Cloud Serverless instances
+
+  - Full database management with Cloud Serverless specific parameters: `description`, `retentionPeriod`
+  - Support for bucket operations (Cloud Serverless databases are called "buckets")
+  - Enhanced `create_database` and `update_database` tools with Cloud Serverless configuration
+  - Bucket renaming support via `newName` parameter in `update_database`
+  - Specialized response parsing for Cloud Serverless `_fields` array format
+  - Schema exploration via `information_schema` queries compatible with Cloud Serverless
+  - New configuration files: `env.cloud-serverless.example` and `example-cloud-serverless.mcp.json`
+
+- **Custom Context System**: Optional user-provided database context and documentation
+
+  - New `ContextFileService` for flexible context file discovery
+  - `context-file` MCP resource exposing custom documentation via `influx://context`
+  - `load-context` MCP prompt for one-click context loading
+  - `load_database_context` tool for agents to access user-provided context
+  - Support for multiple context file formats: JSON, Markdown, and plain text
+  - Flexible file placement: `/context/` folder or files with "context" in name
+
+### Enhanced
+
+- **Query Operations**:
+
+  - Universal CAST requirements documentation for both Cloud Dedicated and Cloud Serverless
+  - Enhanced query tools with product-specific guidance for aggregation functions
+  - Proper handling of Cloud Serverless response format with `_fields` arrays
+  - Updated query examples with correct CAST syntax for v3 cloud products
+
+- **Database Management**:
+
+  - Cloud Serverless bucket lifecycle management (create, update, delete, list)
+  - Retention period enforcement awareness and error handling
+  - Product-specific parameter validation and configuration
+  - Enhanced database listing with Cloud Serverless metadata
+
+- **Write Operations**:
+
+  - Retention period violation handling for cloud instances
+  - Improved error messages for timestamp-related write failures
+  - Enhanced line protocol validation and troubleshooting guidance
+
+- **Help System**:
+  - Updated help content with Cloud Serverless specific requirements
+  - Added retention period error guidance for cloud instances
+  - Enhanced query documentation with CAST requirements for cloud products
+  - Context system usage documentation
+
+### Technical Improvements
+
+- Product type detection and response parsing for Cloud Serverless
+- Enhanced error handling for retention period violations
+- Improved type safety for multi-product database operations
+- Context file service with flexible discovery patterns
+- Better separation of cloud-specific vs universal query requirements
 
 ## [1.1.0] - 2025-06-23
 

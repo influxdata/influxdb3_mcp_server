@@ -1,10 +1,16 @@
 {
-  "name": "influxdb-mcp-server",
-  "version": "1.0.0",
+  "name": "@influxdata/influxdb3-mcp-server",
+  "version": "1.3.0",
   "description": "Official InfluxDB MCP server for Model Context Protocol integration",
   "license": "(Apache-2.0 OR MIT)",
   "private": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=20.11.0"
+  },
   "main": "./build/index.js",
   "bin": {
     "influxdb-mcp-server": "./build/index.js"
@@ -17,7 +23,12 @@
     "lint": "eslint . --ext .ts,.js",
     "format": "prettier --write .",
     "prepublishOnly": "npm run clean && npm run build",
-    "test": "npm run build && node build/index.js --help || echo 'Build test completed'",
+    "pretest": "npm run build",
+    "test": "vitest run",
+    "test:integration": "INFLUX_TEST_ENABLED=true vitest run tests/integration.test.ts",
+    "test:watch": "vitest",
+    "test:infra:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "test:infra:down": "docker compose -f docker-compose.test.yml down",
     "MCP inspector": "npx @modelcontextprotocol/inspector node build/index.js",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
@@ -48,19 +59,20 @@
     "influxdata"
   ],
   "dependencies": {
-    "@influxdata/influxdb3-client": "^1.1.0",
-    "@modelcontextprotocol/sdk": "^1.12.1",
-    "axios": "^1.9.0",
-    "dotenv": "^16.5.0"
+    "@influxdata/influxdb3-client": "1.4.0",
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "axios": "1.15.2",
+    "dotenv": "16.6.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.28.0",
-    "@types/node": "^24.0.1",
-    "@typescript-eslint/eslint-plugin": "^8.15.0",
-    "@typescript-eslint/parser": "^8.15.0",
-    "eslint": "^9.28.0",
-    "prettier": "^3.5.3",
-    "typescript": "^5.0.0",
-    "zod": "^3.25.63"
+    "@eslint/js": "9.39.4",
+    "@types/node": "24.12.0",
+    "@typescript-eslint/eslint-plugin": "8.57.2",
+    "@typescript-eslint/parser": "8.57.2",
+    "eslint": "9.39.4",
+    "prettier": "3.8.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.1",
+    "zod": "3.25.76"
   }
 }

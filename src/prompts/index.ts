@@ -18,7 +18,16 @@ export interface McpPrompt {
     description: string;
     messages: Array<{
       role: string;
-      content: { type: string; text: string };
+      content:
+        | { type: "text"; text: string }
+        | {
+            type: "resource";
+            resource: {
+              uri: string;
+              mimeType: string;
+              text: string;
+            };
+          };
     }>;
   }>;
 }
@@ -27,7 +36,7 @@ export interface McpPrompt {
  * Create simple MCP prompts for InfluxDB operations
  */
 export function createPrompts(
-  _influxService: InfluxDBMasterService,
+  influxService: InfluxDBMasterService,
 ): McpPrompt[] {
   return [
     {
@@ -69,32 +78,52 @@ export function createPrompts(
     },
 
     {
-      name: "query-recent-data",
-      description: "Generate a prompt to query recent data from a measurement",
-      arguments: [
-        {
-          name: "database",
-          description: "Database name to query",
-          required: true,
-        },
-        {
-          name: "measurement",
-          description: "Measurement/table name to query",
-          required: true,
-        },
-      ],
-      handler: async (args) => {
-        const database = args?.database || "mydb";
-        const measurement = args?.measurement || "my_measurement";
+      name: "load-context",
+      description: "Load custom database context and documentation",
+      handler: async () => {
+        const contextFile = await influxService.contextFile.loadContextFile();
+
+        if (!contextFile) {
+          return {
+            description: "No context file found",
+            messages: [
+              {
+                role: "user",
+                content: {
+                  type: "text",
+                  text: "No context file was found. Create a file in /context/ folder or name a file with 'context' in the name (.json, .txt, .md) to provide custom database documentation.",
+                },
+              },
+            ],
+          };
+        }
+
+        let mimeType = "text/plain";
+        switch (contextFile.extension) {
+          case "json":
+            mimeType = "application/json";
+            break;
+          case "md":
+            mimeType = "text/markdown";
+            break;
+          case "txt":
+          default:
+            mimeType = "text/plain";
+            break;
+        }
 
         return {
-          description: `Query recent data from ${measurement} in ${database}`,
+          description: `Load context from ${contextFile.name}.${contextFile.extension}`,
           messages: [
             {
               role: "user",
               content: {
-                type: "text",
-                text: `Please query the most recent data from the "${measurement}" measurement in the "${database}" database. Use the execute_query tool to run: SELECT * FROM ${measurement} ORDER BY time DESC LIMIT 10`,
+                type: "resource",
+                resource: {
+                  uri: "influx://context",
+                  mimeType: mimeType,
+                  text: contextFile.content,
+                },
               },
             },
           ],

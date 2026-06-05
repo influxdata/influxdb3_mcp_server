@@ -41,7 +41,7 @@ Important: Always specify correct precision parameter to match your timestamp fo
         properties: {
           database: {
             type: "string",
-            description: "Name of the database to write to",
+            description: "Name of the database/bucket to write to",
           },
           data: {
             type: "string",
@@ -68,7 +68,9 @@ Important: Always specify correct precision parameter to match your timestamp fo
         additionalProperties: false,
       },
       zodSchema: z.object({
-        database: z.string().describe("Name of the database to write to"),
+        database: z
+          .string()
+          .describe("Name of the database/bucket to write to"),
         data: z.string().describe("Line protocol formatted data"),
         precision: z
           .enum(["nanosecond", "microsecond", "millisecond", "second"])
@@ -92,7 +94,7 @@ Important: Always specify correct precision parameter to match your timestamp fo
             content: [
               {
                 type: "text",
-                text: `Data written successfully to database '${args.database}'`,
+                text: `Data written successfully to database/bucket '${args.database}'`,
               },
             ],
           };

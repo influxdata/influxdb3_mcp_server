@@ -78,6 +78,7 @@ export function createServer(): Server {
             text: `Error: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
+        isError: true,
       };
     }
   });
@@ -126,8 +127,7 @@ export function createServer(): Server {
   });
 
   server.setRequestHandler(PingRequestSchema, async () => {
-    const pingResult = await influxService.ping();
-    return pingResult;
+    return {};
   });
 
   console.warn(

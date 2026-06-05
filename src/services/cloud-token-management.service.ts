@@ -1,7 +1,7 @@
 /**
- * InfluxDB Cloud-Dedicated Token Management Service
+ * InfluxDB Cloud-Dedicated/Clustered Token Management Service
  *
- * Handles database token operations for InfluxDB Cloud-Dedicated clusters
+ * Handles database token operations for InfluxDB Cloud-Dedicated and Clustered clusters
  * Uses REST API endpoints instead of SQL queries
  */
 
@@ -41,12 +41,13 @@ export class CloudTokenManagementService {
   }
 
   /**
-   * List all database tokens for the cloud-dedicated cluster
+   * List all database tokens for the cloud-dedicated/clustered cluster
    * GET /api/v0/accounts/{accountId}/clusters/{clusterId}/tokens
    */
   async listTokens(): Promise<CloudTokenInfo[]> {
     this.baseService.validateOperationSupport("list_cloud_tokens", [
       InfluxProductType.CloudDedicated,
+      InfluxProductType.Clustered,
     ]);
     this.baseService.validateManagementCapabilities();
 
@@ -70,6 +71,7 @@ export class CloudTokenManagementService {
   async getToken(tokenId: string): Promise<CloudTokenInfo> {
     this.baseService.validateOperationSupport("get_cloud_token", [
       InfluxProductType.CloudDedicated,
+      InfluxProductType.Clustered,
     ]);
     this.baseService.validateManagementCapabilities();
 
@@ -93,6 +95,7 @@ export class CloudTokenManagementService {
   async createToken(request: CreateCloudTokenRequest): Promise<CloudTokenInfo> {
     this.baseService.validateOperationSupport("create_cloud_token", [
       InfluxProductType.CloudDedicated,
+      InfluxProductType.Clustered,
     ]);
     this.baseService.validateManagementCapabilities();
 
@@ -119,6 +122,7 @@ export class CloudTokenManagementService {
   ): Promise<CloudTokenInfo> {
     this.baseService.validateOperationSupport("update_cloud_token", [
       InfluxProductType.CloudDedicated,
+      InfluxProductType.Clustered,
     ]);
     this.baseService.validateManagementCapabilities();
 
@@ -145,6 +149,7 @@ export class CloudTokenManagementService {
   async deleteToken(tokenId: string): Promise<boolean> {
     this.baseService.validateOperationSupport("delete_cloud_token", [
       InfluxProductType.CloudDedicated,
+      InfluxProductType.Clustered,
     ]);
     this.baseService.validateManagementCapabilities();
 
@@ -190,6 +195,7 @@ export class CloudTokenManagementService {
     const originalMessage =
       error.response?.data?.message ||
       error.response?.data?.error ||
+      (typeof error.response?.data === "string" ? error.response.data : null) ||
       error.response?.statusText;
     const statusText = error.response?.statusText || "";
 
