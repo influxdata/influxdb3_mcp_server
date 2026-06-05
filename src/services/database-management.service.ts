@@ -447,7 +447,7 @@ export class DatabaseManagementService {
    */
   private async listDatabasesCloudServerless(): Promise<DatabaseInfo[]> {
     try {
-      const httpClient = this.baseService.getInfluxHttpClient(true);
+      const httpClient = this.baseService.getInfluxHttpClient(false);
 
       const response = await httpClient.get<{ buckets?: any[] }>(
         "/api/v2/buckets",
@@ -531,7 +531,7 @@ export class DatabaseManagementService {
     config?: CloudServerlessBucketConfig,
   ): Promise<boolean> {
     try {
-      const httpClient = this.baseService.getInfluxHttpClient(true);
+      const httpClient = this.baseService.getInfluxHttpClient(false);
 
       const orgsResponse = await httpClient.get<{ orgs?: any[] }>(
         "/api/v2/orgs",
@@ -596,7 +596,7 @@ export class DatabaseManagementService {
    */
   private async deleteDatabaseCloudServerless(name: string): Promise<boolean> {
     try {
-      const httpClient = this.baseService.getInfluxHttpClient(true);
+      const httpClient = this.baseService.getInfluxHttpClient(false);
 
       const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
         "/api/v2/buckets",
@@ -632,7 +632,7 @@ export class DatabaseManagementService {
     config: Partial<CloudServerlessBucketConfig>,
   ): Promise<boolean> {
     try {
-      const httpClient = this.baseService.getInfluxHttpClient(true);
+      const httpClient = this.baseService.getInfluxHttpClient(false);
 
       const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
         "/api/v2/buckets",
