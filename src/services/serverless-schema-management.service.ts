@@ -69,7 +69,7 @@ export class SchemaManagementService {
     this.validateSchemaOperationSupport();
 
     try {
-      const httpClient = this.baseService.getInfluxHttpClient(true);
+      const httpClient = this.baseService.getInfluxHttpClient(false);
 
       // First, get the bucket ID by name
       const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
@@ -137,7 +137,7 @@ export class SchemaManagementService {
     this.validateSchemaOperationSupport();
 
     try {
-      const httpClient = this.baseService.getInfluxHttpClient(true);
+      const httpClient = this.baseService.getInfluxHttpClient(false);
 
       const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
         "/api/v2/buckets",
@@ -221,7 +221,7 @@ export class SchemaManagementService {
     this.validateSchemaOperationSupport();
 
     try {
-      const httpClient = this.baseService.getInfluxHttpClient(true);
+      const httpClient = this.baseService.getInfluxHttpClient(false);
 
       const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
         "/api/v2/buckets",
@@ -284,7 +284,7 @@ export class SchemaManagementService {
     this.validateSchemaOperationSupport();
 
     try {
-      const httpClient = this.baseService.getInfluxHttpClient(true);
+      const httpClient = this.baseService.getInfluxHttpClient(false);
 
       const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
         "/api/v2/buckets",
