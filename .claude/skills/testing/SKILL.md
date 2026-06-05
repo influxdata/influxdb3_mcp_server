@@ -181,6 +181,59 @@ The `createTestClient(env?)` factory in `tests/helpers/mcp-client.ts` spawns
 a real server process and returns a connected MCP `Client`. Override env vars
 by passing a partial record. Always call `close()` in `afterAll`.
 
+## Reviewing data-plane and admin changes
+
+When a change adds or modifies a tool that talks to an InfluxDB endpoint
+(writes, queries, database/token management), verify the actual API contract
+and exercise it against a real instance. Tool descriptions, CHANGELOG entries,
+and code comments are not authoritative on their own — confirm them.
+
+### Verify the API contract first
+
+Confirm the HTTP method, path, and request/response shape against both the
+InfluxData docs knowledge source and the `influxdata/influxdb` source
+(`influxdb3_server/src/http.rs` routing, `influxdb3_types/src/http.rs` structs).
+
+Gotchas that have already bitten this repo:
+
+- Core/Enterprise `update_database` retention is `PUT /api/v3/configure/database`
+  with `retention_period` as a duration string (`"60d"`) — not `PATCH`, not
+  `retention_period_ns`.
+- Core can update retention since v3.2.0 (static docs wrongly say it's immutable).
+- `/ping` and `/health` use `Token` auth even for core/enterprise (v1/v2 compat);
+  the admin client uses `Bearer`. Both are intentional.
+
+### Exercise it against a real instance
+
+Admin endpoints (`/api/v3/configure/*`) need an admin token; `health_check`
+does not, so a passing `health_check` does not prove the token works. Run a
+self-contained Core for an admin-path test on a free port:
+
+```bash
+docker run -d --name mcp-it-core -p 8383:8181 \
+  -v "$PWD/tests/fixtures/admin-token.json":/admin-token.json:ro \
+  influxdb:3-core influxdb3 serve \
+  --node-id local-test --object-store memory \
+  --admin-token-file /admin-token.json
+
+INFLUX_TEST_ENABLED=true INFLUX_DB_INSTANCE_URL=http://localhost:8383/ \
+INFLUX_DB_TOKEN=apiv3_test INFLUX_DB_PRODUCT_TYPE=core \
+npx vitest run tests/integration.test.ts
+
+docker rm -f mcp-it-core
+```
+
+This uses the offline preconfigured admin token in `tests/fixtures/admin-token.json`
+(token `apiv3_test`) — the `docker-compose.test.yml` pattern, but on a port you
+choose so it does not collide with other local instances.
+
+### Token gotcha
+
+v3 tokens are base64 and can contain `+`, `/`, and `=`. Do not extract one with
+`grep -oE 'apiv3_[A-Za-z0-9_-]+'` — it truncates at the first base64 character
+and yields an invalid token (the server returns `401 "the request was not
+authenticated"`).
+
 ## Additional Resources
 
 ### Reference Files
