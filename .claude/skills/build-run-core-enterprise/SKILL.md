@@ -43,11 +43,11 @@ Copy `env.example` as a starting point: `cp env.example .env`
 
 ### Token types (Core/Enterprise)
 
-| Token Type | Purpose | How to obtain |
-|---|---|---|
-| Operator | Full admin, bootstraps the instance | Printed on first `influxdb3 serve` start |
-| Admin | Full admin except managing other admins | Created via `create_admin_token` tool |
-| Resource | Scoped read/write on specific databases | Created via `create_resource_token` tool |
+| Token Type | Purpose                                 | How to obtain                            |
+| ---------- | --------------------------------------- | ---------------------------------------- |
+| Operator   | Full admin, bootstraps the instance     | Printed on first `influxdb3 serve` start |
+| Admin      | Full admin except managing other admins | Created via `create_admin_token` tool    |
+| Resource   | Scoped read/write on specific databases | Created via `create_resource_token` tool |
 
 Use the operator token during initial setup. Create scoped resource tokens for
 applications.
@@ -105,6 +105,7 @@ npm run "MCP inspector"   # quotes required (space in script name)
 ```
 
 This launches the inspector connected to the built server. Use it to:
+
 - Call `health_check` to verify connectivity
 - Call `list_databases` to confirm data access
 - Test `execute_query` with a simple SQL query
@@ -113,27 +114,29 @@ This launches the inspector connected to the built server. Use it to:
 
 All tools available for Core/Enterprise instances:
 
-| Tool | Description |
-|---|---|
-| `health_check` | Verify connection and health status |
-| `list_databases` | List all databases |
-| `create_database` | Create a new database |
-| `delete_database` | Delete a database |
-| `execute_query` | Run SQL queries |
-| `get_measurements` | List tables in a database |
-| `get_measurement_schema` | Show columns/types for a table |
-| `write_line_protocol` | Write data via line protocol |
-| `create_admin_token` | Create named admin token |
-| `list_admin_tokens` | List admin tokens |
-| `create_resource_token` | Create scoped resource token |
-| `list_resource_tokens` | List resource tokens |
-| `delete_token` | Delete a token by name |
-| `regenerate_operator_token` | Regenerate operator token (destructive) |
-| `get_help` | Built-in help and troubleshooting |
-| `load_database_context` | Load custom context from `context/` |
+| Tool                        | Description                                     |
+| --------------------------- | ----------------------------------------------- |
+| `health_check`              | Verify connection and health status             |
+| `list_databases`            | List all databases                              |
+| `create_database`           | Create a new database                           |
+| `update_database`           | Update retention period (Core requires v3.2.0+) |
+| `delete_database`           | Delete a database                               |
+| `execute_query`             | Run SQL queries                                 |
+| `get_measurements`          | List tables in a database                       |
+| `get_measurement_schema`    | Show columns/types for a table                  |
+| `write_line_protocol`       | Write data via line protocol                    |
+| `create_admin_token`        | Create named admin token                        |
+| `list_admin_tokens`         | List admin tokens                               |
+| `create_resource_token`     | Create scoped resource token                    |
+| `list_resource_tokens`      | List resource tokens                            |
+| `delete_token`              | Delete a token by name                          |
+| `regenerate_operator_token` | Regenerate operator token (destructive)         |
+| `get_help`                  | Built-in help and troubleshooting               |
+| `load_database_context`     | Load custom context from `context/`             |
 
-Tools like `update_database` and `cloud_*` token tools are **not** available
-for Core/Enterprise.
+For Core/Enterprise, `update_database` supports the retention period only
+(updating retention on Core requires v3.2.0+). The `cloud_*` token tools are
+**not** available for Core/Enterprise.
 
 ## Troubleshooting
 
@@ -145,6 +148,7 @@ and `INFLUX_DB_PRODUCT_TYPE` is exactly `core` or `enterprise`.
 ### Health check fails but server starts
 
 The server can start without a reachable InfluxDB instance. Check:
+
 1. InfluxDB is running: `curl http://localhost:8181/ping`
 2. Token is valid (operator or admin token for full access)
 3. URL has trailing slash if using the default config

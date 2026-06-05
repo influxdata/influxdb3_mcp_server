@@ -5,6 +5,23 @@ All notable changes to the official InfluxDB MCP Server will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-06-05
+
+### Added
+
+- **Enterprise/Core Retention Policy Support**: Added database retention policy configuration for Core/Enterprise instances via `update_database` tool
+  - New method `updateDatabaseCoreEnterprise()` in `DatabaseManagementService` for PUT `/api/v3/configure/database`
+  - Support for `retentionPeriod` parameter on Core/Enterprise (sent as `retention_period`, a humantime duration string such as `"60d"`)
+  - Warning when unsupported parameters (maxTables, maxColumnsPerTable) are provided for Core/Enterprise
+  - Enhanced tool description to indicate Core/Enterprise support for retention configuration
+
+### Enhanced
+
+- **Tool Availability**: Updated `update_database` from "Cloud Dedicated only" to "All versions"
+  - Cloud Dedicated: supports maxTables, maxColumnsPerTable, retentionPeriod
+  - Core/Enterprise: supports retentionPeriod only
+- **Documentation**: Added retention policy examples for Enterprise and common retention period reference table
+
 ## [1.3.0] - 2026-05-18
 
 ### Added
@@ -40,7 +57,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **InfluxDB Cloud Serverless Support**: Complete support for InfluxDB Cloud Serverless instances
-
   - Full database management with Cloud Serverless specific parameters: `description`, `retentionPeriod`
   - Support for bucket operations (Cloud Serverless databases are called "buckets")
   - Enhanced `create_database` and `update_database` tools with Cloud Serverless configuration
@@ -50,7 +66,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New configuration files: `env.cloud-serverless.example` and `example-cloud-serverless.mcp.json`
 
 - **Custom Context System**: Optional user-provided database context and documentation
-
   - New `ContextFileService` for flexible context file discovery
   - `context-file` MCP resource exposing custom documentation via `influx://context`
   - `load-context` MCP prompt for one-click context loading
@@ -61,21 +76,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **Query Operations**:
-
   - Universal CAST requirements documentation for both Cloud Dedicated and Cloud Serverless
   - Enhanced query tools with product-specific guidance for aggregation functions
   - Proper handling of Cloud Serverless response format with `_fields` arrays
   - Updated query examples with correct CAST syntax for v3 cloud products
 
 - **Database Management**:
-
   - Cloud Serverless bucket lifecycle management (create, update, delete, list)
   - Retention period enforcement awareness and error handling
   - Product-specific parameter validation and configuration
   - Enhanced database listing with Cloud Serverless metadata
 
 - **Write Operations**:
-
   - Retention period violation handling for cloud instances
   - Improved error messages for timestamp-related write failures
   - Enhanced line protocol validation and troubleshooting guidance
@@ -99,7 +111,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **InfluxDB Cloud Dedicated Support**: Complete support for InfluxDB Cloud Dedicated clusters
-
   - New `update_database` tool for Cloud Dedicated database configuration management
   - Support for Cloud Dedicated specific parameters: `maxTables`, `maxColumnsPerTable`, `retentionPeriod`
   - Enhanced `create_database` tool with optional Cloud Dedicated configuration parameters
@@ -108,7 +119,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New configuration files: `env.cloud-dedicated.example` and `example-cloud-dedicated.mcp.json`
 
 - **Enhanced Validation System**: Comprehensive operation validation based on product type and configuration
-
   - All operations now validate required capabilities before execution
   - Product type-specific operation restrictions (e.g., token management only for Core/Enterprise)
   - Configuration validation ensures proper credentials for each operation type
@@ -123,13 +133,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Enhanced
 
 - **Database Management**:
-
   - `create_database` tool now supports Cloud Dedicated configuration parameters
   - `list_databases` returns Cloud Dedicated specific database metadata
   - All database operations now properly validate management capabilities
 
 - **Connection Management**:
-
   - Improved health checking with flexible endpoint assessment
   - Better connection status reporting for different InfluxDB product types
   - Enhanced error handling for Cloud Dedicated authentication scenarios

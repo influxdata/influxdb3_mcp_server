@@ -25,7 +25,7 @@ The trick: `createTestClient()` passes a fake config:
 
 ```typescript
 const BASE_ENV = {
-  INFLUX_DB_INSTANCE_URL: "http://localhost:19999/",  // nothing listens here
+  INFLUX_DB_INSTANCE_URL: "http://localhost:19999/", // nothing listens here
   INFLUX_DB_TOKEN: "test-token-not-used",
   INFLUX_DB_PRODUCT_TYPE: "core",
 };
@@ -106,7 +106,7 @@ exist, and skips gracefully if not (rather than failing on an empty instance).
 ```
 
 - **15s timeouts**: Generous for slow CI machines where child process spawn
-  + initialize handshake can take 2-3 seconds
+  - initialize handshake can take 2-3 seconds
 - **No pool override**: Default vitest forks handle child process spawning
 - **No `rootDir` change to tsconfig**: vitest uses Vite's esbuild pipeline
   to compile test files independently from `tsc`. The production tsconfig
@@ -127,6 +127,7 @@ For integration tests that need InfluxDB, use the same
 ## Local Docker Infrastructure
 
 `docker-compose.test.yml` starts InfluxDB 3 Core with:
+
 - `--object-store memory` — ephemeral, no volumes
 - Docker secrets to inject `tests/fixtures/admin-token.json` as
   `--admin-token-file=/run/secrets/admin-token`
@@ -151,6 +152,7 @@ Uses `docker run` (not `services:`) because Core requires
 cannot pass container CMD arguments.
 
 The job:
+
 1. Checks out the repo (which includes `tests/fixtures/admin-token.json`)
 2. Bind-mounts the token file into the container at `/run/secrets/admin-token`
 3. Polls `/ping` until Core is ready (up to 30 seconds)

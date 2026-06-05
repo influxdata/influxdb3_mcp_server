@@ -1,8 +1,10 @@
 # InfluxDB MCP Server
 
 [![CI](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/ci.yml/badge.svg)](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/ci.yml)
+
 <!-- [![Unit Tests](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/unit.yml/badge.svg)](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/unit.yml) -->
 <!-- [![Lint](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/lint.yml/badge.svg)](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/lint.yml) -->
+
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/influxdata/influxdb3_mcp_server)](https://archestra.ai/mcp-catalog/influxdata__influxdb3_mcp_server)
 
 Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, resources, and prompts for interacting with InfluxDB v3 (Core/Enterprise/Cloud Dedicated/Clustered/Cloud Serverless) via MCP clients.
@@ -20,30 +22,30 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 
 ## Available Tools
 
-| Tool Name                     | Description                                                       | Availability                         |
-| ----------------------------- | ----------------------------------------------------------------- | ------------------------------------ |
-| `load_database_context`       | Load optional custom database context and documentation           | All versions                         |
-| `get_help`                    | Get help and troubleshooting guidance for InfluxDB operations     | All versions                         |
-| `write_line_protocol`         | Write data using InfluxDB line protocol                           | All versions                         |
-| `create_database`             | Create a new database (with cloud-specific config options)        | All versions                         |
-| `update_database`             | Update database configuration (retention, etc.)                   | Cloud Dedicated/Clustered/Serverless |
-| `delete_database`             | Delete a database by name (irreversible)                          | All versions                         |
-| `execute_query`               | Run a SQL query against a database (supports multiple formats)    | All versions                         |
-| `get_measurements`            | List all measurements (tables) in a database                      | All versions                         |
-| `get_measurement_schema`      | Get schema (columns/types) for a measurement/table                | All versions                         |
-| `create_admin_token`          | Create a new admin token (full permissions)                       | Core/Enterprise only                 |
-| `list_admin_tokens`           | List all admin tokens (with optional filtering)                   | Core/Enterprise only                 |
-| `create_resource_token`       | Create a resource token for specific DBs and permissions          | Core/Enterprise only                 |
-| `list_resource_tokens`        | List all resource tokens (with filtering and ordering)            | Core/Enterprise only                 |
-| `delete_token`                | Delete a token by name                                            | Core/Enterprise only                 |
-| `regenerate_operator_token`   | Regenerate the operator token (dangerous/irreversible)            | Core/Enterprise only                 |
-| `cloud_list_database_tokens`  | List all database tokens for Cloud-Dedicated/Clustered cluster    | Cloud Dedicated/Clustered            |
-| `cloud_get_database_token`    | Get details of a specific database token by ID                    | Cloud Dedicated/Clustered            |
-| `cloud_create_database_token` | Create a new database token for Cloud-Dedicated/Clustered cluster | Cloud Dedicated/Clustered            |
-| `cloud_update_database_token` | Update an existing database token                                 | Cloud Dedicated/Clustered            |
-| `cloud_delete_database_token` | Delete a database token from Cloud-Dedicated/Clustered cluster    | Cloud Dedicated/Clustered            |
-| `list_databases`              | List all available databases in the instance                      | All versions                         |
-| `health_check`                | Check InfluxDB connection and health status                       | All versions                         |
+| Tool Name                     | Description                                                                                           | Availability              |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------- |
+| `load_database_context`       | Load optional custom database context and documentation                                               | All versions              |
+| `get_help`                    | Get help and troubleshooting guidance for InfluxDB operations                                         | All versions              |
+| `write_line_protocol`         | Write data using InfluxDB line protocol                                                               | All versions              |
+| `create_database`             | Create a new database (with cloud-specific config options)                                            | All versions              |
+| `update_database`             | Update database configuration (retention for all; maxTables/maxColumns for Cloud Dedicated/Clustered) | All versions              |
+| `delete_database`             | Delete a database by name (irreversible)                                                              | All versions              |
+| `execute_query`               | Run a SQL query against a database (supports multiple formats)                                        | All versions              |
+| `get_measurements`            | List all measurements (tables) in a database                                                          | All versions              |
+| `get_measurement_schema`      | Get schema (columns/types) for a measurement/table                                                    | All versions              |
+| `create_admin_token`          | Create a new admin token (full permissions)                                                           | Core/Enterprise only      |
+| `list_admin_tokens`           | List all admin tokens (with optional filtering)                                                       | Core/Enterprise only      |
+| `create_resource_token`       | Create a resource token for specific DBs and permissions                                              | Core/Enterprise only      |
+| `list_resource_tokens`        | List all resource tokens (with filtering and ordering)                                                | Core/Enterprise only      |
+| `delete_token`                | Delete a token by name                                                                                | Core/Enterprise only      |
+| `regenerate_operator_token`   | Regenerate the operator token (dangerous/irreversible)                                                | Core/Enterprise only      |
+| `cloud_list_database_tokens`  | List all database tokens for Cloud-Dedicated/Clustered cluster                                        | Cloud Dedicated/Clustered |
+| `cloud_get_database_token`    | Get details of a specific database token by ID                                                        | Cloud Dedicated/Clustered |
+| `cloud_create_database_token` | Create a new database token for Cloud-Dedicated/Clustered cluster                                     | Cloud Dedicated/Clustered |
+| `cloud_update_database_token` | Update an existing database token                                                                     | Cloud Dedicated/Clustered |
+| `cloud_delete_database_token` | Delete a database token from Cloud-Dedicated/Clustered cluster                                        | Cloud Dedicated/Clustered |
+| `list_databases`              | List all available databases in the instance                                                          | All versions              |
+| `health_check`                | Check InfluxDB connection and health status                                                           | All versions              |
 
 ---
 
@@ -302,6 +304,40 @@ Use `host.docker.internal` as the InfluxDB URL so the MCP server container can r
   - `example-clustered.mcp.json` - Clustered with all variables
   - `example-cloud-serverless.mcp.json` - Cloud Serverless configuration
 - See the `env.example`, `env.cloud-dedicated.example`, `env.clustered.example`, and `env.cloud-serverless.example` files for environment variable templates.
+
+### Database Retention Policy Examples
+
+#### Core/Enterprise - Set 90-day Retention
+
+```typescript
+// Set 90-day retention policy on Enterprise instance
+await mcp.update_database({
+  name: "my_database",
+  retentionPeriod: 7776000000000000, // 90 days in nanoseconds
+});
+```
+
+#### Cloud Dedicated - Update Multiple Settings
+
+```typescript
+// Update retention, maxTables, and maxColumnsPerTable
+await mcp.update_database({
+  name: "my_database",
+  retentionPeriod: 7776000000000000, // 90 days
+  maxTables: 1000,
+  maxColumnsPerTable: 250,
+});
+```
+
+#### Common Retention Periods
+
+| Duration | Nanoseconds            |
+| -------- | ---------------------- |
+| 7 days   | 604,800,000,000,000    |
+| 30 days  | 2,592,000,000,000,000  |
+| 90 days  | 7,776,000,000,000,000  |
+| 180 days | 15,552,000,000,000,000 |
+| 1 year   | 31,536,000,000,000,000 |
 
 ---
 

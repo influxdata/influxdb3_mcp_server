@@ -97,9 +97,10 @@ export class DatabaseManagementService {
   }
 
   /**
-   * Update database configuration (cloud-dedicated/clustered and cloud-serverless)
+   * Update database configuration (single entrypoint for all product types)
    * For cloud-dedicated/clustered: PATCH /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
    * For cloud-serverless: PATCH /api/v2/buckets/{bucketID}
+   * For core/enterprise: PUT /api/v3/configure/database with db and retention_period (humantime duration string)
    */
   async updateDatabase(
     name: string,
@@ -112,6 +113,8 @@ export class DatabaseManagementService {
       InfluxProductType.CloudDedicated,
       InfluxProductType.CloudServerless,
       InfluxProductType.Clustered,
+      InfluxProductType.Core,
+      InfluxProductType.Enterprise,
     ]);
     this.baseService.validateManagementCapabilities();
 
@@ -130,9 +133,7 @@ export class DatabaseManagementService {
         );
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
-        throw new Error(
-          "Database update is not supported for core/enterprise InfluxDB",
-        );
+        return this.updateDatabaseCoreEnterprise(name, config);
       default:
         throw new Error(
           `Unsupported InfluxDB product type: ${connectionInfo.type}`,
@@ -400,6 +401,48 @@ export class DatabaseManagementService {
   }
 
   /**
+   * Update database configuration for core/enterprise
+   * Only supports retentionPeriod. Sends PUT /api/v3/configure/database with db
+   * and retention_period (humantime duration string such as "60d").
+   * Verified against Core 3.9.3; Core requires v3.2.0+ to update retention.
+   */
+  private async updateDatabaseCoreEnterprise(
+    name: string,
+    config: Partial<CloudDedicatedDatabaseConfig>,
+  ): Promise<boolean> {
+    try {
+      const httpClient = this.baseService.getInfluxHttpClient();
+      const endpoint = `/api/v3/configure/database`;
+
+      // Warn if unsupported parameters are provided
+      if (
+        config.maxTables !== undefined ||
+        config.maxColumnsPerTable !== undefined
+      ) {
+        console.warn(
+          "Warning: maxTables and maxColumnsPerTable are not supported for Core/Enterprise. Only retentionPeriod is supported.",
+        );
+      }
+
+      if (config.retentionPeriod === undefined) {
+        throw new Error(
+          "No valid configuration parameters provided for Core/Enterprise update. Only retentionPeriod is supported.",
+        );
+      }
+
+      const payload = {
+        db: name,
+        retention_period: this.formatRetentionPeriod(config.retentionPeriod),
+      };
+
+      await httpClient.put(endpoint, payload);
+      return true;
+    } catch (error: any) {
+      this.handleDatabaseError(error, `update database '${name}'`);
+    }
+  }
+
+  /**
    * List databases for cloud-serverless (using buckets from /api/v2)
    */
   private async listDatabasesCloudServerless(): Promise<DatabaseInfo[]> {
@@ -523,6 +566,29 @@ export class DatabaseManagementService {
     } catch (error: any) {
       this.handleDatabaseError(error, `create database (bucket) '${name}'`);
     }
+  }
+
+  /**
+   * Convert a retention period in nanoseconds to a humantime duration string.
+   * Emits whole days when evenly divisible, otherwise whole hours, so a sub-day
+   * value is never rounded down to "0d" (which would mark all data for immediate
+   * deletion). Core/Enterprise accept units h, d, w, mo, y — not s or m.
+   */
+  private formatRetentionPeriod(retentionPeriodNs: number): string {
+    const seconds = Math.floor(retentionPeriodNs / 1_000_000_000);
+    const hours = seconds / 3600;
+
+    if (hours < 1) {
+      throw new Error(
+        "retentionPeriod must be at least 1 hour (3600000000000 ns) for Core/Enterprise.",
+      );
+    }
+
+    if (hours % 24 === 0) {
+      return `${hours / 24}d`;
+    }
+
+    return `${Math.floor(hours)}h`;
   }
 
   /**

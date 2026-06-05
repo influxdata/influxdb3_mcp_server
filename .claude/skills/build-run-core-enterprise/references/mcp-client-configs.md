@@ -59,11 +59,16 @@ Use `host.docker.internal` to reach InfluxDB running on the Docker host:
     "influxdb": {
       "command": "docker",
       "args": [
-        "run", "--rm", "-i",
+        "run",
+        "--rm",
+        "-i",
         "--add-host=host.docker.internal:host-gateway",
-        "-e", "INFLUX_DB_INSTANCE_URL",
-        "-e", "INFLUX_DB_TOKEN",
-        "-e", "INFLUX_DB_PRODUCT_TYPE",
+        "-e",
+        "INFLUX_DB_INSTANCE_URL",
+        "-e",
+        "INFLUX_DB_TOKEN",
+        "-e",
+        "INFLUX_DB_PRODUCT_TYPE",
         "influxdb-mcp-server"
       ],
       "env": {
@@ -87,10 +92,15 @@ When InfluxDB is on a separate host, use the remote URL directly (no
     "influxdb": {
       "command": "docker",
       "args": [
-        "run", "--rm", "-i",
-        "-e", "INFLUX_DB_INSTANCE_URL",
-        "-e", "INFLUX_DB_TOKEN",
-        "-e", "INFLUX_DB_PRODUCT_TYPE",
+        "run",
+        "--rm",
+        "-i",
+        "-e",
+        "INFLUX_DB_INSTANCE_URL",
+        "-e",
+        "INFLUX_DB_TOKEN",
+        "-e",
+        "INFLUX_DB_PRODUCT_TYPE",
         "influxdb-mcp-server"
       ],
       "env": {

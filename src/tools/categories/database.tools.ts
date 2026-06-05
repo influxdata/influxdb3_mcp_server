@@ -142,7 +142,7 @@ export function createDatabaseTools(
     {
       name: "update_database",
       description:
-        "Update database configuration for InfluxDB Cloud Dedicated/Clustered clusters and Cloud Serverless buckets. For Cloud Dedicated/Clustered: modify maxTables, maxColumnsPerTable, and retentionPeriod. For Cloud Serverless: modify bucket name, description, and retentionPeriod. Not available for Core/Enterprise installations.",
+        "Update database configuration for InfluxDB. For Cloud Dedicated/Clustered: modify maxTables, maxColumnsPerTable, and retentionPeriod. For Cloud Serverless: modify bucket name, description, and retentionPeriod. For Core/Enterprise: modify retentionPeriod only (Core requires v3.2.0+).",
       inputSchema: {
         type: "object",
         properties: {
@@ -174,7 +174,7 @@ export function createDatabaseTools(
           retentionPeriod: {
             type: "number",
             description:
-              "Retention period in nanoseconds (Cloud Dedicated/Clustered and Cloud Serverless)",
+              "Retention period in nanoseconds (Cloud Dedicated/Clustered, Cloud Serverless, and Core/Enterprise)",
             minimum: 0,
           },
         },
@@ -209,7 +209,9 @@ export function createDatabaseTools(
           .number()
           .min(0)
           .optional()
-          .describe("Retention period in nanoseconds"),
+          .describe(
+            "Retention period in nanoseconds (Cloud Dedicated/Clustered, Cloud Serverless, and Core/Enterprise)",
+          ),
       }),
       handler: async (args) => {
         try {

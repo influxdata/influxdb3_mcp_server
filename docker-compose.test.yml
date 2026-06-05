@@ -12,7 +12,15 @@ services:
     secrets:
       - admin-token
     healthcheck:
-      test: ["CMD", "curl", "-f", "-H", "Authorization: Bearer apiv3_test", "http://localhost:8181/ping"]
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "-H",
+          "Authorization: Bearer apiv3_test",
+          "http://localhost:8181/ping",
+        ]
       interval: 5s
       timeout: 3s
       retries: 10
