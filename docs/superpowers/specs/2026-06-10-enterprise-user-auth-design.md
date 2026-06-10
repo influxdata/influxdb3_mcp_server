@@ -60,7 +60,16 @@ All JSON fields are camelCase.
 // response: same shape as authorize
 ```
 
-The refresh token rotates: every refresh response carries a new one.
+Verified in server source (`ent/influxdb3_server/src/http/users.rs`):
+
+- `expiresAt` is epoch **seconds** (`time_provider.now().timestamp() +
+  JWT_EXPIRATION_SECONDS`).
+- Access-token TTL is `JWT_EXPIRATION_SECONDS = 3600` (1 hour).
+- Refresh uses `validate_and_rotate_refresh_token`: each refresh consumes
+  the old token and issues a new one.
+- Both endpoints return an `UsersNotEnabled` error when the server's user
+  service or JWT authority is not configured, so user auth requires
+  server-side enablement.
 
 ## Configuration
 
@@ -188,18 +197,23 @@ Layers, following the repo's existing structure:
    exercise query/write/database tools end to end, confirm refresh and
    401-retry behavior.
 
-## Assumptions to verify against v3.10-rc
+## Assumptions to verify against the release candidate
 
-1. `expiresAt` units: epoch seconds vs milliseconds.
-2. Whether `/ping` and `/health` accept the JWT under the `Token` scheme.
+Resolved from server source (see "Wire contract" above): `expiresAt` is
+epoch seconds; access-token TTL is 1 hour; refresh rotation consumes the
+old refresh token; user auth requires server-side enablement (the
+endpoints error with `UsersNotEnabled` otherwise).
+
+Still to verify on a running instance:
+
+1. Whether `/ping` and `/health` accept the JWT under the `Token` scheme.
    Current code intentionally uses `Token` for v1/v2 compatibility; if the
    JWT requires `Bearer`, those two calls switch scheme in user-auth mode
    only.
-3. Default access-token TTL (affects how observable refresh is in tests).
-4. Whether user auth requires server-side enablement flags, and the exact
-   `manage init-admin` bootstrap sequence.
-5. That a rotated refresh token invalidates its predecessor (assumed; the
-   re-login fallback covers either way).
+2. The HTTP status code of the `UsersNotEnabled` error (affects the
+   error-message hint for servers without user auth enabled).
+3. The exact server flags and `manage init-admin` bootstrap sequence for
+   enabling user auth in the integration environment.
 
 ## Decisions log
 
