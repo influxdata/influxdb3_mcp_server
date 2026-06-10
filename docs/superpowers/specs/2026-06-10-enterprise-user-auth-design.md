@@ -123,13 +123,31 @@ Behavior:
 ### BaseConnectionService (modified)
 
 - Owns the `UserAuthService` instance when credentials are configured.
+- **Capability checks accept credential-backed auth.** Today
+  `isValidConfig`, `hasDataCapabilities`, `hasManagementCapabilities`,
+  `validateDataCapabilities`, and `validateManagementCapabilities` all
+  reduce to `!!(url && token)` for Core/Enterprise, and every query,
+  write, database, and token tool calls one of them before doing any work
+  (`query.service.ts:47`, `write.service.ts:50`,
+  `database-management.service.ts:44`, `token-management.service.ts:56`).
+  Without this change, user-auth mode would fail every tool with
+  "requires token in configuration" before the login flow runs. The
+  Core/Enterprise condition becomes: url present AND (static token, or
+  username + password). Cloud branches are unchanged; config validation
+  already rejects credentials there. The validators' error messages name
+  both auth options for Enterprise.
+- `initializeClient()` is gated on the same check. In user-auth mode it
+  skips SDK construction (no token exists at startup under lazy login);
+  the async `getClient()` builds the client on first use after login.
 - `getClient()` becomes `async getClient(): Promise<InfluxDBClient | null>`.
   The SDK takes a static token at construction and has no setter, so the
   method compares the token version and lazily rebuilds the client when the
   token rotated. About six call sites in `query.service.ts` and
   `write.service.ts`, all already async.
 - `ping()` and `getHealthStatus()` obtain the token from the provider.
-- `getConnectionInfo()` adds `authMode: "token" | "user"`.
+- `getConnectionInfo()` adds `authMode: "token" | "user"`, and `hasToken`
+  means "auth is configured" (static token or credentials), not "a static
+  token is set".
 
 ### Resources (modified)
 
@@ -157,7 +175,10 @@ Layers, following the repo's existing structure:
 
 1. **Protocol tests** (vitest, no InfluxDB): config validation matrix from
    the table above; server starts in user-auth mode and advertises the
-   same tool count.
+   same tool count; capability checks (`hasDataCapabilities`,
+   `hasManagementCapabilities`) return true for Enterprise with
+   credentials only, so tools reach the login flow instead of failing
+   with "requires token in configuration".
 2. **Unit tests** (`UserAuthService` with mocked HTTP): first-call login;
    no refresh while fresh; proactive refresh near expiry; concurrent
    coalescing (N parallel `getToken()` → one login); refresh rejection →
