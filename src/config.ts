@@ -13,6 +13,8 @@ export interface InfluxConfig {
   url?: string;
   token?: string;
   management_token?: string;
+  username?: string;
+  password?: string;
   type: string;
   account_id?: string;
   cluster_id?: string;
@@ -38,6 +40,8 @@ export function loadConfig(): McpServerConfig {
         process.env.INFLUX_DB_DATABASE_TOKEN ||
         undefined,
       management_token: process.env.INFLUX_DB_MANAGEMENT_TOKEN || undefined,
+      username: process.env.INFLUX_DB_USERNAME || undefined,
+      password: process.env.INFLUX_DB_PASSWORD || undefined,
       type:
         (process.env.INFLUX_DB_PRODUCT_TYPE as InfluxProductType) || "unknown",
       account_id: process.env.INFLUX_DB_ACCOUNT_ID,
@@ -68,6 +72,18 @@ export function validateConfig(config: McpServerConfig): void {
   ) {
     errors.push(
       `INFLUX_DB_PRODUCT_TYPE is required and must be one of: ${InfluxProductType.Enterprise}, ${InfluxProductType.Core}, ${InfluxProductType.CloudDedicated}, ${InfluxProductType.CloudServerless}, ${InfluxProductType.Clustered}`,
+    );
+  }
+
+  const hasCredentialInput = !!(
+    config.influx.username || config.influx.password
+  );
+  if (
+    hasCredentialInput &&
+    config.influx.type !== InfluxProductType.Enterprise
+  ) {
+    errors.push(
+      "INFLUX_DB_USERNAME/INFLUX_DB_PASSWORD are only supported for INFLUX_DB_PRODUCT_TYPE=enterprise. Use INFLUX_DB_TOKEN instead.",
     );
   }
 
@@ -110,7 +126,27 @@ export function validateConfig(config: McpServerConfig): void {
     if (!config.influx.url) {
       errors.push("INFLUX_DB_INSTANCE_URL is required for core/enterprise");
     }
-    if (!config.influx.token) {
+    const hasToken = !!config.influx.token;
+    if (config.influx.type === InfluxProductType.Enterprise) {
+      const hasFullCredentials = !!(
+        config.influx.username && config.influx.password
+      );
+      if (hasToken && hasCredentialInput) {
+        errors.push(
+          "Both INFLUX_DB_TOKEN and INFLUX_DB_USERNAME/INFLUX_DB_PASSWORD are set. Set exactly one authentication method.",
+        );
+      } else if (hasCredentialInput && !hasFullCredentials) {
+        errors.push(
+          config.influx.username
+            ? "INFLUX_DB_PASSWORD is required when INFLUX_DB_USERNAME is set"
+            : "INFLUX_DB_USERNAME is required when INFLUX_DB_PASSWORD is set",
+        );
+      } else if (!hasToken && !hasCredentialInput) {
+        errors.push(
+          "INFLUX_DB_TOKEN, or INFLUX_DB_USERNAME and INFLUX_DB_PASSWORD, is required for enterprise",
+        );
+      }
+    } else if (!hasToken) {
       errors.push("INFLUX_DB_TOKEN is required for core/enterprise");
     }
   }
