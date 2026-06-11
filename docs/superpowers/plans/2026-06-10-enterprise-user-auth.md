@@ -9,6 +9,7 @@
 **Tech Stack:** TypeScript (strict, ES2022, ESM with `.js` import suffixes), axios, `@influxdata/influxdb3-client`, vitest. All logging to stderr. Spec: `docs/superpowers/specs/2026-06-10-enterprise-user-auth-design.md`.
 
 **Verified wire contract** (from influxdb_pro server source; camelCase JSON):
+
 - `POST /api/v3/authorize` `{username, password}` → `{token, refreshToken, userId, expiresAt}`; `expiresAt` is epoch **seconds**; TTL 3600s.
 - `POST /api/v3/authorize/refresh` `{refreshToken}` → same shape; the old refresh token is consumed.
 
@@ -19,6 +20,7 @@
 ### Task 1: Config — credential fields and validation matrix
 
 **Files:**
+
 - Modify: `src/config.ts`
 - Create: `tests/config-user-auth.test.ts`
 
@@ -30,7 +32,9 @@ Create `tests/config-user-auth.test.ts`:
 import { describe, it, expect } from "vitest";
 import { validateConfig, McpServerConfig } from "../src/config.js";
 
-function makeConfig(influx: Partial<McpServerConfig["influx"]>): McpServerConfig {
+function makeConfig(
+  influx: Partial<McpServerConfig["influx"]>,
+): McpServerConfig {
   return {
     influx: { type: "enterprise", ...influx },
     server: { name: "influxdb-mcp-server", version: "0.0.0" },
@@ -147,17 +151,12 @@ In `loadConfig()`, add after `management_token`:
 In `validateConfig()`, add right after the product-type check (before the cloud-dedicated branch):
 
 ```typescript
-  const hasCredentialInput = !!(
-    config.influx.username || config.influx.password
+const hasCredentialInput = !!(config.influx.username || config.influx.password);
+if (hasCredentialInput && config.influx.type !== InfluxProductType.Enterprise) {
+  errors.push(
+    "INFLUX_DB_USERNAME/INFLUX_DB_PASSWORD are only supported for INFLUX_DB_PRODUCT_TYPE=enterprise. Use INFLUX_DB_TOKEN instead.",
   );
-  if (
-    hasCredentialInput &&
-    config.influx.type !== InfluxProductType.Enterprise
-  ) {
-    errors.push(
-      "INFLUX_DB_USERNAME/INFLUX_DB_PASSWORD are only supported for INFLUX_DB_PRODUCT_TYPE=enterprise. Use INFLUX_DB_TOKEN instead.",
-    );
-  }
+}
 ```
 
 Replace the final core/enterprise branch (the `else if ([Enterprise, Core].includes(...)` block) with:
@@ -217,6 +216,7 @@ git commit -m "feat: accept INFLUX_DB_USERNAME/PASSWORD for enterprise config"
 ### Task 2: UserAuthService — token lifecycle
 
 **Files:**
+
 - Create: `src/services/user-auth.service.ts`
 - Create: `tests/user-auth.service.test.ts`
 
@@ -276,8 +276,12 @@ describe("UserAuthService", () => {
   it("refreshes proactively when within the expiry skew", async () => {
     const post = vi
       .fn()
-      .mockResolvedValueOnce({ data: authBody({ expiresAt: Math.floor(Date.now() / 1000) + 60 }) })
-      .mockResolvedValueOnce({ data: authBody({ token: "jwt-2", refreshToken: "refresh-2" }) });
+      .mockResolvedValueOnce({
+        data: authBody({ expiresAt: Math.floor(Date.now() / 1000) + 60 }),
+      })
+      .mockResolvedValueOnce({
+        data: authBody({ token: "jwt-2", refreshToken: "refresh-2" }),
+      });
     const svc = makeService(post);
     await svc.getToken();
     // 45s later: 15s to expiry, inside the 30s skew margin
@@ -304,7 +308,9 @@ describe("UserAuthService", () => {
   it("falls back to re-login when refresh is rejected with 401", async () => {
     const post = vi
       .fn()
-      .mockResolvedValueOnce({ data: authBody({ expiresAt: Math.floor(Date.now() / 1000) + 60 }) })
+      .mockResolvedValueOnce({
+        data: authBody({ expiresAt: Math.floor(Date.now() / 1000) + 60 }),
+      })
       .mockRejectedValueOnce({ response: { status: 401 } })
       .mockResolvedValueOnce({ data: authBody({ token: "jwt-3" }) });
     const svc = makeService(post);
@@ -321,7 +327,9 @@ describe("UserAuthService", () => {
     const post = vi
       .fn()
       .mockResolvedValueOnce({ data: authBody() })
-      .mockResolvedValueOnce({ data: authBody({ token: "jwt-2", refreshToken: "refresh-2" }) });
+      .mockResolvedValueOnce({
+        data: authBody({ token: "jwt-2", refreshToken: "refresh-2" }),
+      });
     const svc = makeService(post);
     await svc.getToken();
     const v1 = svc.getTokenVersion();
@@ -342,7 +350,9 @@ describe("UserAuthService", () => {
   it("hints at server support on 404", async () => {
     const post = vi.fn().mockRejectedValue({ response: { status: 404 } });
     const svc = makeService(post);
-    await expect(svc.getToken()).rejects.toThrow(/not support user authentication|not enabled/);
+    await expect(svc.getToken()).rejects.toThrow(
+      /not support user authentication|not enabled/,
+    );
   });
 
   it("exposes auth info without token material", async () => {
@@ -538,6 +548,7 @@ git commit -m "feat: add UserAuthService for enterprise user-auth token lifecycl
 ### Task 3: HttpClientService — token provider and 401 retry
 
 **Files:**
+
 - Modify: `src/services/http-client.service.ts`
 - Create: `tests/http-client-auth.test.ts`
 
@@ -751,6 +762,7 @@ git commit -m "feat: support async token provider and 401 retry in HTTP client"
 ### Task 4: BaseConnectionService — capability checks, user-auth wiring, async getClient
 
 **Files:**
+
 - Modify: `src/services/base-connection.service.ts`
 - Modify: `src/services/query.service.ts` (lines ~121, ~163)
 - Modify: `src/services/write.service.ts` (lines ~119, ~178)
@@ -766,7 +778,9 @@ import { describe, it, expect } from "vitest";
 import { BaseConnectionService } from "../src/services/base-connection.service.js";
 import { McpServerConfig } from "../src/config.js";
 
-function makeConfig(influx: Partial<McpServerConfig["influx"]>): McpServerConfig {
+function makeConfig(
+  influx: Partial<McpServerConfig["influx"]>,
+): McpServerConfig {
   return {
     influx: { type: "enterprise", ...influx },
     server: { name: "influxdb-mcp-server", version: "0.0.0" },
@@ -944,30 +958,27 @@ Update `isValidConfig` — the final return (Core/Enterprise and default) become
 Update `hasManagementCapabilities` — the final return becomes:
 
 ```typescript
-    return !!(
-      config.url &&
-      (config.token || (config.username && config.password))
-    );
+return !!(config.url && (config.token || (config.username && config.password)));
 ```
 
 In `validateDataCapabilities` and `validateManagementCapabilities`, update the two Core/Enterprise token error messages (the `else` branches) to name both options:
 
 ```typescript
-        if (!config.token) {
-          throw new Error(
-            "Core/Enterprise data operations require INFLUX_DB_TOKEN, or INFLUX_DB_USERNAME and INFLUX_DB_PASSWORD (Enterprise user auth), in configuration",
-          );
-        }
+if (!config.token) {
+  throw new Error(
+    "Core/Enterprise data operations require INFLUX_DB_TOKEN, or INFLUX_DB_USERNAME and INFLUX_DB_PASSWORD (Enterprise user auth), in configuration",
+  );
+}
 ```
 
 and
 
 ```typescript
-        if (!config.token) {
-          throw new Error(
-            "Core/Enterprise management operations require INFLUX_DB_TOKEN with management permissions, or INFLUX_DB_USERNAME and INFLUX_DB_PASSWORD (Enterprise user auth), in configuration",
-          );
-        }
+if (!config.token) {
+  throw new Error(
+    "Core/Enterprise management operations require INFLUX_DB_TOKEN with management permissions, or INFLUX_DB_USERNAME and INFLUX_DB_PASSWORD (Enterprise user auth), in configuration",
+  );
+}
 ```
 
 Note: these branches are only reached when `hasDataCapabilities()` / `hasManagementCapabilities()` is false, which in user-auth mode cannot happen (credentials make them true), so the message text is the only change needed.
@@ -1079,13 +1090,13 @@ Update `getInfluxHttpClient()` to hand the provider to the HTTP client:
 In `src/services/query.service.ts` (two places, in `executeCloudDedicatedQuery` and `executeCloudServerlessQuery`):
 
 ```typescript
-      const client = await this.baseService.getClient();
+const client = await this.baseService.getClient();
 ```
 
 In `src/services/write.service.ts` (two places, both write methods using the SDK client):
 
 ```typescript
-      const client = await this.baseService.getClient();
+const client = await this.baseService.getClient();
 ```
 
 In `src/services/influxdb-master.service.ts`, the passthrough now returns a Promise:
@@ -1121,6 +1132,7 @@ git commit -m "feat: wire user-auth provider through connection service and SDK 
 ### Task 5: Status resource and protocol test for user-auth mode
 
 **Files:**
+
 - Modify: `src/resources/index.ts` (influx-config handler, ~line 34)
 - Create: `tests/protocol-user-auth.test.ts`
 
@@ -1179,16 +1191,16 @@ Expected: first test PASSES (config validation already accepts credentials); the
 In `src/resources/index.ts`, in the `influx-config` handler, extend the `connection` object:
 
 ```typescript
-        const config = {
-          connection: {
-            url: connectionInfo.url,
-            hasToken: connectionInfo.hasToken,
-            authMode: connectionInfo.authMode,
-            username: connectionInfo.username,
-            database: connectionInfo.database,
-            isConnected,
-          },
-        };
+const config = {
+  connection: {
+    url: connectionInfo.url,
+    hasToken: connectionInfo.hasToken,
+    authMode: connectionInfo.authMode,
+    username: connectionInfo.username,
+    database: connectionInfo.database,
+    isConnected,
+  },
+};
 ```
 
 - [ ] **Step 4: Rebuild and run tests**
@@ -1208,6 +1220,7 @@ git commit -m "feat: report auth mode in config resource; protocol test for user
 ### Task 6: Documentation — README and env example
 
 **Files:**
+
 - Modify: `README.md` (Core/Enterprise env section, ~lines 75–105)
 - Modify: `env.example`
 
@@ -1258,6 +1271,7 @@ git commit -m "docs: document INFLUX_DB_USERNAME/PASSWORD for enterprise user au
 ### Task 7: Gated integration test for the release candidate
 
 **Files:**
+
 - Create: `tests/user-auth-integration.test.ts`
 
 This test only runs when pointed at a live Enterprise instance with user auth enabled (the v3.10 release candidate). It follows the existing `INFLUX_TEST_ENABLED` gating pattern from `tests/integration.test.ts`.
@@ -1279,7 +1293,9 @@ const RUN =
 const DB = process.env.INFLUX_DB_TEST_DATABASE || "user_auth_test";
 
 function toolText(result: any): string {
-  return (result.content as Array<{ type: string; text: string }>)[0]?.text ?? "";
+  return (
+    (result.content as Array<{ type: string; text: string }>)[0]?.text ?? ""
+  );
 }
 
 describe.skipIf(!RUN)("live Enterprise user-auth integration", () => {
@@ -1386,6 +1402,7 @@ npx vitest run tests/user-auth-integration.test.ts
 Expected: 4 passed.
 
 **RC verification checklist** (from the spec — record findings in the spec doc):
+
 1. `/ping` and `/health` accept the JWT under the `Token` scheme? If not, switch those two calls to `Bearer` in user-auth mode (in `BaseConnectionService.ping`/`getHealthStatus`).
 2. HTTP status of `UsersNotEnabled` (run the server without user auth enabled and attempt login; adjust the 404 hint in `UserAuthService.authError` if the status differs).
 3. Exact `manage init-admin` / server-flag bootstrap sequence — update this task's Step 4 commands with what actually works.

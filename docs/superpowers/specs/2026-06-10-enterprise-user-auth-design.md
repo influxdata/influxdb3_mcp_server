@@ -63,7 +63,7 @@ All JSON fields are camelCase.
 Verified in server source (`ent/influxdb3_server/src/http/users.rs`):
 
 - `expiresAt` is epoch **seconds** (`time_provider.now().timestamp() +
-  JWT_EXPIRATION_SECONDS`).
+JWT_EXPIRATION_SECONDS`).
 - Access-token TTL is `JWT_EXPIRATION_SECONDS = 3600` (1 hour).
 - Refresh uses `validate_and_rotate_refresh_token`: each refresh consumes
   the old token and issues a new one.
@@ -78,14 +78,14 @@ New env vars: `INFLUX_DB_USERNAME`, `INFLUX_DB_PASSWORD`.
 
 Validation (in `validateConfig`):
 
-| Condition | Result |
-|---|---|
-| Enterprise, token only | OK (unchanged behavior) |
-| Enterprise, username + password only | OK (user-auth mode) |
-| Enterprise, token AND credentials | Error: "Both INFLUX_DB_TOKEN and INFLUX_DB_USERNAME/INFLUX_DB_PASSWORD are set. Set exactly one." |
-| Enterprise, username XOR password | Error naming the missing variable |
-| Enterprise, neither | Existing error, extended to mention the credential option |
-| Any other product type with credentials set | Error: user auth is Enterprise-only |
+| Condition                                   | Result                                                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Enterprise, token only                      | OK (unchanged behavior)                                                                           |
+| Enterprise, username + password only        | OK (user-auth mode)                                                                               |
+| Enterprise, token AND credentials           | Error: "Both INFLUX_DB_TOKEN and INFLUX_DB_USERNAME/INFLUX_DB_PASSWORD are set. Set exactly one." |
+| Enterprise, username XOR password           | Error naming the missing variable                                                                 |
+| Enterprise, neither                         | Existing error, extended to mention the credential option                                         |
+| Any other product type with credentials set | Error: user auth is Enterprise-only                                                               |
 
 Fail-fast on ambiguity was an explicit decision: silently picking an
 identity is worse than refusing to start.
@@ -170,7 +170,7 @@ None added, none changed. `EXPECTED_TOOL_COUNT` is unchanged.
 
 - Bad credentials or unreachable host: tool calls fail with a clear error
   naming the user and host, e.g. `User authentication failed for 'alice'
-  at https://host:8181: 401 Unauthorized`.
+at https://host:8181: 401 Unauthorized`.
 - 404 from `/api/v3/authorize`: add the hint that the server may be older
   than v3.10 or user auth is not enabled.
 - Refresh failure triggers silent re-login; the agent sees an error only
