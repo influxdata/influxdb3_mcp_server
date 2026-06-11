@@ -116,7 +116,7 @@ export class WriteService {
     },
   ): Promise<void> {
     try {
-      const client = this.baseService.getClient();
+      const client = await this.baseService.getClient();
       if (!client) throw new Error("InfluxDB client not initialized");
       const writeOptions: any = {};
       if (options.precision) {
@@ -175,7 +175,7 @@ export class WriteService {
     },
   ): Promise<void> {
     try {
-      const client = this.baseService.getClient();
+      const client = await this.baseService.getClient();
       if (!client) throw new Error("InfluxDB client not initialized");
       const writeOptions: any = {};
       if (options.precision) {

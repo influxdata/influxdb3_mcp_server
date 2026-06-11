@@ -118,7 +118,7 @@ export class QueryService {
     database: string,
   ): Promise<any> {
     try {
-      const client = this.baseService.getClient();
+      const client = await this.baseService.getClient();
       if (!client) throw new Error("InfluxDB client not initialized");
       const result = client.queryPoints(query, database, { type: "sql" });
       const rows: any[] = [];
@@ -160,7 +160,7 @@ export class QueryService {
     database: string,
   ): Promise<any> {
     try {
-      const client = this.baseService.getClient();
+      const client = await this.baseService.getClient();
       if (!client) throw new Error("InfluxDB client not initialized");
       const result = client.queryPoints(query, database, { type: "sql" });
       const rows: any[] = [];

@@ -9,6 +9,7 @@ import { InfluxDBClient } from "@influxdata/influxdb3-client";
 import { InfluxConfig, McpServerConfig } from "../config.js";
 import { HttpClientService } from "./http-client.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
+import { UserAuthService } from "./user-auth.service.js";
 
 export interface ConnectionInfo {
   isDataClientInitialized: boolean;
@@ -16,16 +17,33 @@ export interface ConnectionInfo {
   hasToken: boolean;
   database?: string;
   type?: string;
+  authMode: "token" | "user";
+  username?: string;
 }
 
 export class BaseConnectionService {
   private client: InfluxDBClient | null = null;
   private config: McpServerConfig;
   private httpClient: HttpClientService;
+  private userAuth: UserAuthService | null = null;
+  private clientTokenVersion = -1;
 
   constructor(config: McpServerConfig) {
     this.config = config;
     this.httpClient = new HttpClientService();
+    const influx = config.influx;
+    if (
+      influx.type === InfluxProductType.Enterprise &&
+      influx.url &&
+      influx.username &&
+      influx.password
+    ) {
+      this.userAuth = new UserAuthService(
+        influx.url,
+        influx.username,
+        influx.password,
+      );
+    }
     this.initializeClient();
   }
 
@@ -61,6 +79,11 @@ export class BaseConnectionService {
    * Initialize InfluxDB client
    */
   private initializeClient(): void {
+    if (this.userAuth) {
+      // User-auth mode: no token exists until the first login.
+      // getClient() constructs the client lazily.
+      return;
+    }
     try {
       const influxConfig = this.config.influx;
       if (this.isValidConfig(influxConfig)) {
@@ -85,7 +108,10 @@ export class BaseConnectionService {
     if (config.type === InfluxProductType.CloudServerless) {
       return !!(config.url && config.token);
     }
-    return !!(config.url && config.token);
+    return !!(
+      config.url &&
+      (config.token || (config.username && config.password))
+    );
   }
 
   /**
@@ -113,7 +139,10 @@ export class BaseConnectionService {
     if (config.type === InfluxProductType.CloudServerless) {
       return !!(config.url && config.token);
     }
-    return !!(config.url && config.token);
+    return !!(
+      config.url &&
+      (config.token || (config.username && config.password))
+    );
   }
 
   /**
@@ -153,7 +182,7 @@ export class BaseConnectionService {
         }
         if (!config.token) {
           throw new Error(
-            "Core/Enterprise data operations require token in configuration",
+            "Core/Enterprise data operations require INFLUX_DB_TOKEN, or INFLUX_DB_USERNAME and INFLUX_DB_PASSWORD (Enterprise user auth), in configuration",
           );
         }
       }
@@ -197,7 +226,7 @@ export class BaseConnectionService {
         }
         if (!config.token) {
           throw new Error(
-            "Core/Enterprise management operations require token with management permissions",
+            "Core/Enterprise management operations require INFLUX_DB_TOKEN with management permissions, or INFLUX_DB_USERNAME and INFLUX_DB_PASSWORD (Enterprise user auth), in configuration",
           );
         }
       }
@@ -252,9 +281,22 @@ export class BaseConnectionService {
   }
 
   /**
-   * Get the main client instance
+   * Get the main client instance.
+   * In user-auth mode the client is built lazily after login and rebuilt
+   * whenever the access token rotates (the SDK has no token setter).
    */
-  getClient(): InfluxDBClient | null {
+  async getClient(): Promise<InfluxDBClient | null> {
+    if (this.userAuth) {
+      const token = await this.userAuth.getToken();
+      const version = this.userAuth.getTokenVersion();
+      if (!this.client || version !== this.clientTokenVersion) {
+        this.client = new InfluxDBClient({
+          host: this.getDataHost(),
+          token,
+        } as any);
+        this.clientTokenVersion = version;
+      }
+    }
     return this.client;
   }
 
@@ -266,8 +308,10 @@ export class BaseConnectionService {
     return {
       isDataClientInitialized: !!this.client,
       url: this.getDataHost() || "",
-      hasToken: !!influxConfig.token,
+      hasToken: !!influxConfig.token || !!this.userAuth,
       type: influxConfig.type,
+      authMode: this.userAuth ? "user" : "token",
+      username: this.userAuth?.getAuthInfo().username,
     };
   }
 
@@ -285,9 +329,12 @@ export class BaseConnectionService {
       return { ok: false, message: "No data host configured" };
     }
     try {
+      const token = this.userAuth
+        ? await this.userAuth.getToken()
+        : this.config.influx.token;
       const response = await fetch(`${url.replace(/\/$/, "")}/ping`, {
         headers: {
-          Authorization: `Token ${this.config.influx.token}`,
+          Authorization: `Token ${token}`,
         },
       });
       if (response.ok) {
@@ -318,13 +365,16 @@ export class BaseConnectionService {
    */
   async getHealthStatus(): Promise<{ status: string; checks?: any[] }> {
     const url = this.getDataHost();
-    if (!url || !this.client) {
+    if (!url || (!this.client && !this.userAuth)) {
       return { status: "fail" };
     }
     try {
+      const token = this.userAuth
+        ? await this.userAuth.getToken()
+        : this.config.influx.token;
       const response = await fetch(`${url.replace(/\/$/, "")}/health`, {
         headers: {
-          Authorization: `Token ${this.config.influx.token}`,
+          Authorization: `Token ${token}`,
         },
       });
       if (response.ok) {
@@ -362,7 +412,12 @@ export class BaseConnectionService {
       token = influxConfig.token || "";
     }
 
-    return HttpClientService.createInfluxClient(host, token, influxConfig.type);
+    return HttpClientService.createInfluxClient(
+      host,
+      token,
+      influxConfig.type,
+      this.userAuth ?? undefined,
+    );
   }
 
   /**
