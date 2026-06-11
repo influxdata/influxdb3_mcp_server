@@ -93,6 +93,20 @@ describe("HttpClientService with token provider", () => {
     expect(calls).toHaveLength(2);
   });
 
+  it("surfaces non-401 errors without retry", async () => {
+    const provider = makeProvider(["tok"]);
+    const client = new HttpClientService(
+      "http://x:8181",
+      undefined,
+      "enterprise",
+      provider,
+    );
+    const calls = installAdapter(client, () => ({ status: 500, data: {} }));
+    await expect(client.get("/whatever")).rejects.toThrow();
+    expect(provider.forceRefreshCalls).toBe(0);
+    expect(calls).toHaveLength(1);
+  });
+
   it("leaves static-token behavior unchanged when no provider is given", async () => {
     const client = new HttpClientService("http://x:8181", "static-tok", "core");
     const calls = installAdapter(client, () => ({ status: 200, data: {} }));

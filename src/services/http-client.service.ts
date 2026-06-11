@@ -49,8 +49,12 @@ export class HttpClientService {
             !config._authRetried
           ) {
             config._authRetried = true;
-            config.headers["Authorization"] =
-              `Bearer ${await tokenProvider.forceRefresh()}`;
+            console.error(
+              "Request returned 401; refreshing token and retrying once",
+            );
+            // Refresh the provider state only; the request interceptor
+            // owns the Authorization header and will pick up the new token.
+            await tokenProvider.forceRefresh();
             return this.axiosInstance.request(config);
           }
           return Promise.reject(error);
