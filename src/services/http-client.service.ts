@@ -7,11 +7,17 @@
 import axios, { AxiosInstance } from "axios";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import { Agent } from "https";
+import { TokenProvider } from "./user-auth.service.js";
 
 export class HttpClientService {
   private axiosInstance: AxiosInstance;
 
-  constructor(baseURL?: string, token?: string, influxType?: string) {
+  constructor(
+    baseURL?: string,
+    token?: string,
+    influxType?: string,
+    tokenProvider?: TokenProvider,
+  ) {
     const axiosConfig: any = {
       baseURL: baseURL?.replace(/\/$/, ""),
       timeout: 30000,
@@ -25,6 +31,32 @@ export class HttpClientService {
     }
 
     this.axiosInstance = axios.create(axiosConfig);
+
+    if (tokenProvider) {
+      this.axiosInstance.interceptors.request.use(async (config: any) => {
+        config.headers = config.headers ?? {};
+        config.headers["Authorization"] =
+          `Bearer ${await tokenProvider.getToken()}`;
+        return config;
+      });
+      this.axiosInstance.interceptors.response.use(
+        (response: any) => response,
+        async (error: any) => {
+          const config = error?.config;
+          if (
+            error?.response?.status === 401 &&
+            config &&
+            !config._authRetried
+          ) {
+            config._authRetried = true;
+            config.headers["Authorization"] =
+              `Bearer ${await tokenProvider.forceRefresh()}`;
+            return this.axiosInstance.request(config);
+          }
+          return Promise.reject(error);
+        },
+      );
+    }
 
     this.axiosInstance.interceptors.response.use(
       (response: any) => {
@@ -127,7 +159,8 @@ export class HttpClientService {
     baseUrl: string,
     token: string,
     influxType?: string,
+    tokenProvider?: TokenProvider,
   ): HttpClientService {
-    return new HttpClientService(baseUrl, token, influxType);
+    return new HttpClientService(baseUrl, token, influxType, tokenProvider);
   }
 }
