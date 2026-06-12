@@ -79,7 +79,7 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 You must provide:
 
 - `INFLUX_DB_INSTANCE_URL` (e.g. `http://localhost:8181/`)
-- `INFLUX_DB_TOKEN`
+- `INFLUX_DB_TOKEN` (or, for Enterprise, username/password — see below)
 - `INFLUX_DB_PRODUCT_TYPE` (`core` or `enterprise`)
 
 Example `.env`:
