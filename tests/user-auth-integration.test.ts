@@ -5,7 +5,8 @@ const RUN =
   (process.env.INFLUX_TEST_ENABLED === "true" ||
     process.env.INFLUX_TEST_ENABLED === "1") &&
   !!process.env.INFLUX_DB_USERNAME &&
-  !!process.env.INFLUX_DB_PASSWORD;
+  !!process.env.INFLUX_DB_PASSWORD &&
+  !!process.env.INFLUX_DB_INSTANCE_URL;
 
 const DB = process.env.INFLUX_DB_TEST_DATABASE || "user_auth_test";
 
