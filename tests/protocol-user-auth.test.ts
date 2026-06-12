@@ -34,5 +34,7 @@ describe("MCP protocol in enterprise user-auth mode", () => {
     expect(config.connection.authMode).toBe("user");
     expect(config.connection.username).toBe("alice");
     expect(text).not.toContain("test-password-not-used");
+    // Structural check: no password field of any kind in the output.
+    expect(text).not.toMatch(/"password"/i);
   });
 });
