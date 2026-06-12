@@ -90,6 +90,15 @@ INFLUX_DB_TOKEN=your_influxdb_token_here
 INFLUX_DB_PRODUCT_TYPE=core
 ```
 
+#### Enterprise user authentication (alternative to a static token)
+
+For InfluxDB 3 Enterprise with user authentication enabled, the server can authenticate as a user instead of using a static token:
+
+- `INFLUX_DB_USERNAME` — Enterprise username
+- `INFLUX_DB_PASSWORD` — Enterprise password
+
+Set either `INFLUX_DB_TOKEN` or the username/password pair, not both. The server exchanges the credentials for a short-lived access token, refreshes it automatically, and runs every operation with that user's permissions. Credentials and tokens are kept in memory only and never logged.
+
 #### For Cloud Serverless InfluxDB:
 
 You must provide:
