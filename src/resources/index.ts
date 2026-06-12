@@ -35,6 +35,8 @@ export function createResources(
           connection: {
             url: connectionInfo.url,
             hasToken: connectionInfo.hasToken,
+            authMode: connectionInfo.authMode,
+            username: connectionInfo.username,
             database: connectionInfo.database,
             isConnected,
           },
