@@ -289,12 +289,22 @@ export class BaseConnectionService {
     if (this.userAuth) {
       const token = await this.userAuth.getToken();
       const version = this.userAuth.getTokenVersion();
+      // No await below this line: the check-build-assign sequence must
+      // stay synchronous so concurrent callers cannot interleave here.
       if (!this.client || version !== this.clientTokenVersion) {
+        const previous = this.client;
         this.client = new InfluxDBClient({
           host: this.getDataHost(),
           token,
         } as any);
         this.clientTokenVersion = version;
+        if (previous) {
+          void previous
+            .close()
+            .catch((error) =>
+              console.error("Failed to close rotated client:", error),
+            );
+        }
       }
     }
     return this.client;
