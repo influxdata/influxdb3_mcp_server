@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createTestClient, TestClient } from "./helpers/mcp-client.js";
+import { BaseConnectionService } from "../src/services/base-connection.service.js";
 
 const RUN =
   (process.env.INFLUX_TEST_ENABLED === "true" ||
@@ -79,5 +80,27 @@ describe.skipIf(!RUN)("live Enterprise user-auth integration", () => {
     });
     const config = JSON.parse((result.contents[0] as { text: string }).text);
     expect(config.connection.authMode).toBe("user");
+  });
+
+  // Verifies spec assumption 1: /ping and /health accept the JWT under the
+  // `Token` scheme. The health_check tool cannot verify this — it reports
+  // healthy if ANY check passes, so one rejected endpoint is masked. These
+  // calls hit each endpoint directly; if either fails here, switch the
+  // scheme to Bearer in user-auth mode (BaseConnectionService.ping /
+  // getHealthStatus).
+  it("ping and health each accept the user-auth JWT under the Token scheme", async () => {
+    const svc = new BaseConnectionService({
+      influx: {
+        type: "enterprise",
+        url: process.env.INFLUX_DB_INSTANCE_URL!,
+        username: process.env.INFLUX_DB_USERNAME!,
+        password: process.env.INFLUX_DB_PASSWORD!,
+      },
+      server: { name: "influxdb-mcp-server", version: "0.0.0" },
+    });
+    const ping = await svc.ping();
+    expect(ping).toMatchObject({ ok: true });
+    const health = await svc.getHealthStatus();
+    expect(health.status).not.toBe("fail");
   });
 });
