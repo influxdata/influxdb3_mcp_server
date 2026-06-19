@@ -24,7 +24,7 @@
 - Modify: `src/config.ts`
 - Create: `tests/config-user-auth.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/config-user-auth.test.ts`:
 
@@ -117,12 +117,12 @@ describe("validateConfig user auth", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run tests/config-user-auth.test.ts`
 Expected: FAIL — TypeScript/property errors or assertion failures (`username` not in `InfluxConfig`, validation not implemented).
 
-- [ ] **Step 3: Implement config changes**
+- [x] **Step 3: Implement config changes**
 
 In `src/config.ts`:
 
@@ -196,7 +196,7 @@ Replace the final core/enterprise branch (the `else if ([Enterprise, Core].inclu
   }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/config-user-auth.test.ts`
 Expected: 8 passed.
@@ -204,7 +204,7 @@ Expected: 8 passed.
 Also run the existing suite to catch regressions: `npm run build && npm test`
 Expected: all pass (25 passed, 6 skipped, plus the 8 new).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/config.ts tests/config-user-auth.test.ts
@@ -220,7 +220,7 @@ git commit -m "feat: accept INFLUX_DB_USERNAME/PASSWORD for enterprise config"
 - Create: `src/services/user-auth.service.ts`
 - Create: `tests/user-auth.service.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/user-auth.service.test.ts`:
 
@@ -368,12 +368,12 @@ describe("UserAuthService", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run tests/user-auth.service.test.ts`
 Expected: FAIL — cannot resolve `../src/services/user-auth.service.js`.
 
-- [ ] **Step 3: Implement UserAuthService**
+- [x] **Step 3: Implement UserAuthService**
 
 Create `src/services/user-auth.service.ts`:
 
@@ -531,12 +531,12 @@ export class UserAuthService implements TokenProvider {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/user-auth.service.test.ts`
 Expected: 9 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/services/user-auth.service.ts tests/user-auth.service.test.ts
@@ -552,7 +552,7 @@ git commit -m "feat: add UserAuthService for enterprise user-auth token lifecycl
 - Modify: `src/services/http-client.service.ts`
 - Create: `tests/http-client-auth.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/http-client-auth.test.ts`. These tests replace the axios adapter (the function axios calls to perform the actual I/O) with a fake, so no network is involved:
 
@@ -661,12 +661,12 @@ describe("HttpClientService with token provider", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run tests/http-client-auth.test.ts`
 Expected: FAIL — constructor does not accept a fourth argument / no Authorization header set.
 
-- [ ] **Step 3: Implement provider support**
+- [x] **Step 3: Implement provider support**
 
 In `src/services/http-client.service.ts`:
 
@@ -745,12 +745,12 @@ Update the static factory at the bottom of the class:
   }
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `npx vitest run tests/http-client-auth.test.ts`
 Expected: 4 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/services/http-client.service.ts tests/http-client-auth.test.ts
@@ -769,7 +769,7 @@ git commit -m "feat: support async token provider and 401 retry in HTTP client"
 - Modify: `src/services/influxdb-master.service.ts` (getClient passthrough)
 - Create: `tests/base-connection-user-auth.test.ts`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Create `tests/base-connection-user-auth.test.ts`:
 
@@ -854,12 +854,12 @@ describe("BaseConnectionService in user-auth mode", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `npx vitest run tests/base-connection-user-auth.test.ts`
 Expected: FAIL — capabilities false, `authMode` undefined, `getClient()` not a Promise.
 
-- [ ] **Step 3: Implement BaseConnectionService changes**
+- [x] **Step 3: Implement BaseConnectionService changes**
 
 In `src/services/base-connection.service.ts`:
 
@@ -1085,7 +1085,7 @@ Update `getInfluxHttpClient()` to hand the provider to the HTTP client:
   }
 ```
 
-- [ ] **Step 4: Update getClient call sites to await**
+- [x] **Step 4: Update getClient call sites to await**
 
 In `src/services/query.service.ts` (two places, in `executeCloudDedicatedQuery` and `executeCloudServerlessQuery`):
 
@@ -1112,7 +1112,7 @@ In `src/services/influxdb-master.service.ts`, the passthrough now returns a Prom
 
 (No text change needed — it already forwards the return value — but verify nothing else calls it synchronously: `grep -rn "getClient()" src/ tests/` and confirm every call site awaits or returns the promise.)
 
-- [ ] **Step 5: Run tests and build**
+- [x] **Step 5: Run tests and build**
 
 Run: `npx vitest run tests/base-connection-user-auth.test.ts`
 Expected: 6 passed.
@@ -1120,7 +1120,7 @@ Expected: 6 passed.
 Run: `npm run build && npm test`
 Expected: clean compile; full suite passes (existing + new).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/services/base-connection.service.ts src/services/query.service.ts src/services/write.service.ts src/services/influxdb-master.service.ts tests/base-connection-user-auth.test.ts
@@ -1136,7 +1136,7 @@ git commit -m "feat: wire user-auth provider through connection service and SDK 
 - Modify: `src/resources/index.ts` (influx-config handler, ~line 34)
 - Create: `tests/protocol-user-auth.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `tests/protocol-user-auth.test.ts`. This spawns the compiled server with credentials instead of a token (`INFLUX_DB_TOKEN: ""` overrides the base test env; empty string is falsy in `loadConfig`):
 
@@ -1181,12 +1181,12 @@ describe("MCP protocol in enterprise user-auth mode", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npm run build && npx vitest run tests/protocol-user-auth.test.ts`
 Expected: first test PASSES (config validation already accepts credentials); the resource test FAILS — `authMode` is undefined in the resource JSON.
 
-- [ ] **Step 3: Add auth fields to the config resource**
+- [x] **Step 3: Add auth fields to the config resource**
 
 In `src/resources/index.ts`, in the `influx-config` handler, extend the `connection` object:
 
@@ -1203,12 +1203,12 @@ const config = {
 };
 ```
 
-- [ ] **Step 4: Rebuild and run tests**
+- [x] **Step 4: Rebuild and run tests**
 
 Run: `npm run build && npx vitest run tests/protocol-user-auth.test.ts tests/protocol.test.ts`
 Expected: all pass. (The ping inside the resource handler fails fast against the dummy URL; the resource still renders with `isConnected: false`. The user-auth login is lazy, so no real InfluxDB is needed.)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/resources/index.ts tests/protocol-user-auth.test.ts
@@ -1224,7 +1224,7 @@ git commit -m "feat: report auth mode in config resource; protocol test for user
 - Modify: `README.md` (Core/Enterprise env section, ~lines 75–105)
 - Modify: `env.example`
 
-- [ ] **Step 1: Update env.example**
+- [x] **Step 1: Update env.example**
 
 Read `env.example` first, then append (or place alongside the token entry):
 
@@ -1238,7 +1238,7 @@ Read `env.example` first, then append (or place alongside the token entry):
 # INFLUX_DB_PASSWORD=your_password
 ```
 
-- [ ] **Step 2: Update README**
+- [x] **Step 2: Update README**
 
 In the Core/Enterprise environment-variable section (around lines 75–105), document the new variables. Read the section first and match its existing format. Content to convey:
 
@@ -1257,7 +1257,7 @@ it automatically, and runs every operation with that user's permissions.
 Credentials and tokens are kept in memory only and never logged.
 ```
 
-- [ ] **Step 3: Verify formatting and commit**
+- [x] **Step 3: Verify formatting and commit**
 
 Run: `npx prettier --check README.md env.example` (fix with `npx prettier --write` if needed)
 
@@ -1276,7 +1276,7 @@ git commit -m "docs: document INFLUX_DB_USERNAME/PASSWORD for enterprise user au
 
 This test only runs when pointed at a live Enterprise instance with user auth enabled (the v3.10 release candidate). It follows the existing `INFLUX_TEST_ENABLED` gating pattern from `tests/integration.test.ts`.
 
-- [ ] **Step 1: Write the gated integration test**
+- [x] **Step 1: Write the gated integration test**
 
 Create `tests/user-auth-integration.test.ts`:
 
@@ -1367,12 +1367,12 @@ describe.skipIf(!RUN)("live Enterprise user-auth integration", () => {
 
 Argument names are verified against the tool schemas in `src/tools/categories/write.tools.ts`, `query.tools.ts`, and `database.tools.ts` (`database`/`data`/`precision`, `database`/`query`, `name`).
 
-- [ ] **Step 2: Verify it is skipped without env**
+- [x] **Step 2: Verify it is skipped without env**
 
 Run: `npm run build && npx vitest run tests/user-auth-integration.test.ts`
 Expected: all tests reported as skipped.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add tests/user-auth-integration.test.ts
@@ -1380,6 +1380,11 @@ git commit -m "test: add gated integration test for enterprise user auth"
 ```
 
 - [ ] **Step 4: Run against the release candidate (manual, when the RC is available)**
+
+**RC environment (2026-06-18):**
+
+- Core v3.10.0-rc-2, `localhost:8383`, `--without-auth --object-store=memory` → `npm test` (standard integration, 4/4 pass) ✓
+- Enterprise v3.10.0-rc-2, `localhost:8181`, `--object-store=file` → user auth **not yet bootstrapped** (instance requires auth; `/ping` and `/health` return 401)
 
 Bootstrap the RC instance (verify exact flags against the RC docs/help):
 
@@ -1399,11 +1404,11 @@ INFLUX_DB_PASSWORD='<password>' \
 npx vitest run tests/user-auth-integration.test.ts
 ```
 
-Expected: 4 passed.
+Expected: 5 passed (4 original + the ping/health scheme test added in the final commit).
 
 **RC verification checklist** (from the spec — record findings in the spec doc):
 
-1. `/ping` and `/health` accept the JWT under the `Token` scheme? If not, switch those two calls to `Bearer` in user-auth mode (in `BaseConnectionService.ping`/`getHealthStatus`).
+1. `/ping` and `/health` accept the JWT under the `Token` scheme? If not, switch those two calls to `Bearer` in user-auth mode (in `BaseConnectionService.ping`/`getHealthStatus`). **Observation so far:** Enterprise `/health` returns `{"error":"the request was not authenticated"}` (no auth presented yet) — confirms the endpoint is auth-gated; scheme behavior under a valid JWT is still untested.
 2. HTTP status of `UsersNotEnabled` (run the server without user auth enabled and attempt login; adjust the 404 hint in `UserAuthService.authError` if the status differs).
 3. Exact `manage init-admin` / server-flag bootstrap sequence — update this task's Step 4 commands with what actually works.
 4. Long-session refresh: leave a session open >1h or lower the TTL if the RC allows, and confirm queries keep working (proves proactive refresh end to end).
@@ -1412,7 +1417,7 @@ Expected: 4 passed.
 
 ### Task 8: Final verification
 
-- [ ] **Step 1: Full local gate**
+- [x] **Step 1: Full local gate**
 
 ```bash
 npm run build && npm run lint && npx prettier --check . && npm test
@@ -1420,7 +1425,7 @@ npm run build && npm run lint && npx prettier --check . && npm test
 
 Expected: zero warnings, zero failures (new totals: previous 25 passed + ~29 new unit/protocol tests; 6 + 4 skipped integration).
 
-- [ ] **Step 2: Re-read the diff against the spec**
+- [x] **Step 2: Re-read the diff against the spec**
 
 ```bash
 git diff main...HEAD --stat
@@ -1428,4 +1433,4 @@ git diff main...HEAD --stat
 
 Check each spec section has landed: config matrix, UserAuthService behavior, HTTP provider + 401 retry, capability checks, async getClient + call sites, ping/health, resource fields, docs, tests. Confirm no token/password value can appear in any error message or log (search the diff for `console.` additions and error construction).
 
-- [ ] **Step 3: Commit any remaining fixes; do not push or open a PR without explicit request**
+- [x] **Step 3: Commit any remaining fixes; do not push or open a PR without explicit request**
