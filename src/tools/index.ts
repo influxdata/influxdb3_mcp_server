@@ -19,9 +19,10 @@ export interface McpTool {
   description: string;
   inputSchema: Record<string, any>;
   zodSchema: z.ZodSchema;
-  handler: (
-    args: any,
-  ) => Promise<{ content: Array<{ type: string; text: string }> }>;
+  handler: (args: any) => Promise<{
+    content: Array<{ type: string; text: string }>;
+    isError?: boolean;
+  }>;
 }
 
 const READONLY_TOOLS = new Set([

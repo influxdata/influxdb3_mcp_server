@@ -15,6 +15,10 @@ export function okResponse(value: unknown) {
 
 export function errorResponse(error: unknown, code = "tool_error") {
   const message = error instanceof Error ? error.message : String(error);
+  const details = error as {
+    fix?: string;
+    metadata?: Record<string, unknown>;
+  };
   return {
     content: [
       {
@@ -25,7 +29,9 @@ export function errorResponse(error: unknown, code = "tool_error") {
             code,
             message,
             retryable: false,
+            ...(details.fix && { fix: details.fix }),
           },
+          ...(details.metadata && { metadata: details.metadata }),
         }),
       },
     ],

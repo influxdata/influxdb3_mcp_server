@@ -7,7 +7,7 @@
 import { BaseConnectionService } from "./base-connection.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import { QueryLanguage, QuerySafetyService } from "./query-safety.service.js";
-import { createRequestId, logToolCall } from "./telemetry.service.js";
+import { createRequestId } from "./telemetry.service.js";
 
 export interface QueryResult {
   results?: any[];
@@ -160,19 +160,19 @@ export class QueryService {
 
     if (!safety.ok || !safety.normalizedQuery) {
       const duration = Date.now() - started;
-      logToolCall({
-        tool_name: language === "sql" ? "query_sql" : "query_influxql",
-        request_id: requestId,
-        query_id: queryId,
-        timestamp_ms: started,
-        duration_ms: duration,
-        db: database,
-        success: false,
-        error_code: safety.code,
-      });
       const error = new Error(safety.message || "Query rejected");
       (error as any).code = safety.code;
       (error as any).fix = safety.fix;
+      (error as any).metadata = {
+        request_id: requestId,
+        query_id: queryId,
+        query_id_source: "local",
+        query_type: language,
+        success: false,
+        duration_ms: duration,
+        row_count: 0,
+        truncated: false,
+      };
       throw error;
     }
 
@@ -195,18 +195,6 @@ export class QueryService {
         safety.normalizedQuery,
         language,
       );
-
-      logToolCall({
-        tool_name: language === "sql" ? "query_sql" : "query_influxql",
-        request_id: requestId,
-        query_id: queryId,
-        timestamp_ms: started,
-        duration_ms: duration,
-        db: database,
-        row_count: outputRows.length,
-        truncated,
-        success: true,
-      });
 
       return {
         ok: true,
@@ -251,16 +239,18 @@ export class QueryService {
       };
     } catch (error: any) {
       const duration = Date.now() - started;
-      logToolCall({
-        tool_name: language === "sql" ? "query_sql" : "query_influxql",
-        request_id: requestId,
-        query_id: queryId,
-        timestamp_ms: started,
-        duration_ms: duration,
-        db: database,
-        success: false,
-        error_code: error.code || "query_failed",
-      });
+      if (!error.metadata) {
+        error.metadata = {
+          request_id: requestId,
+          query_id: queryId,
+          query_id_source: "local",
+          query_type: language,
+          success: false,
+          duration_ms: duration,
+          row_count: 0,
+          truncated: false,
+        };
+      }
       throw error;
     }
   }
