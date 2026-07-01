@@ -6,6 +6,8 @@
 
 import { BaseConnectionService } from "./base-connection.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
+import { QueryLanguage, QuerySafetyService } from "./query-safety.service.js";
+import { createRequestId, logToolCall } from "./telemetry.service.js";
 
 export interface QueryResult {
   results?: any[];
@@ -20,12 +22,45 @@ export interface SchemaInfo {
   columns: Array<{
     name: string;
     type: string;
-    category: "time" | "tag" | "field";
+    category: "time" | "tag" | "field" | "unknown";
+    categoryConfidence?: "high" | "low";
+    nullable?: boolean;
+    warnings?: string[];
   }>;
+}
+
+export type QueryFormat = "json" | "csv" | "parquet" | "jsonl" | "pretty";
+
+export interface ReadOnlyQueryOptions {
+  format?: QueryFormat;
+  maxRows?: number;
+  timeoutMs?: number;
+  params?: Record<string, unknown> | unknown[];
+}
+
+export interface StructuredQueryResponse {
+  ok: true;
+  db: string;
+  q: string;
+  format: QueryFormat;
+  rows: any[];
+  metadata: {
+    request_id: string;
+    query_id: string;
+    query_id_source: "local" | "system.queries.id";
+    phase?: string;
+    query_type: QueryLanguage;
+    success: true;
+    duration_ms: number;
+    row_count: number;
+    truncated: boolean;
+  };
+  warnings: Array<{ code: string; message: string }>;
 }
 
 export class QueryService {
   private baseService: BaseConnectionService;
+  private safetyService = new QuerySafetyService();
 
   constructor(baseService: BaseConnectionService) {
     this.baseService = baseService;
@@ -41,7 +76,9 @@ export class QueryService {
     query: string,
     database: string,
     options: {
-      format?: "json" | "csv" | "parquet" | "jsonl" | "pretty";
+      format?: QueryFormat;
+      params?: Record<string, unknown> | unknown[];
+      timeoutMs?: number;
     } = {},
   ): Promise<any> {
     this.baseService.validateDataCapabilities();
@@ -57,10 +94,174 @@ export class QueryService {
         return this.executeCloudServerlessQuery(query, database);
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
-        return this.executeCoreEnterpriseQuery(query, database, format);
+        return this.executeCoreEnterpriseQuery(query, database, {
+          format,
+          params: options.params,
+          timeoutMs: options.timeoutMs,
+        });
       default:
         throw new Error(
           `Unsupported InfluxDB product type: ${connectionInfo.type}`,
+        );
+    }
+  }
+
+  async querySqlReadOnly(
+    query: string,
+    database: string,
+    options: ReadOnlyQueryOptions = {},
+  ): Promise<StructuredQueryResponse> {
+    return this.queryReadOnly("sql", query, database, options);
+  }
+
+  async queryInfluxqlReadOnly(
+    query: string,
+    database: string,
+    options: ReadOnlyQueryOptions = {},
+  ): Promise<StructuredQueryResponse> {
+    return this.queryReadOnly("influxql", query, database, options);
+  }
+
+  private async queryReadOnly(
+    language: QueryLanguage,
+    query: string,
+    database: string,
+    options: ReadOnlyQueryOptions,
+  ): Promise<StructuredQueryResponse> {
+    const requestId = createRequestId();
+    const queryId = createRequestId();
+    const started = Date.now();
+    const maxRows = Math.min(options.maxRows ?? 1000, 5000);
+    const format = options.format ?? "json";
+    const safety = this.safetyService.validate(query, language, maxRows);
+
+    if (!safety.ok || !safety.normalizedQuery) {
+      const duration = Date.now() - started;
+      logToolCall({
+        tool_name: language === "sql" ? "query_sql" : "query_influxql",
+        request_id: requestId,
+        query_id: queryId,
+        timestamp_ms: started,
+        duration_ms: duration,
+        db: database,
+        success: false,
+        error_code: safety.code,
+      });
+      const error = new Error(safety.message || "Query rejected");
+      (error as any).code = safety.code;
+      (error as any).fix = safety.fix;
+      throw error;
+    }
+
+    try {
+      const raw = await this.executeReadOnlyQuery(
+        language,
+        safety.normalizedQuery,
+        database,
+        {
+          format,
+          params: options.params,
+          timeoutMs: options.timeoutMs,
+        },
+      );
+      const rows = this.normalizeRows(raw, format);
+      const truncated = rows.length > maxRows;
+      const outputRows = truncated ? rows.slice(0, maxRows) : rows;
+      const duration = Date.now() - started;
+
+      logToolCall({
+        tool_name: language === "sql" ? "query_sql" : "query_influxql",
+        request_id: requestId,
+        query_id: queryId,
+        timestamp_ms: started,
+        duration_ms: duration,
+        db: database,
+        row_count: outputRows.length,
+        truncated,
+        success: true,
+      });
+
+      return {
+        ok: true,
+        db: database,
+        q: safety.normalizedQuery,
+        format,
+        rows: outputRows,
+        metadata: {
+          request_id: requestId,
+          query_id: queryId,
+          query_id_source: "local",
+          query_type: language,
+          success: true,
+          duration_ms: duration,
+          row_count: outputRows.length,
+          truncated,
+        },
+        warnings: safety.warnings,
+      };
+    } catch (error: any) {
+      const duration = Date.now() - started;
+      logToolCall({
+        tool_name: language === "sql" ? "query_sql" : "query_influxql",
+        request_id: requestId,
+        query_id: queryId,
+        timestamp_ms: started,
+        duration_ms: duration,
+        db: database,
+        success: false,
+        error_code: error.code || "query_failed",
+      });
+      throw error;
+    }
+  }
+
+  private async executeReadOnlyQuery(
+    language: QueryLanguage,
+    query: string,
+    database: string,
+    options: {
+      format: QueryFormat;
+      params?: Record<string, unknown> | unknown[];
+      timeoutMs?: number;
+    },
+  ): Promise<any> {
+    if (language === "sql") {
+      return this.executeQuery(query, database, {
+        format: options.format,
+        params: options.params,
+        timeoutMs: options.timeoutMs,
+      });
+    }
+
+    return this.executeInfluxqlQuery(query, database, options);
+  }
+
+  async executeInfluxqlQuery(
+    query: string,
+    database: string,
+    options: {
+      format?: QueryFormat;
+      params?: Record<string, unknown> | unknown[];
+      timeoutMs?: number;
+    } = {},
+  ): Promise<any> {
+    this.baseService.validateDataCapabilities();
+
+    const connectionInfo = this.baseService.getConnectionInfo();
+    switch (connectionInfo.type) {
+      case InfluxProductType.Core:
+      case InfluxProductType.Enterprise:
+        return this.executeCoreEnterpriseInfluxqlQuery(
+          query,
+          database,
+          options,
+        );
+      case InfluxProductType.CloudDedicated:
+      case InfluxProductType.Clustered:
+        return this.executeClusteredQuery(query, database);
+      default:
+        throw new Error(
+          `InfluxQL queries are not supported for ${connectionInfo.type}`,
         );
     }
   }
@@ -71,43 +272,104 @@ export class QueryService {
   private async executeCoreEnterpriseQuery(
     query: string,
     database: string,
-    format: string,
+    options: {
+      format: QueryFormat;
+      params?: Record<string, unknown> | unknown[];
+      timeoutMs?: number;
+    },
   ): Promise<any> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
+      const format = options.format;
       const payload = {
         db: database,
         q: query,
-        format: format,
+        format,
+        ...(options.params !== undefined && { params: options.params }),
       };
-      let acceptHeader = "application/json";
-      switch (format) {
-        case "json":
-          acceptHeader = "application/json";
-          break;
-        case "csv":
-          acceptHeader = "text/csv";
-          break;
-        case "parquet":
-          acceptHeader = "application/vnd.apache.parquet";
-          break;
-        case "jsonl":
-          acceptHeader = "application/json";
-          break;
-        case "pretty":
-          acceptHeader = "application/json";
-          break;
-      }
       const response = await httpClient.post("/api/v3/query_sql", payload, {
         headers: {
           "Content-Type": "application/json",
-          Accept: acceptHeader,
+          Accept: this.acceptHeader(format),
         },
+        ...(options.timeoutMs !== undefined && { timeout: options.timeoutMs }),
       });
       return response;
     } catch (error: any) {
       this.handleQueryError(error);
     }
+  }
+
+  private async executeCoreEnterpriseInfluxqlQuery(
+    query: string,
+    database: string,
+    options: {
+      format?: QueryFormat;
+      params?: Record<string, unknown> | unknown[];
+      timeoutMs?: number;
+    },
+  ): Promise<any> {
+    try {
+      const format = options.format ?? "json";
+      const httpClient = this.baseService.getInfluxHttpClient();
+      const payload = {
+        db: database,
+        q: query,
+        format,
+        ...(options.params !== undefined && { params: options.params }),
+      };
+      const response = await httpClient.post(
+        "/api/v3/query_influxql",
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Accept: this.acceptHeader(format),
+          },
+          ...(options.timeoutMs !== undefined && {
+            timeout: options.timeoutMs,
+          }),
+        },
+      );
+      return response;
+    } catch (error: any) {
+      this.handleQueryError(error);
+    }
+  }
+
+  private acceptHeader(format: string): string {
+    switch (format) {
+      case "csv":
+        return "text/csv";
+      case "parquet":
+        return "application/vnd.apache.parquet";
+      default:
+        return "application/json";
+    }
+  }
+
+  private normalizeRows(raw: any, format: QueryFormat): any[] {
+    if (format !== "json" && format !== "pretty") {
+      return Array.isArray(raw) ? raw : [{ value: raw }];
+    }
+
+    if (Array.isArray(raw)) {
+      return raw;
+    }
+
+    if (Array.isArray(raw?.rows)) {
+      return raw.rows;
+    }
+
+    if (Array.isArray(raw?.data)) {
+      return raw.data;
+    }
+
+    if (raw && typeof raw === "object") {
+      return [raw];
+    }
+
+    return [];
   }
 
   /**
@@ -397,7 +659,8 @@ export class QueryService {
       const columns: {
         name: string;
         type: string;
-        category: "time" | "tag" | "field";
+        category: "time" | "tag" | "field" | "unknown";
+        categoryConfidence: "high" | "low";
       }[] = [];
 
       if (
@@ -412,6 +675,7 @@ export class QueryService {
               name: value[0],
               type: value[1],
               category: "field",
+              categoryConfidence: "high",
             });
           });
         }
@@ -429,6 +693,7 @@ export class QueryService {
               name: value[0],
               type: "string",
               category: "tag",
+              categoryConfidence: "high",
             });
           });
         }
@@ -438,6 +703,7 @@ export class QueryService {
         name: "time",
         type: "timestamp",
         category: "time",
+        categoryConfidence: "high",
       });
 
       return { columns };
@@ -482,7 +748,8 @@ export class QueryService {
       const columns: {
         name: string;
         type: string;
-        category: "time" | "tag" | "field";
+        category: "time" | "tag" | "field" | "unknown";
+        categoryConfidence: "high" | "low";
       }[] = [];
 
       if (
@@ -497,6 +764,7 @@ export class QueryService {
               name: value[0],
               type: value[1],
               category: "field",
+              categoryConfidence: "high",
             });
           });
         }
@@ -514,6 +782,7 @@ export class QueryService {
               name: value[0],
               type: "string",
               category: "tag",
+              categoryConfidence: "high",
             });
           });
         }
@@ -523,6 +792,7 @@ export class QueryService {
         name: "time",
         type: "timestamp",
         category: "time",
+        categoryConfidence: "high",
       });
 
       return { columns };
@@ -556,18 +826,23 @@ export class QueryService {
 
       if (Array.isArray(result)) {
         const columns = result.map((row: any) => {
-          let category: "time" | "tag" | "field" = "field";
+          let category: "time" | "tag" | "field" | "unknown" = "unknown";
+          let categoryConfidence: "high" | "low" = "low";
 
           if (row.column_name === "time") {
             category = "time";
-          } else if (row.data_type === "string" || row.data_type === "text") {
-            category = "tag";
+            categoryConfidence = "high";
           }
 
           return {
             name: row.column_name,
             type: row.data_type,
             category,
+            categoryConfidence,
+            warnings:
+              category === "unknown"
+                ? ["Tag versus field role is not available from metadata."]
+                : undefined,
           };
         });
         return { columns };
@@ -605,22 +880,26 @@ export class QueryService {
             const columnName = row._fields?.column_name?.[1];
             const dataType = row._fields?.data_type?.[1];
 
-            let category: "time" | "tag" | "field" = "field";
+            let category: "time" | "tag" | "field" | "unknown" = "unknown";
+            let categoryConfidence: "high" | "low" = "low";
 
             if (columnName === "time") {
               category = "time";
-            } else if (
-              dataType?.includes("Dictionary") ||
-              dataType === "string" ||
-              dataType === "text"
-            ) {
+              categoryConfidence = "high";
+            } else if (dataType?.includes("Dictionary")) {
               category = "tag";
+              categoryConfidence = "high";
             }
 
             return {
               name: columnName,
               type: dataType,
               category,
+              categoryConfidence,
+              warnings:
+                category === "unknown"
+                  ? ["Tag versus field role is not available from metadata."]
+                  : undefined,
             };
           })
           .filter((col: any) => col.name);

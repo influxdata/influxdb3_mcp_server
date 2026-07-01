@@ -24,6 +24,9 @@ export interface McpServerConfig {
     name: string;
     version: string;
   };
+  tools: {
+    profile: "readonly" | "readwrite" | "operator";
+  };
 }
 
 /**
@@ -46,6 +49,13 @@ export function loadConfig(): McpServerConfig {
     server: {
       name: "influxdb-mcp-server",
       version: "1.4.0",
+    },
+    tools: {
+      profile:
+        (process.env.INFLUX_MCP_TOOL_PROFILE as
+          | "readonly"
+          | "readwrite"
+          | "operator") || "operator",
     },
   };
 }

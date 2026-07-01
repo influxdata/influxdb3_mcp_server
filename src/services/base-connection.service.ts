@@ -75,6 +75,14 @@ export class BaseConnectionService {
       this.client = null;
     }
   }
+
+  private createAuthHeader(): string {
+    const token = this.config.influx.token || "";
+    if (this.config.influx.type === InfluxProductType.CloudServerless) {
+      return `Token ${token}`;
+    }
+    return `Bearer ${token}`;
+  }
   /**
    * Check if configuration is valid for data operations (requires data client)
    */
@@ -287,7 +295,7 @@ export class BaseConnectionService {
     try {
       const response = await fetch(`${url.replace(/\/$/, "")}/ping`, {
         headers: {
-          Authorization: `Token ${this.config.influx.token}`,
+          Authorization: this.createAuthHeader(),
         },
       });
       if (response.ok) {
@@ -324,7 +332,7 @@ export class BaseConnectionService {
     try {
       const response = await fetch(`${url.replace(/\/$/, "")}/health`, {
         headers: {
-          Authorization: `Token ${this.config.influx.token}`,
+          Authorization: this.createAuthHeader(),
         },
       });
       if (response.ok) {

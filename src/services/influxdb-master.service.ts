@@ -52,6 +52,10 @@ export class InfluxDBMasterService {
     return this.baseConnection.getConnectionInfo();
   }
 
+  getConfig(): McpServerConfig {
+    return this.baseConnection.getConfig();
+  }
+
   /**
    * Ping InfluxDB instance and return version/type info
    */

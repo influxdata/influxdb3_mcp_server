@@ -16,6 +16,10 @@ const RETENTION_SUPPORTED =
 describe.skipIf(!RUN)("live InfluxDB integration", () => {
   let testClient: TestClient;
 
+  function textContent(result: any): string {
+    return (result.content as Array<{ type: string; text: string }>)[0]?.text;
+  }
+
   beforeAll(async () => {
     const env: Record<string, string> = {};
     if (process.env.INFLUX_DB_INSTANCE_URL)
@@ -46,10 +50,10 @@ describe.skipIf(!RUN)("live InfluxDB integration", () => {
       name: "list_databases",
       arguments: {},
     });
-    const text = (result.content as Array<{ type: string; text: string }>)[0]
-      ?.text;
-    expect(text).toBeDefined();
-    expect(text).toContain("Found");
+    const body = JSON.parse(textContent(result));
+    expect(body.ok).toBe(true);
+    expect(Array.isArray(body.databases)).toBe(true);
+    expect(typeof body.database_count).toBe("number");
   });
 
   it("execute_query runs a simple query", async () => {
@@ -58,25 +62,22 @@ describe.skipIf(!RUN)("live InfluxDB integration", () => {
       name: "list_databases",
       arguments: {},
     });
-    const dbText = (
-      dbResult.content as Array<{ type: string; text: string }>
-    )[0]?.text;
+    const dbBody = JSON.parse(textContent(dbResult));
 
     // If no databases exist, skip gracefully
-    if (dbText?.includes("Found 0 databases")) {
+    if (dbBody.database_count === 0) {
       return;
     }
 
-    // Extract first database name from the JSON in the response
-    const dbMatch = dbText?.match(/"name":\s*"([^"]+)"/);
-    if (!dbMatch) {
+    const dbName = dbBody.databases[0]?.name;
+    if (!dbName) {
       return;
     }
 
     const result = await testClient.client.callTool({
       name: "execute_query",
       arguments: {
-        database: dbMatch[1],
+        database: dbName,
         query: "SELECT 1 AS test",
       },
     });
