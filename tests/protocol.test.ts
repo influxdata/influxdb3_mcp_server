@@ -3,8 +3,8 @@ import { createTestClient, TestClient } from "./helpers/mcp-client.js";
 
 // Update this when tools are added or removed.
 // Verified against: src/tools/index.ts createTools() aggregation.
-// help(2) + write(1) + database(4) + query(3) + token(6) + cloud-token(5) + health(1) = 22
-const EXPECTED_TOOL_COUNT = 22;
+// help(2) + write(1) + database(4) + query(8) + token(6) + cloud-token(5) + health(1) = 27
+const EXPECTED_TOOL_COUNT = 27;
 
 const EXPECTED_RESOURCE_URIS = [
   "influx://config",
@@ -66,9 +66,44 @@ describe("MCP protocol compliance", () => {
       const names = result.tools.map((t) => t.name);
       expect(names).toContain("health_check");
       expect(names).toContain("execute_query");
+      expect(names).toContain("query_sql");
+      expect(names).toContain("query_influxql");
+      expect(names).toContain("list_tables");
+      expect(names).toContain("describe_table");
+      expect(names).toContain("investigate_database");
       expect(names).toContain("write_line_protocol");
       expect(names).toContain("list_databases");
       expect(names).toContain("create_admin_token");
+    });
+
+    it("advertises only read-only tools in readonly profile", async () => {
+      const readonlyClient = await createTestClient({
+        INFLUX_MCP_TOOL_PROFILE: "readonly",
+      });
+      try {
+        const result = await readonlyClient.client.listTools();
+        const names = result.tools.map((t) => t.name);
+
+        expect(names).toEqual(
+          expect.arrayContaining([
+            "load_database_context",
+            "get_help",
+            "health_check",
+            "list_databases",
+            "query_sql",
+            "query_influxql",
+            "list_tables",
+            "describe_table",
+            "investigate_database",
+          ]),
+        );
+        expect(names).not.toContain("write_line_protocol");
+        expect(names).not.toContain("create_database");
+        expect(names).not.toContain("create_admin_token");
+        expect(names).toHaveLength(9);
+      } finally {
+        await readonlyClient.close();
+      }
     });
   });
 
