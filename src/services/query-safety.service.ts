@@ -98,12 +98,24 @@ export class QuerySafetyService {
     }
 
     let normalizedQuery = trimmed.replace(/;+$/u, "");
-    if (this.shouldAddLimit(firstKeyword, normalizedQuery)) {
-      normalizedQuery = `${normalizedQuery} LIMIT ${maxRows}`;
-      warnings.push({
-        code: "limit_added",
-        message: `Added LIMIT ${maxRows} to enforce a bounded result set.`,
-      });
+    const limit = this.limitValue(normalizedQuery);
+    if (this.shouldEnforceLimit(firstKeyword)) {
+      if (limit === undefined) {
+        normalizedQuery = `${normalizedQuery} LIMIT ${maxRows}`;
+        warnings.push({
+          code: "limit_added",
+          message: `Added LIMIT ${maxRows} to enforce a bounded result set.`,
+        });
+      } else if (limit > maxRows) {
+        normalizedQuery = normalizedQuery.replace(
+          /\blimit\s+\d+\b/iu,
+          `LIMIT ${maxRows}`,
+        );
+        warnings.push({
+          code: "limit_reduced",
+          message: `Reduced LIMIT ${limit} to ${maxRows}.`,
+        });
+      }
     }
 
     if (
@@ -157,10 +169,12 @@ export class QuerySafetyService {
       .trim();
   }
 
-  private shouldAddLimit(firstKeyword: string, query: string): boolean {
-    if (firstKeyword !== "SELECT" && firstKeyword !== "WITH") {
-      return false;
-    }
-    return !/\blimit\s+\d+\b/iu.test(query);
+  private shouldEnforceLimit(firstKeyword: string): boolean {
+    return firstKeyword === "SELECT" || firstKeyword === "WITH";
+  }
+
+  private limitValue(query: string): number | undefined {
+    const value = query.match(/\blimit\s+(\d+)\b/iu)?.[1];
+    return value ? Number(value) : undefined;
   }
 }

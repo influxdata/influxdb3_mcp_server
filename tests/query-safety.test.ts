@@ -26,6 +26,22 @@ describe("QuerySafetyService", () => {
     );
   });
 
+  it("reduces excessive SQL LIMIT values", () => {
+    const result = service.validate(
+      "SELECT usage FROM cpu LIMIT 10000",
+      "sql",
+      50,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.normalizedQuery).toBe("SELECT usage FROM cpu LIMIT 50");
+    expect(result.warnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "limit_reduced" }),
+      ]),
+    );
+  });
+
   it("rejects SQL writes and multi-statement input", () => {
     expect(service.validate("DROP TABLE cpu", "sql").code).toBe(
       "not_read_only",
