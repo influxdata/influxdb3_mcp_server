@@ -50,12 +50,35 @@ export interface StructuredQueryResponse {
     query_id_source: "local" | "system.queries.id";
     phase?: string;
     query_type: QueryLanguage;
-    success: true;
+    success: boolean;
+    running?: boolean;
+    cancelled?: boolean;
+    plan_duration?: unknown;
+    permit_duration?: unknown;
+    execute_duration?: unknown;
+    end2end_duration?: unknown;
+    compute_duration?: unknown;
+    max_memory?: number;
     duration_ms: number;
     row_count: number;
     truncated: boolean;
   };
   warnings: Array<{ code: string; message: string }>;
+}
+
+interface QueryHistoryMetadata {
+  id: string;
+  phase?: string;
+  query_type?: QueryLanguage;
+  success?: boolean;
+  running?: boolean;
+  cancelled?: boolean;
+  plan_duration?: unknown;
+  permit_duration?: unknown;
+  execute_duration?: unknown;
+  end2end_duration?: unknown;
+  compute_duration?: unknown;
+  max_memory?: number;
 }
 
 export class QueryService {
@@ -168,6 +191,10 @@ export class QueryService {
       const truncated = rows.length > maxRows;
       const outputRows = truncated ? rows.slice(0, maxRows) : rows;
       const duration = Date.now() - started;
+      const history = await this.findQueryHistoryMetadata(
+        safety.normalizedQuery,
+        language,
+      );
 
       logToolCall({
         tool_name: language === "sql" ? "query_sql" : "query_influxql",
@@ -189,13 +216,36 @@ export class QueryService {
         rows: outputRows,
         metadata: {
           request_id: requestId,
-          query_id: queryId,
-          query_id_source: "local",
+          query_id: history?.id || queryId,
+          query_id_source: history ? "system.queries.id" : "local",
+          phase: history?.phase,
           query_type: language,
-          success: true,
+          success: history?.success ?? true,
           duration_ms: duration,
           row_count: outputRows.length,
           truncated,
+          ...(history?.running !== undefined && { running: history.running }),
+          ...(history?.cancelled !== undefined && {
+            cancelled: history.cancelled,
+          }),
+          ...(history?.plan_duration !== undefined && {
+            plan_duration: history.plan_duration,
+          }),
+          ...(history?.permit_duration !== undefined && {
+            permit_duration: history.permit_duration,
+          }),
+          ...(history?.execute_duration !== undefined && {
+            execute_duration: history.execute_duration,
+          }),
+          ...(history?.end2end_duration !== undefined && {
+            end2end_duration: history.end2end_duration,
+          }),
+          ...(history?.compute_duration !== undefined && {
+            compute_duration: history.compute_duration,
+          }),
+          ...(history?.max_memory !== undefined && {
+            max_memory: history.max_memory,
+          }),
         },
         warnings: safety.warnings,
       };
@@ -234,6 +284,54 @@ export class QueryService {
     }
 
     return this.executeInfluxqlQuery(query, database, options);
+  }
+
+  private async findQueryHistoryMetadata(
+    query: string,
+    language: QueryLanguage,
+  ): Promise<QueryHistoryMetadata | undefined> {
+    const connectionInfo = this.baseService.getConnectionInfo();
+    if (
+      connectionInfo.type !== InfluxProductType.Core &&
+      connectionInfo.type !== InfluxProductType.Enterprise
+    ) {
+      return undefined;
+    }
+
+    try {
+      const escapedQuery = query.replace(/'/gu, "''");
+      const historyQuery = `
+        SELECT
+          id,
+          phase,
+          query_type,
+          success,
+          running,
+          cancelled,
+          plan_duration,
+          permit_duration,
+          execute_duration,
+          end2end_duration,
+          compute_duration,
+          max_memory
+        FROM system.queries
+        WHERE query_text = '${escapedQuery}'
+          AND query_type = '${language}'
+        ORDER BY issue_time DESC
+        LIMIT 1
+      `;
+      const result = await this.executeCoreEnterpriseQuery(
+        historyQuery,
+        "_internal",
+        {
+          format: "json",
+        },
+      );
+      const rows = this.normalizeRows(result, "json");
+      return rows[0];
+    } catch {
+      return undefined;
+    }
   }
 
   async executeInfluxqlQuery(

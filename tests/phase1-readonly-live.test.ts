@@ -97,6 +97,7 @@ describe.skipIf(!RUN)("Phase 1 read-only live tools", () => {
     expect(body.db).toBe(DB_NAME);
     expect(body.rows.length).toBeGreaterThan(0);
     expect(body.metadata.query_type).toBe("sql");
+    expect(body.metadata.query_id_source).toBe("system.queries.id");
     expect(body.metadata.row_count).toBe(body.rows.length);
 
     const rejected = await readonlyClient.client.callTool({
@@ -125,6 +126,7 @@ describe.skipIf(!RUN)("Phase 1 read-only live tools", () => {
 
     expect(body.ok).toBe(true);
     expect(body.metadata.query_type).toBe("influxql");
+    expect(body.metadata.query_id_source).toBe("system.queries.id");
 
     const rejected = await readonlyClient.client.callTool({
       name: "query_influxql",
