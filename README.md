@@ -194,7 +194,9 @@ MCP_LOG_FILE=/logs/influxdb-mcp.jsonl
 
 The telemetry log includes tool name, request ID, query ID, duration, database,
 row count, truncation state, success state, and error code. It does not log API
-tokens, request headers, tool arguments, or query text.
+tokens, request headers, tool arguments, or query text. For Codex harness
+profiles, approval settings, and repeatable E2E prompts, see
+`AGENT_E2E_TESTS.md`.
 
 ---
 
@@ -332,6 +334,7 @@ Use `host.docker.internal` as the InfluxDB URL so the MCP server container can r
   - `example-clustered.mcp.json` - Clustered with all variables
   - `example-cloud-serverless.mcp.json` - Cloud Serverless configuration
 - See the `env.example`, `env.cloud-dedicated.example`, `env.clustered.example`, and `env.cloud-serverless.example` files for environment variable templates.
+- See `AGENT_E2E_TESTS.md` for Codex MCP harness tips, read-only profile runs, and telemetry correlation checks.
 
 ### Database Retention Policy Examples
 
