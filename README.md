@@ -168,6 +168,34 @@ INFLUX_DB_MANAGEMENT_TOKEN=your_management_token_here
 
 See corresponding `env.<instancetype>.example` for examples and detailed info.
 
+#### Optional MCP tool profile and telemetry
+
+Use `INFLUX_MCP_TOOL_PROFILE=readonly` to expose only read-only tools. If
+unset, the server uses the full operator tool profile.
+
+```env
+INFLUX_MCP_TOOL_PROFILE=readonly
+```
+
+Tool-call telemetry is enabled by default and writes structured JSON lines to
+`stderr`, which keeps `stdout` reserved for MCP stdio protocol messages. To
+disable telemetry:
+
+```env
+MCP_LOG_TOOL_CALLS=false
+```
+
+To write telemetry to a file, configure the file backend:
+
+```env
+MCP_LOG_BACKEND=file
+MCP_LOG_FILE=/logs/influxdb-mcp.jsonl
+```
+
+The telemetry log includes tool name, request ID, query ID, duration, database,
+row count, truncation state, success state, and error code. It does not log API
+tokens, request headers, tool arguments, or query text.
+
 ---
 
 ### 2. Integration with MCP Clients
