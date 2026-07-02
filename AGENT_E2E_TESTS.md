@@ -49,11 +49,14 @@ Interactive read-only run:
 INFLUX_DB_TOKEN=<token> codex --profile influxdb3-mcp-dev-ro
 ```
 
+Non-interactive `codex exec` runs should approve only the relevant MCP server tools. The commands below set `default_tools_approval_mode="approve"` for the MCP server used by that profile. This avoids `user cancelled MCP tool call` failures while preserving normal shell-command sandbox and approval behavior. If your MCP server names differ, update the `mcp_servers.<name>` key.
+
 Read-only happy path:
 
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-mcp-dev-ro \
+  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-happy-host-cpu.md \
   'Use MCP. List databases. Find host_system. Show CPU usage from metrics as JSON. Return db, row_count, query_id_source, and any error code.'
@@ -64,6 +67,7 @@ Absent table:
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-mcp-dev-ro \
+  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-absent-table.md \
   'Use the Enterprise read-only MCP server. Do not use shell commands. Find where a table named smoke exists. If found, run select * from smoke. Return JSON.'
@@ -74,6 +78,7 @@ Database typo recovery:
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-mcp-dev-ro \
+  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-db-typo-recovery.md \
   'Use MCP. List databases. Find the system_host db. Query metrics. If the database name is wrong, state the assumption before querying.'
@@ -84,6 +89,7 @@ Wildcard field recovery, low reasoning:
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-mcp-dev-ro \
+  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-wildcard-field-low.md \
   'Use MCP. In host_system, select "cpu::usage*" from metrics. Return JSON rows and explain any wildcard recovery.'
@@ -94,6 +100,7 @@ Wildcard field recovery, high reasoning:
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-mcp-dev-ro \
+  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"high"' \
   -o e2e-ro-wildcard-field-high.md \
   'Use MCP. In host_system, select "cpu::usage*" from metrics. Return JSON rows and explain any wildcard recovery.'
@@ -104,6 +111,7 @@ InfluxQL regex:
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-mcp-dev-ro \
+  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-influxql-regex.md \
   'Use InfluxQL through MCP. In host_system, select all cpu::usage fields from metrics. Return JSON rows and query metadata.'
@@ -114,6 +122,7 @@ Default/full server quality run:
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-mcp-dev \
+  -c 'mcp_servers.influxdb3_ent_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-default-readonly-intent.md \
   'Use MCP. List databases and show CPU usage from metrics. Do not write, delete, create, update, or administer anything.'
@@ -124,6 +133,7 @@ Core read-only parity:
 ```sh
 INFLUX_DB_TOKEN=<core-token> codex exec \
   --profile influxdb3-mcp-core-ro \
+  -c 'mcp_servers.influxdb3_core_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-core-readonly-parity.md \
   'Use the InfluxDB Core read-only MCP server. List databases, find a non-internal table, run one bounded read-only query, and return JSON metadata.'
