@@ -1,11 +1,12 @@
 # Agent E2E Test Plan
 
-Use this plan to test the MCP server through real Codex agent runs. Use
-Codex `--profile` configurations to switch between the default/full MCP
-server and the read-only MCP server.
+Use this plan to test the MCP server through real agent harnesses such as
+Codex, Claude Code, or OpenCode. The test cases are harness-agnostic: they
+define the server mode, prompt, and expected behavior. Harness-specific
+sections translate those cases into concrete runner commands.
 
 Do not store token values in config files, output files, or transcripts.
-Export `INFLUX_DB_TOKEN` in the parent shell or pass it inline when running a
+Export credentials in the parent shell or pass them inline when running a
 single command.
 
 ## Recording Template
@@ -13,35 +14,46 @@ single command.
 For each run, record:
 
 - Test ID
-- Codex profile
-- Model and reasoning effort
+- Harness name and configuration
+- Server mode and product
+- Model and reasoning effort, if the harness exposes them
 - Prompt
 - Tool calls used
 - Failed tool calls
 - Whether shell commands were used
 - Final answer quality
 - Wall-clock time
-- Visible Codex token stats, if available
+- Visible token stats, if the harness exposes them
 - Telemetry log lines
 
-Codex does not currently expose raw per-run token usage. If a visible stats
-line is available, copy it into the run notes. If not, record `null` and note
-that `/usage daily` is aggregated only.
+Codex does not currently expose raw per-run token usage. If a harness provides
+a visible stats line, copy it into the run notes. If not, record `null`; for
+Codex, note that `/usage daily` is aggregated only.
 
 ## Test Cases
 
-| ID                        | Profile                 | Reasoning | Prompt                                                                                                                                              | Expected behavior                                                                                                                                                             |
-| ------------------------- | ----------------------- | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ro-happy-host-cpu`       | `influxdb3-mcp-dev-ro`  | low       | `Use MCP. List databases. Find host_system. Show CPU usage from metrics as JSON.`                                                                   | Uses only read-only MCP tools. Lists databases, finds `host_system`, identifies `metrics`, runs one bounded query, and returns JSON rows, `row_count`, and `query_id_source`. |
-| `ro-absent-table`         | `influxdb3-mcp-dev-ro`  | low       | `Use the Enterprise read-only MCP server. Find where a table named smoke exists. If found, run select * from smoke.`                                | Uses `list_databases` and `list_tables`. Does not run `query_sql` if no table exists. Returns `status: not_run` or equivalent.                                                |
-| `ro-db-typo-recovery`     | `influxdb3-mcp-dev-ro`  | low       | `Use MCP. List databases. Find the system_host db. Query metrics.`                                                                                  | Finds that `system_host` is absent. Uses `host_system` only if it is the only clear match, and states the assumption before querying.                                         |
-| `ro-wildcard-field-low`   | `influxdb3-mcp-dev-ro`  | low       | `Use MCP. In host_system, select "cpu::usage*" from metrics.`                                                                                       | Handles quoted `*` as literal. Recovers by schema inspection, explicit SQL field expansion, or InfluxQL regex. Returns matching CPU fields.                                   |
-| `ro-wildcard-field-high`  | `influxdb3-mcp-dev-ro`  | high      | `Use MCP. In host_system, select "cpu::usage*" from metrics.`                                                                                       | Same acceptance criteria as `ro-wildcard-field-low`. Compare tool calls, failed calls, wall-clock time, and output length.                                                    |
-| `ro-influxql-regex`       | `influxdb3-mcp-dev-ro`  | low       | `Use InfluxQL through MCP. In host_system, select all cpu::usage fields from metrics.`                                                              | Chooses `query_influxql`, uses a regex-style field query where appropriate, and returns JSON output and query metadata.                                                       |
-| `default-readonly-intent` | `influxdb3-mcp-dev`     | low       | `Use MCP. List databases and show CPU usage from metrics. Do not write or administer anything.`                                                     | With the full/default server configured, chooses read-only tools for read-only intent. This is a quality test, not the safety boundary.                                       |
-| `ro-core-parity`          | `influxdb3-mcp-core-ro` | low       | `Use the InfluxDB Core read-only MCP server. List databases, find a non-internal table, run one bounded read-only query, and return JSON metadata.` | Core read-only profile exposes the same safe tool surface and returns the same structured metadata shape.                                                                     |
+| ID                        | Server mode | Product    | Suggested effort | Prompt                                                                                                                                              | Expected behavior                                                                                                                                                             |
+| ------------------------- | ----------- | ---------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ro-happy-host-cpu`       | read-only   | Enterprise | low              | `Use MCP. List databases. Find host_system. Show CPU usage from metrics as JSON.`                                                                   | Uses only read-only MCP tools. Lists databases, finds `host_system`, identifies `metrics`, runs one bounded query, and returns JSON rows, `row_count`, and `query_id_source`. |
+| `ro-absent-table`         | read-only   | Enterprise | low              | `Use the Enterprise read-only MCP server. Find where a table named smoke exists. If found, run select * from smoke.`                                | Uses `list_databases` and `list_tables`. Does not run `query_sql` if no table exists. Returns `status: not_run` or equivalent.                                                |
+| `ro-db-typo-recovery`     | read-only   | Enterprise | low              | `Use MCP. List databases. Find the system_host db. Query metrics.`                                                                                  | Finds that `system_host` is absent. Uses `host_system` only if it is the only clear match, and states the assumption before querying.                                         |
+| `ro-wildcard-field-low`   | read-only   | Enterprise | low              | `Use MCP. In host_system, select "cpu::usage*" from metrics.`                                                                                       | Handles quoted `*` as literal. Recovers by schema inspection, explicit SQL field expansion, or InfluxQL regex. Returns matching CPU fields.                                   |
+| `ro-wildcard-field-high`  | read-only   | Enterprise | high             | `Use MCP. In host_system, select "cpu::usage*" from metrics.`                                                                                       | Same acceptance criteria as `ro-wildcard-field-low`. Compare tool calls, failed calls, wall-clock time, and output length.                                                    |
+| `ro-influxql-regex`       | read-only   | Enterprise | low              | `Use InfluxQL through MCP. In host_system, select all cpu::usage fields from metrics.`                                                              | Chooses `query_influxql`, uses a regex-style field query where appropriate, and returns JSON output and query metadata.                                                       |
+| `default-readonly-intent` | default     | Enterprise | low              | `Use MCP. List databases and show CPU usage from metrics. Do not write or administer anything.`                                                     | With the full/default server configured, chooses read-only tools for read-only intent. This is a quality test, not the safety boundary.                                       |
+| `ro-core-parity`          | read-only   | Core       | low              | `Use the InfluxDB Core read-only MCP server. List databases, find a non-internal table, run one bounded read-only query, and return JSON metadata.` | Core read-only profile exposes the same safe tool surface and returns the same structured metadata shape.                                                                     |
 
-## Commands
+## Harness-Specific Execution
+
+### Codex CLI
+
+Map the harness-agnostic server modes to Codex profiles:
+
+| Server mode | Product    | Codex profile           | MCP server config key       |
+| ----------- | ---------- | ----------------------- | --------------------------- |
+| read-only   | Enterprise | `influxdb3-mcp-dev-ro`  | `influxdb3_ent_mcp_dev_ro`  |
+| default     | Enterprise | `influxdb3-mcp-dev`     | `influxdb3_ent_mcp_dev`     |
+| read-only   | Core       | `influxdb3-mcp-core-ro` | `influxdb3_core_mcp_dev_ro` |
 
 Interactive read-only run:
 
