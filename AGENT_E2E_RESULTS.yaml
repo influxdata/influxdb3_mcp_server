@@ -1,0 +1,126 @@
+schema_version: 1
+description: >
+  Summarized results from real Codex MCP-agent runs. Do not store API tokens,
+  raw transcripts, or full command lines here.
+
+results:
+  - date: 2026-07-02
+    test_case: ro-wildcard-field-low
+    phase: before_guidance_tuning
+    server_mode: default
+    mcp_server_key: influxdb3_ent_mcp_dev
+    reasoning: low
+    tool_calls: 4
+    failed_calls: 1
+    tokens: 23483
+    result: passed
+    notes:
+      - Recovered from a failed literal SQL query by expanding fields from the database error message.
+      - Efficient, but less grounded than schema metadata.
+
+  - date: 2026-07-02
+    test_case: ro-wildcard-field-low
+    phase: before_guidance_tuning
+    server_mode: read_only
+    mcp_server_key: influxdb3_ent_ro_mcp_dev
+    reasoning: low
+    tool_calls: 10
+    failed_calls: 0
+    tokens: 27031
+    result: passed
+    notes:
+      - Succeeded, but overworked the recovery path.
+      - Inspected schema, tried InfluxQL literal selection, tried InfluxQL regex selection, and then ran an extra SQL query.
+
+  - date: 2026-07-02
+    test_case: ro-wildcard-field-low
+    phase: after_guidance_tuning
+    server_mode: read_only
+    mcp_server_key: influxdb3_ent_ro_mcp_dev
+    reasoning: low
+    tool_calls: 5
+    failed_calls: 0
+    tokens: 24335
+    result: passed
+    tool_path:
+      - load_database_context
+      - list_databases
+      - list_tables
+      - describe_table
+      - query_sql
+    notes:
+      - Followed the intended recovery path.
+      - Used describe_table to expand cpu::usage* from schema.
+      - Ran one bounded query_sql with explicit fields.
+
+  - date: 2026-07-02
+    test_case: ro-wildcard-field-low
+    phase: after_guidance_tuning
+    server_mode: default
+    mcp_server_key: influxdb3_ent_mcp_dev
+    reasoning: low
+    tool_calls: 4
+    failed_calls: 0
+    tokens: 24453
+    result: passed
+    tool_path:
+      - list_databases
+      - list_tables
+      - describe_table
+      - query_sql
+    notes:
+      - Followed the intended recovery path.
+      - Used describe_table to expand cpu::usage* from schema.
+      - Ran one bounded query_sql with explicit fields.
+
+  - date: 2026-07-02
+    test_case: eff-broad-schema-cpu
+    phase: broad_schema_discovery
+    server_mode: read_only
+    mcp_server_key: influxdb3_ent_ro_mcp_dev
+    reasoning: low
+    tool_calls: 8
+    failed_calls: 0
+    tokens: 18137
+    result: passed
+    tool_path:
+      - load_database_context
+      - list_databases
+      - list_tables
+      - list_tables
+      - list_tables
+      - list_tables
+      - describe_table
+      - query_sql
+    notes:
+      - Found host_system.metrics as the only table with CPU usage fields.
+      - Returned a compact JSON object.
+
+  - date: 2026-07-02
+    test_case: eff-broad-schema-cpu
+    phase: broad_schema_discovery
+    server_mode: default
+    mcp_server_key: influxdb3_ent_mcp_dev
+    reasoning: low
+    tool_calls: 7
+    failed_calls: 0
+    tokens: 27071
+    result: passed
+    tool_path:
+      - list_databases
+      - list_tables
+      - list_tables
+      - list_tables
+      - list_tables
+      - describe_table
+      - query_sql
+    notes:
+      - Found host_system.metrics as the only table with CPU usage fields.
+      - Reported a query ID and used a table-formatted final answer.
+      - Used 8934 more tokens than the read-only run.
+
+excluded_runs:
+  - reason: invalid_profile_setup
+    notes:
+      - Both servers were accidentally configured as read-only in one comparison attempt.
+      - Some inline overrides referenced the wrong MCP server key and produced invalid transport.
