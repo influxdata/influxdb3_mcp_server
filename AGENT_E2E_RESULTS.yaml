@@ -124,3 +124,17 @@ excluded_runs:
     notes:
       - Both servers were accidentally configured as read-only in one comparison attempt.
       - Some inline overrides referenced the wrong MCP server key and produced invalid transport.
+
+  - date: 2026-07-02
+    reason: ambiguous_improvement_prompt
+    test_case: exploratory-host-system-improvement
+    server_mode: read_only
+    mcp_server_key: influxdb3_ent_ro_mcp_dev
+    reasoning: low
+    tokens: 55210
+    result: interrupted
+    prompt: Use MCP. Investigate host_system metrics and make it easier to query CPU usage next time.
+    notes:
+      - The prompt was ambiguous in a repository workdir.
+      - The agent shifted from MCP-only database investigation into repository file inspection and planned code/context changes.
+      - Future MCP-only E2E prompts should explicitly say not to inspect repository files, edit files, or use shell commands.

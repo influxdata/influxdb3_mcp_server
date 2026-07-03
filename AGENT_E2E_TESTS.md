@@ -9,6 +9,23 @@ Do not store token values in config files, output files, or transcripts.
 Export credentials in the parent shell or pass them inline when running a
 single command.
 
+## MCP-Only Prompt Discipline
+
+These E2E cases test the MCP server through an agent harness, not the agent's
+ability to edit this repository. When the harness runs from the MCP server
+repo, prompts that ask the agent to "fix", "improve", or "make it easier next
+time" can trigger code inspection and repository edits instead of MCP-only
+database work.
+
+For MCP-only tests, include constraints such as:
+
+```text
+Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands.
+```
+
+Avoid ambiguous improvement prompts unless the test intentionally measures
+whether the agent crosses from MCP tool use into repository modification.
+
 ## Recording Template
 
 For each run, record:
