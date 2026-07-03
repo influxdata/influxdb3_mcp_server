@@ -11,6 +11,8 @@ store API tokens, raw transcripts, or full command lines here.
 | 2026-07-02 | `ro-wildcard-field-low` | read-only   | `influxdb3_ent_ro_mcp_dev` | low       |         10 |            0 | 27,031 | Passed |
 | 2026-07-02 | `ro-wildcard-field-low` | read-only   | `influxdb3_ent_ro_mcp_dev` | low       |          5 |            0 | 24,335 | Passed |
 | 2026-07-02 | `ro-wildcard-field-low` | default     | `influxdb3_ent_mcp_dev`    | low       |          4 |            0 | 24,453 | Passed |
+| 2026-07-02 | `eff-broad-schema-cpu`  | read-only   | `influxdb3_ent_ro_mcp_dev` | low       |          8 |            0 | 18,137 | Passed |
+| 2026-07-02 | `eff-broad-schema-cpu`  | default     | `influxdb3_ent_mcp_dev`    | low       |          7 |            0 | 27,071 | Passed |
 
 ## Run Notes
 
@@ -35,6 +37,20 @@ Both modes followed the intended recovery path:
 
 The read-only run also called `load_database_context`, which accounts for its
 extra tool call. Token usage was effectively tied.
+
+### `eff-broad-schema-cpu`
+
+Both modes followed the same grounded discovery pattern:
+
+1. List databases.
+2. List tables in each database.
+3. Describe the only candidate table, `host_system.metrics`.
+4. Query one bounded sample row with explicit CPU usage fields.
+
+The read-only run used one extra tool call because it loaded database context,
+but used 8,934 fewer tokens than the default run. The default run reported a
+query ID and used a table-formatted final answer; the read-only run returned a
+compact JSON object.
 
 ## Excluded Runs
 
