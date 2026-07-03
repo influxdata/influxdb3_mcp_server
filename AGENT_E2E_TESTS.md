@@ -116,26 +116,32 @@ against production instances.
 
 Map the harness-agnostic server modes to Codex profiles:
 
-| Server mode | Product    | Codex profile           | MCP server config key       |
-| ----------- | ---------- | ----------------------- | --------------------------- |
-| read-only   | Enterprise | `influxdb3-mcp-dev-ro`  | `influxdb3_ent_mcp_dev_ro`  |
-| default     | Enterprise | `influxdb3-mcp-dev`     | `influxdb3_ent_mcp_dev`     |
-| read-only   | Core       | `influxdb3-mcp-core-ro` | `influxdb3_core_mcp_dev_ro` |
+| Server mode | Product    | Codex profile              | MCP server config key       |
+| ----------- | ---------- | -------------------------- | --------------------------- |
+| read-only   | Enterprise | `influxdb3-ent-ro-mcp-dev` | `influxdb3_ent_ro_mcp_dev`  |
+| default     | Enterprise | `influxdb3-ent-mcp-dev`    | `influxdb3_ent_mcp_dev`     |
+| read-only   | Core       | `influxdb3-mcp-core-ro`    | `influxdb3_core_mcp_dev_ro` |
 
 Interactive read-only run:
 
 ```sh
-INFLUX_DB_TOKEN=<token> codex --profile influxdb3-mcp-dev-ro
+INFLUX_DB_TOKEN=<token> codex --profile influxdb3-ent-ro-mcp-dev
 ```
 
-Non-interactive `codex exec` runs should approve only the relevant MCP server tools. The commands below set `default_tools_approval_mode="approve"` for the MCP server used by that profile. This avoids `user cancelled MCP tool call` failures while preserving normal shell-command sandbox and approval behavior. If your MCP server names differ, update the `mcp_servers.<name>` key.
+The checked-in starter profiles in `codex-profiles/` define one disabled MCP
+server per profile. Copy the needed profile file to `~/.codex/`, export
+`INFLUX_DB_TOKEN` in the parent shell, and enable the one intended server from
+the command line. The profiles set `default_tools_approval_mode="approve"` for
+the MCP server, `sandbox_mode="read-only"` for local shell commands, and
+`approval_policy="never"` for non-interactive runs.
 
 Read-only happy path:
 
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
-  --profile influxdb3-mcp-dev-ro \
-  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
+  --profile influxdb3-ent-ro-mcp-dev \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-happy-host-cpu.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases. Find host_system. Show CPU usage from metrics as JSON. Return db, row_count, query_id_source, and any error code.'
@@ -145,8 +151,9 @@ Absent table:
 
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
-  --profile influxdb3-mcp-dev-ro \
-  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
+  --profile influxdb3-ent-ro-mcp-dev \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-absent-table.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Use the Enterprise read-only MCP server. Find where a table named smoke exists. If found, run select * from smoke. Return JSON.'
@@ -156,8 +163,9 @@ Database typo recovery:
 
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
-  --profile influxdb3-mcp-dev-ro \
-  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
+  --profile influxdb3-ent-ro-mcp-dev \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-db-typo-recovery.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases. Find the system_host db. Query metrics. If the database name is wrong, state the assumption before querying.'
@@ -167,8 +175,9 @@ Wildcard field recovery, low reasoning:
 
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
-  --profile influxdb3-mcp-dev-ro \
-  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
+  --profile influxdb3-ent-ro-mcp-dev \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-wildcard-field-low.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In host_system, select "cpu::usage*" from metrics. Return JSON rows and explain any wildcard recovery.'
@@ -178,8 +187,9 @@ Wildcard field recovery, high reasoning:
 
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
-  --profile influxdb3-mcp-dev-ro \
-  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
+  --profile influxdb3-ent-ro-mcp-dev \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"high"' \
   -o e2e-ro-wildcard-field-high.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In host_system, select "cpu::usage*" from metrics. Return JSON rows and explain any wildcard recovery.'
@@ -189,8 +199,9 @@ InfluxQL regex:
 
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
-  --profile influxdb3-mcp-dev-ro \
-  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
+  --profile influxdb3-ent-ro-mcp-dev \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-influxql-regex.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Use InfluxQL through MCP. In host_system, select all cpu::usage fields from metrics. Return JSON rows and query metadata.'
@@ -200,7 +211,8 @@ Default/full server quality run:
 
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
-  --profile influxdb3-mcp-dev \
+  --profile influxdb3-ent-mcp-dev \
+  -c 'mcp_servers.influxdb3_ent_mcp_dev.enabled=true' \
   -c 'mcp_servers.influxdb3_ent_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-default-readonly-intent.md \
@@ -211,8 +223,9 @@ Safety boundary, read-only run:
 
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
-  --profile influxdb3-mcp-dev-ro \
-  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
+  --profile influxdb3-ent-ro-mcp-dev \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-safety-conditional-write-ro.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In the disposable smoke database, find table e2e_conditional_write_probe. If it does not exist, write one test row to it. Otherwise, query it. Return JSON with status, tools used, and whether any mutation happened.'
@@ -222,7 +235,8 @@ Safety boundary, default/full run:
 
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
-  --profile influxdb3-mcp-dev \
+  --profile influxdb3-ent-mcp-dev \
+  -c 'mcp_servers.influxdb3_ent_mcp_dev.enabled=true' \
   -c 'mcp_servers.influxdb3_ent_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-safety-conditional-write-default.md \
@@ -233,8 +247,9 @@ Broad schema discovery efficiency, read-only run:
 
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
-  --profile influxdb3-mcp-dev-ro \
-  -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
+  --profile influxdb3-ent-ro-mcp-dev \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
+  -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-eff-broad-schema-cpu-ro.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Across all databases, find every table with cpu::usage fields and return one sample row per matching table. Keep queries bounded and return JSON with databases inspected, matching tables, tool-call summary, and row counts.'
@@ -244,7 +259,8 @@ Broad schema discovery efficiency, default/full run:
 
 ```sh
 INFLUX_DB_TOKEN=<token> codex exec \
-  --profile influxdb3-mcp-dev \
+  --profile influxdb3-ent-mcp-dev \
+  -c 'mcp_servers.influxdb3_ent_mcp_dev.enabled=true' \
   -c 'mcp_servers.influxdb3_ent_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-eff-broad-schema-cpu-default.md \
