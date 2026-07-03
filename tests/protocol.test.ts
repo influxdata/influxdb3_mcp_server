@@ -76,6 +76,24 @@ describe("MCP protocol compliance", () => {
       expect(names).toContain("create_admin_token");
     });
 
+    it("advertises SQL wildcard recovery guidance", async () => {
+      const result = await testClient.client.listTools();
+      const toolsByName = new Map(
+        result.tools.map((tool) => [tool.name, tool.description ?? ""]),
+      );
+
+      expect(toolsByName.get("query_sql")).toContain("call describe_table");
+      expect(toolsByName.get("query_sql")).toContain(
+        "expand matching fields explicitly",
+      );
+      expect(toolsByName.get("query_sql")).toContain(
+        "Use query_influxql regex only when the user explicitly asks",
+      );
+      expect(toolsByName.get("describe_table")).toContain(
+        "quoted wildcard or unknown-field selectors",
+      );
+    });
+
     it("advertises only read-only tools in readonly profile", async () => {
       const readonlyClient = await createTestClient({
         INFLUX_MCP_TOOL_PROFILE: "readonly",

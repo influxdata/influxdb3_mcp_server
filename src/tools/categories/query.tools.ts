@@ -68,7 +68,7 @@ export function createQueryTools(
     {
       name: "query_sql",
       description:
-        "Run one bounded, read-only SQL query against an InfluxDB 3 database. Defaults to JSON output and returns structured rows, warnings, and query metadata.",
+        "Run one bounded, read-only SQL query against an InfluxDB 3 database. Defaults to JSON output and returns structured rows, warnings, and query metadata. In SQL, quoted identifiers are exact column names; if a quoted selector contains *, treat it as wildcard intent, call describe_table, expand matching fields explicitly, then retry one bounded query_sql. Use query_influxql regex only when the user explicitly asks for InfluxQL or regex field selection.",
       inputSchema: readOnlyQueryInputSchema("Read-only SQL query to run"),
       zodSchema: readOnlyQueryZodSchema,
       handler: async (args) => {
@@ -93,7 +93,7 @@ export function createQueryTools(
     {
       name: "query_influxql",
       description:
-        "Run one bounded, read-only InfluxQL query against an InfluxDB 3 database. Rejects SELECT INTO and destructive statements.",
+        "Run one bounded, read-only InfluxQL query against an InfluxDB 3 database. Rejects SELECT INTO and destructive statements. Prefer query_sql for SQL prompts; use InfluxQL regex field selection only when the user explicitly asks for InfluxQL or regex field matching.",
       inputSchema: readOnlyQueryInputSchema("Read-only InfluxQL query to run"),
       zodSchema: readOnlyQueryZodSchema,
       handler: async (args) => {
@@ -152,7 +152,7 @@ export function createQueryTools(
     {
       name: "describe_table",
       description:
-        "Describe table schema using InfluxDB metadata. Unknown tag/field roles are returned as category=unknown instead of guessed.",
+        "Describe table schema using InfluxDB metadata. Unknown tag/field roles are returned as category=unknown instead of guessed. Use this before retrying SQL queries that fail on quoted wildcard or unknown-field selectors; expand matching fields explicitly and run one bounded query_sql.",
       inputSchema: {
         type: "object",
         properties: {

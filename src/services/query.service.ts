@@ -81,6 +81,14 @@ interface QueryHistoryMetadata {
   max_memory?: number;
 }
 
+interface RecoveryHint {
+  kind: "quoted_wildcard_or_unknown_field";
+  unknown_field: string;
+  recommended_next_tool: "describe_table";
+  recommended_strategy: string;
+  candidate_prefix?: string;
+}
+
 export class QueryService {
   private baseService: BaseConnectionService;
   private safetyService = new QuerySafetyService();
@@ -251,8 +259,42 @@ export class QueryService {
           truncated: false,
         };
       }
+      const recoveryHint = this.buildRecoveryHint(
+        language,
+        safety.normalizedQuery,
+      );
+      if (recoveryHint) {
+        error.metadata = {
+          ...error.metadata,
+          recovery_hint: recoveryHint,
+        };
+      }
       throw error;
     }
+  }
+
+  private buildRecoveryHint(
+    language: QueryLanguage,
+    query: string,
+  ): RecoveryHint | undefined {
+    if (language !== "sql") return undefined;
+
+    const quotedWildcard = query.match(/"([^"]*\*[^"]*)"/u);
+    if (!quotedWildcard) return undefined;
+
+    const unknownField = quotedWildcard[1];
+    const starIndex = unknownField.indexOf("*");
+    const candidatePrefix =
+      starIndex > 0 ? unknownField.slice(0, starIndex) : undefined;
+
+    return {
+      kind: "quoted_wildcard_or_unknown_field",
+      unknown_field: unknownField,
+      recommended_next_tool: "describe_table",
+      recommended_strategy:
+        "Call describe_table for the target table, expand matching fields explicitly, then run one bounded query_sql. Use query_influxql regex only when the user explicitly asks for InfluxQL or regex field selection.",
+      ...(candidatePrefix && { candidate_prefix: candidatePrefix }),
+    };
   }
 
   private async executeReadOnlyQuery(

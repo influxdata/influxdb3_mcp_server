@@ -32,16 +32,45 @@ Codex, note that `/usage daily` is aggregated only.
 
 ## Test Cases
 
-| ID                        | Server mode | Product    | Suggested effort | Prompt                                                                                                                                              | Expected behavior                                                                                                                                                             |
-| ------------------------- | ----------- | ---------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ro-happy-host-cpu`       | read-only   | Enterprise | low              | `Use MCP. List databases. Find host_system. Show CPU usage from metrics as JSON.`                                                                   | Uses only read-only MCP tools. Lists databases, finds `host_system`, identifies `metrics`, runs one bounded query, and returns JSON rows, `row_count`, and `query_id_source`. |
-| `ro-absent-table`         | read-only   | Enterprise | low              | `Use the Enterprise read-only MCP server. Find where a table named smoke exists. If found, run select * from smoke.`                                | Uses `list_databases` and `list_tables`. Does not run `query_sql` if no table exists. Returns `status: not_run` or equivalent.                                                |
-| `ro-db-typo-recovery`     | read-only   | Enterprise | low              | `Use MCP. List databases. Find the system_host db. Query metrics.`                                                                                  | Finds that `system_host` is absent. Uses `host_system` only if it is the only clear match, and states the assumption before querying.                                         |
-| `ro-wildcard-field-low`   | read-only   | Enterprise | low              | `Use MCP. In host_system, select "cpu::usage*" from metrics.`                                                                                       | Handles quoted `*` as literal. Recovers by schema inspection, explicit SQL field expansion, or InfluxQL regex. Returns matching CPU fields.                                   |
-| `ro-wildcard-field-high`  | read-only   | Enterprise | high             | `Use MCP. In host_system, select "cpu::usage*" from metrics.`                                                                                       | Same acceptance criteria as `ro-wildcard-field-low`. Compare tool calls, failed calls, wall-clock time, and output length.                                                    |
-| `ro-influxql-regex`       | read-only   | Enterprise | low              | `Use InfluxQL through MCP. In host_system, select all cpu::usage fields from metrics.`                                                              | Chooses `query_influxql`, uses a regex-style field query where appropriate, and returns JSON output and query metadata.                                                       |
-| `default-readonly-intent` | default     | Enterprise | low              | `Use MCP. List databases and show CPU usage from metrics. Do not write or administer anything.`                                                     | With the full/default server configured, chooses read-only tools for read-only intent. This is a quality test, not the safety boundary.                                       |
-| `ro-core-parity`          | read-only   | Core       | low              | `Use the InfluxDB Core read-only MCP server. List databases, find a non-internal table, run one bounded read-only query, and return JSON metadata.` | Core read-only profile exposes the same safe tool surface and returns the same structured metadata shape.                                                                     |
+| ID                        | Server mode | Product    | Suggested effort | Prompt                                                                                                                                              | Expected behavior                                                                                                                                                                 |
+| ------------------------- | ----------- | ---------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ro-happy-host-cpu`       | read-only   | Enterprise | low              | `Use MCP. List databases. Find host_system. Show CPU usage from metrics as JSON.`                                                                   | Uses only read-only MCP tools. Lists databases, finds `host_system`, identifies `metrics`, runs one bounded query, and returns JSON rows, `row_count`, and `query_id_source`.     |
+| `ro-absent-table`         | read-only   | Enterprise | low              | `Use the Enterprise read-only MCP server. Find where a table named smoke exists. If found, run select * from smoke.`                                | Uses `list_databases` and `list_tables`. Does not run `query_sql` if no table exists. Returns `status: not_run` or equivalent.                                                    |
+| `ro-db-typo-recovery`     | read-only   | Enterprise | low              | `Use MCP. List databases. Find the system_host db. Query metrics.`                                                                                  | Finds that `system_host` is absent. Uses `host_system` only if it is the only clear match, and states the assumption before querying.                                             |
+| `ro-wildcard-field-low`   | read-only   | Enterprise | low              | `Use MCP. In host_system, select "cpu::usage*" from metrics.`                                                                                       | Treats the quoted `*` as wildcard intent, uses `describe_table`, expands matching fields explicitly, and runs one bounded `query_sql`. Avoids InfluxQL unless SQL recovery fails. |
+| `ro-wildcard-field-high`  | read-only   | Enterprise | high             | `Use MCP. In host_system, select "cpu::usage*" from metrics.`                                                                                       | Same acceptance criteria as `ro-wildcard-field-low`. Compare tool calls, failed calls, wall-clock time, and output length.                                                        |
+| `ro-influxql-regex`       | read-only   | Enterprise | low              | `Use InfluxQL through MCP. In host_system, select all cpu::usage fields from metrics.`                                                              | Chooses `query_influxql`, uses a regex-style field query where appropriate, and returns JSON output and query metadata.                                                           |
+| `default-readonly-intent` | default     | Enterprise | low              | `Use MCP. List databases and show CPU usage from metrics. Do not write or administer anything.`                                                     | With the full/default server configured, chooses read-only tools for read-only intent. This is a quality test, not the safety boundary.                                           |
+| `ro-core-parity`          | read-only   | Core       | low              | `Use the InfluxDB Core read-only MCP server. List databases, find a non-internal table, run one bounded read-only query, and return JSON metadata.` | Core read-only profile exposes the same safe tool surface and returns the same structured metadata shape.                                                                         |
+
+## Recovery Expectations
+
+For SQL prompts with quoted wildcard selectors, prefer the shortest grounded
+recovery path:
+
+1. If `query_sql` fails with a quoted wildcard or unknown-field selector, use
+   `metadata.recovery_hint.recommended_next_tool` when present. The expected
+   value is `describe_table`.
+2. Call `describe_table` for the target table.
+3. Expand matching fields explicitly from the schema.
+4. Run one bounded `query_sql`.
+5. Use `query_influxql` regex only when the user explicitly asks for InfluxQL
+   or regex field selection, or when SQL field expansion cannot satisfy the
+   request.
+
+For `ro-wildcard-field-low`, the target tool path is:
+
+```text
+list_databases
+list_tables
+describe_table
+query_sql failed or skipped
+query_sql with explicit fields
+```
+
+If `describe_table` proves the wildcard expansion before the first query, the
+preferred path skips the doomed literal `query_sql` and runs only the explicit
+field query.
 
 ## Harness-Specific Execution
 

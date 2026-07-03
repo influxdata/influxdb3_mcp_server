@@ -6,6 +6,7 @@ import {
   CORE_404_NONEXISTENT_DB,
   CORE_400_BAD_WRITE,
   CORE_500_INVALID_SQL,
+  CORE_500_UNKNOWN_QUOTED_WILDCARD_FIELD,
 } from "./fixtures/error-responses.js";
 
 function stubBaseService(): BaseConnectionService {
@@ -56,5 +57,27 @@ describe("handleQueryError – Core (axios) error path", () => {
     await expect(svc.executeQuery("THIS IS NOT SQL", "mydb")).rejects.toThrow(
       /^Query failed:.*ParserError.*Expected: an SQL statement/,
     );
+  });
+
+  it("adds describe_table recovery hint for SQL quoted wildcard fields", async () => {
+    const base = stubBaseService();
+    vi.mocked(base.getInfluxHttpClient).mockReturnValue(
+      httpClientThrowing(CORE_500_UNKNOWN_QUOTED_WILDCARD_FIELD) as any,
+    );
+    const svc = new QueryService(base);
+
+    try {
+      await svc.querySqlReadOnly('SELECT "cpu::usage*" FROM metrics', "mydb");
+      throw new Error("Expected querySqlReadOnly to fail");
+    } catch (error: any) {
+      expect(error.metadata.recovery_hint).toEqual({
+        kind: "quoted_wildcard_or_unknown_field",
+        unknown_field: "cpu::usage*",
+        recommended_next_tool: "describe_table",
+        recommended_strategy:
+          "Call describe_table for the target table, expand matching fields explicitly, then run one bounded query_sql. Use query_influxql regex only when the user explicitly asks for InfluxQL or regex field selection.",
+        candidate_prefix: "cpu::usage",
+      });
+    }
   });
 });
