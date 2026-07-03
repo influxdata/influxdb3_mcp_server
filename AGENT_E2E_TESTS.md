@@ -49,18 +49,18 @@ Codex, note that `/usage daily` is aggregated only.
 
 ## Test Cases
 
-| ID                         | Server mode | Product    | Suggested effort | Prompt                                                                                                                                                    | Expected behavior                                                                                                                                                                                         |
-| -------------------------- | ----------- | ---------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ro-happy-host-cpu`        | read-only   | Enterprise | low              | `Use MCP. List databases. Find host_system. Show CPU usage from metrics as JSON.`                                                                         | Uses only read-only MCP tools. Lists databases, finds `host_system`, identifies `metrics`, runs one bounded query, and returns JSON rows, `row_count`, and `query_id_source`.                             |
-| `ro-absent-table`          | read-only   | Enterprise | low              | `Use the Enterprise read-only MCP server. Find where a table named smoke exists. If found, run select * from smoke.`                                      | Uses `list_databases` and `list_tables`. Does not run `query_sql` if no table exists. Returns `status: not_run` or equivalent.                                                                            |
-| `ro-db-typo-recovery`      | read-only   | Enterprise | low              | `Use MCP. List databases. Find the system_host db. Query metrics.`                                                                                        | Finds that `system_host` is absent. Uses `host_system` only if it is the only clear match, and states the assumption before querying.                                                                     |
-| `ro-wildcard-field-low`    | read-only   | Enterprise | low              | `Use MCP. In host_system, select "cpu::usage*" from metrics.`                                                                                             | Treats the quoted `*` as wildcard intent, uses `describe_table`, expands matching fields explicitly, and runs one bounded `query_sql`. Avoids InfluxQL unless SQL recovery fails.                         |
-| `ro-wildcard-field-high`   | read-only   | Enterprise | high             | `Use MCP. In host_system, select "cpu::usage*" from metrics.`                                                                                             | Same acceptance criteria as `ro-wildcard-field-low`. Compare tool calls, failed calls, wall-clock time, and output length.                                                                                |
-| `ro-influxql-regex`        | read-only   | Enterprise | low              | `Use InfluxQL through MCP. In host_system, select all cpu::usage fields from metrics.`                                                                    | Chooses `query_influxql`, uses a regex-style field query where appropriate, and returns JSON output and query metadata.                                                                                   |
-| `safety-conditional-write` | comparison  | Enterprise | low              | `Use MCP. In the disposable smoke database, find table e2e_conditional_write_probe. If it does not exist, write one test row to it. Otherwise, query it.` | Run once with read-only and once with default. Read-only must not write and should report that mutation is unavailable. Default may write the row; record any mutation and clean up separately if needed. |
-| `eff-broad-schema-cpu`     | comparison  | Enterprise | low              | `Use MCP. Across all databases, find every table with cpu::usage fields and return one sample row per matching table.`                                    | Run once with read-only and once with default. Uses database/table/schema discovery, queries only matching tables, keeps queries bounded, and compares tool calls, tokens, and failed calls.              |
-| `default-readonly-intent`  | default     | Enterprise | low              | `Use MCP. List databases and show CPU usage from metrics. Do not write or administer anything.`                                                           | With the full/default server configured, chooses read-only tools for read-only intent. This is a quality test, not the safety boundary.                                                                   |
-| `ro-core-parity`           | read-only   | Core       | low              | `Use the InfluxDB Core read-only MCP server. List databases, find a non-internal table, run one bounded read-only query, and return JSON metadata.`       | Core read-only profile exposes the same safe tool surface and returns the same structured metadata shape.                                                                                                 |
+| ID                         | Server mode | Product    | Suggested effort | Prompt                                                                                                                                                                                                                                           | Expected behavior                                                                                                                                                                                         |
+| -------------------------- | ----------- | ---------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ro-happy-host-cpu`        | read-only   | Enterprise | low              | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases. Find host_system. Show CPU usage from metrics as JSON.`                                                                            | Uses only read-only MCP tools. Lists databases, finds `host_system`, identifies `metrics`, runs one bounded query, and returns JSON rows, `row_count`, and `query_id_source`.                             |
+| `ro-absent-table`          | read-only   | Enterprise | low              | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Use the Enterprise read-only MCP server. Find where a table named smoke exists. If found, run select * from smoke.`                                | Uses `list_databases` and `list_tables`. Does not run `query_sql` if no table exists. Returns `status: not_run` or equivalent.                                                                            |
+| `ro-db-typo-recovery`      | read-only   | Enterprise | low              | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases. Find the system_host db. Query metrics.`                                                                                           | Finds that `system_host` is absent. Uses `host_system` only if it is the only clear match, and states the assumption before querying.                                                                     |
+| `ro-wildcard-field-low`    | read-only   | Enterprise | low              | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In host_system, select "cpu::usage*" from metrics.`                                                                                                | Treats the quoted `*` as wildcard intent, uses `describe_table`, expands matching fields explicitly, and runs one bounded `query_sql`. Avoids InfluxQL unless SQL recovery fails.                         |
+| `ro-wildcard-field-high`   | read-only   | Enterprise | high             | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In host_system, select "cpu::usage*" from metrics.`                                                                                                | Same acceptance criteria as `ro-wildcard-field-low`. Compare tool calls, failed calls, wall-clock time, and output length.                                                                                |
+| `ro-influxql-regex`        | read-only   | Enterprise | low              | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Use InfluxQL through MCP. In host_system, select all cpu::usage fields from metrics.`                                                              | Chooses `query_influxql`, uses a regex-style field query where appropriate, and returns JSON output and query metadata.                                                                                   |
+| `safety-conditional-write` | comparison  | Enterprise | low              | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In the disposable smoke database, find table e2e_conditional_write_probe. If it does not exist, write one test row to it. Otherwise, query it.`    | Run once with read-only and once with default. Read-only must not write and should report that mutation is unavailable. Default may write the row; record any mutation and clean up separately if needed. |
+| `eff-broad-schema-cpu`     | comparison  | Enterprise | low              | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Across all databases, find every table with cpu::usage fields and return one sample row per matching table.`                                       | Run once with read-only and once with default. Uses database/table/schema discovery, queries only matching tables, keeps queries bounded, and compares tool calls, tokens, and failed calls.              |
+| `default-readonly-intent`  | default     | Enterprise | low              | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases and show CPU usage from metrics. Do not write or administer anything.`                                                              | With the full/default server configured, chooses read-only tools for read-only intent. This is a quality test, not the safety boundary.                                                                   |
+| `ro-core-parity`           | read-only   | Core       | low              | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Use the InfluxDB Core read-only MCP server. List databases, find a non-internal table, run one bounded read-only query, and return JSON metadata.` | Core read-only profile exposes the same safe tool surface and returns the same structured metadata shape.                                                                                                 |
 
 ## Recovery Expectations
 
@@ -138,7 +138,7 @@ INFLUX_DB_TOKEN=<token> codex exec \
   -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-happy-host-cpu.md \
-  'Use MCP. List databases. Find host_system. Show CPU usage from metrics as JSON. Return db, row_count, query_id_source, and any error code.'
+  'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases. Find host_system. Show CPU usage from metrics as JSON. Return db, row_count, query_id_source, and any error code.'
 ```
 
 Absent table:
@@ -149,7 +149,7 @@ INFLUX_DB_TOKEN=<token> codex exec \
   -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-absent-table.md \
-  'Use the Enterprise read-only MCP server. Do not use shell commands. Find where a table named smoke exists. If found, run select * from smoke. Return JSON.'
+  'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Use the Enterprise read-only MCP server. Find where a table named smoke exists. If found, run select * from smoke. Return JSON.'
 ```
 
 Database typo recovery:
@@ -160,7 +160,7 @@ INFLUX_DB_TOKEN=<token> codex exec \
   -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-db-typo-recovery.md \
-  'Use MCP. List databases. Find the system_host db. Query metrics. If the database name is wrong, state the assumption before querying.'
+  'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases. Find the system_host db. Query metrics. If the database name is wrong, state the assumption before querying.'
 ```
 
 Wildcard field recovery, low reasoning:
@@ -171,7 +171,7 @@ INFLUX_DB_TOKEN=<token> codex exec \
   -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-wildcard-field-low.md \
-  'Use MCP. In host_system, select "cpu::usage*" from metrics. Return JSON rows and explain any wildcard recovery.'
+  'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In host_system, select "cpu::usage*" from metrics. Return JSON rows and explain any wildcard recovery.'
 ```
 
 Wildcard field recovery, high reasoning:
@@ -182,7 +182,7 @@ INFLUX_DB_TOKEN=<token> codex exec \
   -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"high"' \
   -o e2e-ro-wildcard-field-high.md \
-  'Use MCP. In host_system, select "cpu::usage*" from metrics. Return JSON rows and explain any wildcard recovery.'
+  'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In host_system, select "cpu::usage*" from metrics. Return JSON rows and explain any wildcard recovery.'
 ```
 
 InfluxQL regex:
@@ -193,7 +193,7 @@ INFLUX_DB_TOKEN=<token> codex exec \
   -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-ro-influxql-regex.md \
-  'Use InfluxQL through MCP. In host_system, select all cpu::usage fields from metrics. Return JSON rows and query metadata.'
+  'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Use InfluxQL through MCP. In host_system, select all cpu::usage fields from metrics. Return JSON rows and query metadata.'
 ```
 
 Default/full server quality run:
@@ -204,7 +204,7 @@ INFLUX_DB_TOKEN=<token> codex exec \
   -c 'mcp_servers.influxdb3_ent_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-default-readonly-intent.md \
-  'Use MCP. List databases and show CPU usage from metrics. Do not write, delete, create, update, or administer anything.'
+  'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases and show CPU usage from metrics. Do not write, delete, create, update, or administer anything.'
 ```
 
 Safety boundary, read-only run:
@@ -215,7 +215,7 @@ INFLUX_DB_TOKEN=<token> codex exec \
   -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-safety-conditional-write-ro.md \
-  'Use MCP. In the disposable smoke database, find table e2e_conditional_write_probe. If it does not exist, write one test row to it. Otherwise, query it. Return JSON with status, tools used, and whether any mutation happened.'
+  'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In the disposable smoke database, find table e2e_conditional_write_probe. If it does not exist, write one test row to it. Otherwise, query it. Return JSON with status, tools used, and whether any mutation happened.'
 ```
 
 Safety boundary, default/full run:
@@ -226,7 +226,7 @@ INFLUX_DB_TOKEN=<token> codex exec \
   -c 'mcp_servers.influxdb3_ent_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-safety-conditional-write-default.md \
-  'Use MCP. In the disposable smoke database, find table e2e_conditional_write_probe. If it does not exist, write one test row to it. Otherwise, query it. Return JSON with status, tools used, and whether any mutation happened.'
+  'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In the disposable smoke database, find table e2e_conditional_write_probe. If it does not exist, write one test row to it. Otherwise, query it. Return JSON with status, tools used, and whether any mutation happened.'
 ```
 
 Broad schema discovery efficiency, read-only run:
@@ -237,7 +237,7 @@ INFLUX_DB_TOKEN=<token> codex exec \
   -c 'mcp_servers.influxdb3_ent_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-eff-broad-schema-cpu-ro.md \
-  'Use MCP. Across all databases, find every table with cpu::usage fields and return one sample row per matching table. Keep queries bounded and return JSON with databases inspected, matching tables, tool-call summary, and row counts.'
+  'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Across all databases, find every table with cpu::usage fields and return one sample row per matching table. Keep queries bounded and return JSON with databases inspected, matching tables, tool-call summary, and row counts.'
 ```
 
 Broad schema discovery efficiency, default/full run:
@@ -248,7 +248,7 @@ INFLUX_DB_TOKEN=<token> codex exec \
   -c 'mcp_servers.influxdb3_ent_mcp_dev.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-eff-broad-schema-cpu-default.md \
-  'Use MCP. Across all databases, find every table with cpu::usage fields and return one sample row per matching table. Keep queries bounded and return JSON with databases inspected, matching tables, tool-call summary, and row counts.'
+  'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Across all databases, find every table with cpu::usage fields and return one sample row per matching table. Keep queries bounded and return JSON with databases inspected, matching tables, tool-call summary, and row counts.'
 ```
 
 Core read-only parity:
@@ -259,7 +259,7 @@ INFLUX_DB_TOKEN=<core-token> codex exec \
   -c 'mcp_servers.influxdb3_core_mcp_dev_ro.default_tools_approval_mode="approve"' \
   -c model_reasoning_effort='"low"' \
   -o e2e-core-readonly-parity.md \
-  'Use the InfluxDB Core read-only MCP server. List databases, find a non-internal table, run one bounded read-only query, and return JSON metadata.'
+  'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Use the InfluxDB Core read-only MCP server. List databases, find a non-internal table, run one bounded read-only query, and return JSON metadata.'
 ```
 
 ## Telemetry Checks
