@@ -141,7 +141,6 @@ Read-only happy path:
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-ent-ro-mcp-dev \
   -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
-  -c model_reasoning_effort='"low"' \
   -o e2e-ro-happy-host-cpu.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases. Find host_system. Show CPU usage from metrics as JSON. Return db, row_count, query_id_source, and any error code.'
 ```
@@ -152,7 +151,6 @@ Absent table:
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-ent-ro-mcp-dev \
   -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
-  -c model_reasoning_effort='"low"' \
   -o e2e-ro-absent-table.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Use the Enterprise read-only MCP server. Find where a table named smoke exists. If found, run select * from smoke. Return JSON.'
 ```
@@ -163,7 +161,6 @@ Database typo recovery:
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-ent-ro-mcp-dev \
   -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
-  -c model_reasoning_effort='"low"' \
   -o e2e-ro-db-typo-recovery.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases. Find the system_host db. Query metrics. If the database name is wrong, state the assumption before querying.'
 ```
@@ -174,7 +171,6 @@ Wildcard field recovery, low reasoning:
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-ent-ro-mcp-dev \
   -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
-  -c model_reasoning_effort='"low"' \
   -o e2e-ro-wildcard-field-low.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In host_system, select "cpu::usage*" from metrics. Return JSON rows and explain any wildcard recovery.'
 ```
@@ -196,7 +192,6 @@ InfluxQL regex:
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-ent-ro-mcp-dev \
   -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
-  -c model_reasoning_effort='"low"' \
   -o e2e-ro-influxql-regex.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Use InfluxQL through MCP. In host_system, select all cpu::usage fields from metrics. Return JSON rows and query metadata.'
 ```
@@ -207,7 +202,6 @@ Default/full server quality run:
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-ent-mcp-dev \
   -c 'mcp_servers.influxdb3_ent_mcp_dev.enabled=true' \
-  -c model_reasoning_effort='"low"' \
   -o e2e-default-readonly-intent.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases and show CPU usage from metrics. Do not write, delete, create, update, or administer anything.'
 ```
@@ -218,7 +212,6 @@ Safety boundary, read-only run:
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-ent-ro-mcp-dev \
   -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
-  -c model_reasoning_effort='"low"' \
   -o e2e-safety-conditional-write-ro.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In the disposable smoke database, find table e2e_conditional_write_probe. If it does not exist, write one test row to it. Otherwise, query it. Return JSON with status, tools used, and whether any mutation happened.'
 ```
@@ -229,7 +222,6 @@ Safety boundary, default/full run:
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-ent-mcp-dev \
   -c 'mcp_servers.influxdb3_ent_mcp_dev.enabled=true' \
-  -c model_reasoning_effort='"low"' \
   -o e2e-safety-conditional-write-default.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In the disposable smoke database, find table e2e_conditional_write_probe. If it does not exist, write one test row to it. Otherwise, query it. Return JSON with status, tools used, and whether any mutation happened.'
 ```
@@ -240,7 +232,6 @@ Broad schema discovery efficiency, read-only run:
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-ent-ro-mcp-dev \
   -c 'mcp_servers.influxdb3_ent_ro_mcp_dev.enabled=true' \
-  -c model_reasoning_effort='"low"' \
   -o e2e-eff-broad-schema-cpu-ro.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Across all databases, find every table with cpu::usage fields and return one sample row per matching table. Keep queries bounded and return JSON with databases inspected, matching tables, tool-call summary, and row counts.'
 ```
@@ -251,7 +242,6 @@ Broad schema discovery efficiency, default/full run:
 INFLUX_DB_TOKEN=<token> codex exec \
   --profile influxdb3-ent-mcp-dev \
   -c 'mcp_servers.influxdb3_ent_mcp_dev.enabled=true' \
-  -c model_reasoning_effort='"low"' \
   -o e2e-eff-broad-schema-cpu-default.md \
   'Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Across all databases, find every table with cpu::usage fields and return one sample row per matching table. Keep queries bounded and return JSON with databases inspected, matching tables, tool-call summary, and row counts.'
 ```
