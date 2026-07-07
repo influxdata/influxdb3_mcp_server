@@ -82,13 +82,10 @@ describe.skipIf(!RUN)("live Enterprise user-auth integration", () => {
     expect(config.connection.authMode).toBe("user");
   });
 
-  // Verifies spec assumption 1: /ping and /health accept the JWT under the
-  // `Token` scheme. The health_check tool cannot verify this — it reports
-  // healthy if ANY check passes, so one rejected endpoint is masked. These
-  // calls hit each endpoint directly; if either fails here, switch the
-  // scheme to Bearer in user-auth mode (BaseConnectionService.ping /
-  // getHealthStatus).
-  it("ping and health each accept the user-auth JWT under the Token scheme", async () => {
+  // Verifies PR #69 compatibility: /ping and /health receive the Enterprise
+  // user-auth JWT as a Bearer credential. The health_check tool cannot verify
+  // this by itself because it reports healthy if any check passes.
+  it("ping and health each accept the user-auth JWT under the Bearer scheme", async () => {
     const svc = new BaseConnectionService({
       influx: {
         type: "enterprise",

@@ -325,6 +325,17 @@ export class BaseConnectionService {
     };
   }
 
+  private async createAuthHeader(): Promise<string> {
+    const token = this.userAuth
+      ? await this.userAuth.getToken()
+      : this.config.influx.token || "";
+
+    if (this.config.influx.type === InfluxProductType.CloudServerless) {
+      return `Token ${token}`;
+    }
+    return `Bearer ${token}`;
+  }
+
   /**
    * Ping InfluxDB instance (returns version and build info if available)
    */
@@ -339,12 +350,9 @@ export class BaseConnectionService {
       return { ok: false, message: "No data host configured" };
     }
     try {
-      const token = this.userAuth
-        ? await this.userAuth.getToken()
-        : this.config.influx.token;
       const response = await fetch(`${url.replace(/\/$/, "")}/ping`, {
         headers: {
-          Authorization: `Token ${token}`,
+          Authorization: await this.createAuthHeader(),
         },
       });
       if (response.ok) {
@@ -379,12 +387,9 @@ export class BaseConnectionService {
       return { status: "fail" };
     }
     try {
-      const token = this.userAuth
-        ? await this.userAuth.getToken()
-        : this.config.influx.token;
       const response = await fetch(`${url.replace(/\/$/, "")}/health`, {
         headers: {
-          Authorization: `Token ${token}`,
+          Authorization: await this.createAuthHeader(),
         },
       });
       if (response.ok) {

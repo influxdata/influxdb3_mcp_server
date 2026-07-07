@@ -99,6 +99,20 @@ For InfluxDB 3 Enterprise with user authentication enabled, the server can authe
 
 Set either `INFLUX_DB_TOKEN` or the username/password pair, not both. The server exchanges the credentials for a short-lived access token, refreshes it automatically, and runs every operation with that user's permissions. Credentials and tokens are kept in memory only and never logged.
 
+Enterprise user authentication is experimental in InfluxDB 3 Enterprise and requires server-side user auth and JWT configuration. Enable this mode only when your operators accept the experimental support boundary.
+
+For local dev/test instances, this repo includes an external bootstrap helper that wraps `influxdb3 manage init-admin`. It is not an MCP tool and is not part of the server runtime:
+
+```bash
+INFLUX_DB_PASSWORD='choose-a-dev-password' \
+  npm run dev:bootstrap-user-auth -- \
+    --container influxdb3-enterprise \
+    --username admin \
+    --verify
+```
+
+Omit `INFLUX_DB_PASSWORD` to let the `influxdb3` CLI prompt for the password. Use `--bin /path/to/influxdb3` instead of `--container` when running against a local CLI binary.
+
 #### For Cloud Serverless InfluxDB:
 
 You must provide:

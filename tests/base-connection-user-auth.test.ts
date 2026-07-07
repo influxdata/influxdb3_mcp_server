@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { BaseConnectionService } from "../src/services/base-connection.service.js";
 import { McpServerConfig } from "../src/config.js";
 
@@ -17,7 +17,21 @@ const USER_AUTH_CONFIG = makeConfig({
   password: "pw",
 });
 
+function okFetchResponse(): any {
+  return {
+    ok: true,
+    headers: {
+      get: () => undefined,
+    },
+    json: async () => ({ status: "pass" }),
+  };
+}
+
 describe("BaseConnectionService in user-auth mode", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("reports data and management capabilities with credentials only", () => {
     const svc = new BaseConnectionService(USER_AUTH_CONFIG);
     expect(svc.hasDataCapabilities()).toBe(true);
@@ -74,5 +88,106 @@ describe("BaseConnectionService in user-auth mode", () => {
   it("does not construct the SDK client at startup in user-auth mode", () => {
     const svc = new BaseConnectionService(USER_AUTH_CONFIG);
     expect(svc.getConnectionInfo().isDataClientInitialized).toBe(false);
+  });
+
+  it("uses Bearer auth for Enterprise static-token ping and health", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(okFetchResponse());
+    const svc = new BaseConnectionService(
+      makeConfig({ url: "http://localhost:8181", token: "static-token" }),
+    );
+
+    await svc.ping();
+    await svc.getHealthStatus();
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://localhost:8181/ping",
+      expect.objectContaining({
+        headers: {
+          Authorization: "Bearer static-token",
+        },
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:8181/health",
+      expect.objectContaining({
+        headers: {
+          Authorization: "Bearer static-token",
+        },
+      }),
+    );
+  });
+
+  it("uses Bearer auth for Enterprise user-auth ping and health", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(okFetchResponse());
+    const svc = new BaseConnectionService(USER_AUTH_CONFIG);
+    (svc as any).userAuth = {
+      getToken: async () => "jwt-token",
+      forceRefresh: async () => "jwt-token",
+      getTokenVersion: () => 1,
+      getAuthInfo: () => ({ username: "alice" }),
+    };
+
+    await svc.ping();
+    await svc.getHealthStatus();
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://localhost:8181/ping",
+      expect.objectContaining({
+        headers: {
+          Authorization: "Bearer jwt-token",
+        },
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:8181/health",
+      expect.objectContaining({
+        headers: {
+          Authorization: "Bearer jwt-token",
+        },
+      }),
+    );
+  });
+
+  it("keeps Token auth for Cloud Serverless ping and health", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(okFetchResponse());
+    const svc = new BaseConnectionService(
+      makeConfig({
+        type: "cloud-serverless",
+        url: "http://localhost:8181",
+        token: "serverless-token",
+      }),
+    );
+
+    await svc.ping();
+    await svc.getHealthStatus();
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://localhost:8181/ping",
+      expect.objectContaining({
+        headers: {
+          Authorization: "Token serverless-token",
+        },
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:8181/health",
+      expect.objectContaining({
+        headers: {
+          Authorization: "Token serverless-token",
+        },
+      }),
+    );
   });
 });

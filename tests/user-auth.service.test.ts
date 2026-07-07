@@ -122,11 +122,17 @@ describe("UserAuthService", () => {
     expect(err.message).not.toContain("pw");
   });
 
-  it("hints at server support on 404", async () => {
+  it("hints at JWT config on 503 (users not enabled or JWT signing missing)", async () => {
+    const post = vi.fn().mockRejectedValue({ response: { status: 503 } });
+    const svc = makeService(post);
+    await expect(svc.getToken()).rejects.toThrow(/not enabled|jwt/i);
+  });
+
+  it("hints at missing endpoint support on 404", async () => {
     const post = vi.fn().mockRejectedValue({ response: { status: 404 } });
     const svc = makeService(post);
     await expect(svc.getToken()).rejects.toThrow(
-      /not support user authentication|not enabled/,
+      /not support user authentication/,
     );
   });
 

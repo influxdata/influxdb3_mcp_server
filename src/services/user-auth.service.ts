@@ -136,9 +136,11 @@ export class UserAuthService implements TokenProvider {
     let detail: string;
     if (status === 401) {
       detail = "401 Unauthorized (check username and password)";
-    } else if (status === 404) {
+    } else if (status === 503) {
       detail =
-        "404 Not Found (the server may not support user authentication, or it is not enabled)";
+        "503 Service Unavailable (user authentication is not enabled, or JWT signing is not configured — set --without-user-auth false and --jwt-private-key)";
+    } else if (status === 404) {
+      detail = "404 Not Found (the server may not support user authentication)";
     } else if (status) {
       detail = `HTTP ${status}`;
     } else {
