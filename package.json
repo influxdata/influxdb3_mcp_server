@@ -9,7 +9,7 @@
   },
   "type": "module",
   "engines": {
-    "node": ">=20.11.0"
+    "node": ">=22.0.0"
   },
   "main": "./build/index.js",
   "bin": {

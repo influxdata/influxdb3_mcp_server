@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Core/Enterprise: supports retentionPeriod only
 - **Documentation**: Added retention policy examples for Enterprise and common retention period reference table
 
+### Changed
+
+- Minimum Node.js version raised to v22; Docker image now uses `node:22-alpine`
+
 ## [1.3.0] - 2026-05-18
 
 ### Added
