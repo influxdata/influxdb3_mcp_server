@@ -128,11 +128,11 @@ Interactive read-only run:
 INFLUX_DB_TOKEN=<token> codex --profile influxdb3-ent-ro-mcp-dev
 ```
 
-The checked-in starter profiles in `codex-profiles/` define one disabled MCP
-server per profile. Copy the needed profile file to `~/.codex/`, export
-`INFLUX_DB_TOKEN` in the parent shell, and enable the one intended server from
-the command line. The profiles set `default_tools_approval_mode="approve"` for
-the MCP server, `sandbox_mode="read-only"` for local shell commands, and
+The checked-in starter profiles in `harness-profiles/codex/` define one
+disabled MCP server per profile. Copy the needed profile file to `~/.codex/`,
+export `INFLUX_DB_TOKEN` in the parent shell, and enable the one intended server
+from the command line. The profiles set `default_tools_approval_mode="approve"`
+for the MCP server, `sandbox_mode="read-only"` for local shell commands, and
 `approval_policy="never"` for non-interactive runs.
 
 Read-only happy path:
