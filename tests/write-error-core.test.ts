@@ -1,9 +1,11 @@
 /**
  * Write-path error fidelity — Core / Enterprise (axios transport).
  *
- * Covers patch items P1 (preserve InfluxDB's error body) and P2 (503 arm, no
- * `[object Object]`). Mirrors `query-error-core.test.ts`, which is the pattern
- * the patch asks the write path to adopt.
+ * Covers two fixes needed in `handleWriteError`: preserving InfluxDB's error
+ * body instead of discarding it, and adding a 503 arm so retryable failures
+ * don't render as `[object Object]`. Mirrors `query-error-core.test.ts`,
+ * which already does this correctly on the query path — the pattern this
+ * file asks the write path to adopt.
  *
  * ── How to read this file ───────────────────────────────────────────────────
  *
@@ -11,8 +13,8 @@
  * what the model sees today, so the defect is described by an executable
  * assertion rather than by prose.
  *
- * The `[P1]` / `[P2]` blocks are skipped. They are the acceptance criteria for
- * the patch: un-skip them when implementing, and the paired characterization
+ * The two `describe.skip(...)` blocks below are the acceptance criteria for
+ * the fix: un-skip them when implementing, and the paired characterization
  * test above will go red at the same moment — that pairing is deliberate, it
  * forces the stale characterization to be deleted rather than left behind.
  */
@@ -110,10 +112,10 @@ describe("handleWriteError – Core/Enterprise – current behavior", () => {
   });
 
   // A no-regression guard, not a new requirement: this one already passes and
-  // must keep passing after P2 changes how bodies are rendered.
+  // must keep passing after the fallback's body-rendering changes.
   it("fallback does preserve a plain-text body", async () => {
     // The one path that already works: `data` is a string, so interpolating it
-    // is lossless. Recorded so the P2 fix is not credited with more than it
+    // is lossless. Recorded so the fix is not credited with more than it
     // changes.
     const message = await coreWriteError(CORE_500_STRING_BODY);
 
@@ -135,10 +137,10 @@ describe("handleWriteError – Core/Enterprise – current behavior", () => {
   });
 });
 
-// ── Acceptance criteria for the patch ───────────────────────────────────────
+// ── Acceptance criteria for the fix ─────────────────────────────────────────
 
-describe.skip("[P1] handleWriteError preserves the InfluxDB error body", () => {
-  // Un-skip when P1 lands. The expected resolution order is the one
+describe.skip("handleWriteError preserves the InfluxDB error body", () => {
+  // Un-skip when implemented. The expected resolution order is the one
   // `handleQueryError` already uses:
   //   data.message → data.error → string body → statusText → error.message
 
@@ -147,7 +149,7 @@ describe.skip("[P1] handleWriteError preserves the InfluxDB error body", () => {
   // data.error or data.message. Resolving data.error alone is not enough —
   // it yields the generic "partial write of line protocol occurred" and the
   // actionable detail stays buried one level down.
-  it("400: the duplicated tag key reaches the model (impact map 1.1)", async () => {
+  it("400: the duplicated tag key reaches the model", async () => {
     const message = await coreWriteError(
       CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA,
       DUPLICATE_TAG_LINE,
@@ -190,7 +192,7 @@ describe.skip("[P1] handleWriteError preserves the InfluxDB error body", () => {
   });
 });
 
-describe.skip("[P2] handleWriteError adds a 503 arm and serializes bodies", () => {
+describe.skip("handleWriteError adds a 503 arm and serializes bodies", () => {
   it("503: is phrased as retryable and distinguishable from a bad request", async () => {
     const message = await coreWriteError(CORE_503_NODE_STOPPED);
 

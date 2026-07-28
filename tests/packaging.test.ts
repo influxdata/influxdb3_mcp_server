@@ -1,14 +1,14 @@
 /**
- * Packaging — patch item P7.
+ * Packaging — `zod` is a misdeclared runtime dependency.
  *
  * `zod` is imported at runtime by `src/tools/index.ts` and by every
  * `src/tools/categories/*.tools.ts`, but is declared in `devDependencies`. A
  * clean `npm i --omit=dev` — or any consumer installing the published package
  * — gets a server that cannot start.
  *
- * The check is written as an invariant over every runtime import rather than as
- * a check on `zod` specifically, so it keeps working after P7 lands and catches
- * the next occurrence.
+ * The check is written as an invariant over every runtime import rather than
+ * as a check on `zod` specifically, so it keeps working once `zod` moves to
+ * `dependencies` and catches the next occurrence.
  */
 
 import { describe, it, expect } from "vitest";
@@ -70,8 +70,8 @@ describe("runtime imports are declared as dependencies", () => {
   });
 
   it("every runtime import except zod is declared in dependencies", () => {
-    // Current state. When P7 moves zod, this test fails and should be replaced
-    // by the [P7] assertion below.
+    // Current state. When zod moves to dependencies, this test fails and
+    // should be replaced by the assertion below.
     const missing = [...imports.keys()].filter((n) => !declaredRuntime.has(n));
 
     expect(missing).toEqual(["zod"]);
@@ -94,9 +94,9 @@ describe("runtime imports are declared as dependencies", () => {
   });
 });
 
-describe.skip("[P7] zod is a runtime dependency", () => {
-  // Un-skip when P7 lands, and delete the two characterization tests above
-  // that assert the opposite.
+describe.skip("zod is a runtime dependency", () => {
+  // Un-skip when zod moves to dependencies, and delete the two
+  // characterization tests above that assert the opposite.
   const imports = runtimeImports();
 
   it("no runtime import is missing from dependencies", () => {

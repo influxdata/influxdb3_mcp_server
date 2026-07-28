@@ -1,18 +1,21 @@
 /**
  * Write-path error fidelity — Cloud Dedicated / Cloud Serverless (SDK transport).
  *
- * Covers patch item P4 (normalize the cloud SDK error shape).
+ * Covers normalizing the cloud SDK's error shape so it reaches the same
+ * status-handling code as the Core/Enterprise axios path.
  *
  * `@influxdata/influxdb3-client` throws `HttpError`, which carries `statusCode`
  * — not `error.response.status`. Every status branch in `handleWriteError`
  * tests `error.response?.status`, so on these two product types no branch is
  * ever reached and every failure lands in the fallback.
  *
- * Strictly outside the Core/Enterprise scope of the 3.11 patch, but it is the
- * same function P1 and P2 rewrite: leaving it means those fixes only half-land.
+ * `handleWriteError` is the same function that needs to preserve InfluxDB's
+ * error body and add a 503 arm for Core/Enterprise — fixing that without also
+ * normalizing this shape means the fix only half-lands, since cloud paths
+ * would still skip every status branch.
  *
- * See `write-error-core.test.ts` for how the characterization / `[P*]` split
- * works.
+ * See `write-error-core.test.ts` for how the "current behavior" vs. skipped
+ * acceptance-test split works.
  */
 
 import { describe, it, expect } from "vitest";
@@ -73,7 +76,7 @@ describe("handleWriteError – Cloud SDK shape – current behavior", () => {
       expect(message).toMatch(/^Failed to write data to database 'mydb': /);
       // The SDK's own message happens to say "temporarily unavailable", but
       // nothing in the handler classifies it — a 503 and a 400 are rendered
-      // with the same prefix, which is the distinction P2 exists to restore.
+      // with the same prefix, and a 503 arm should distinguish them.
       expect(message).not.toMatch(/^Service unavailable/i);
     },
   );
@@ -92,11 +95,11 @@ describe("handleWriteError – Cloud SDK shape – current behavior", () => {
   });
 });
 
-describe.skip("[P4] cloud SDK errors are normalized before branching", () => {
-  // Un-skip when P4 lands. Expected: both `error.response.status` and
-  // `error.statusCode` resolve to one internal status, and both
-  // `error.response.data` and `error.body` / `error.json` resolve to one body,
-  // before any status branch runs.
+describe.skip("cloud SDK errors are normalized before branching", () => {
+  // Un-skip when the cloud SDK error shape is normalized. Expected: both
+  // `error.response.status` and `error.statusCode` resolve to one internal
+  // status, and both `error.response.data` and `error.body` / `error.json`
+  // resolve to one body, before any status branch runs.
 
   it.each(CLOUD_TYPES)(
     "%s: a 400 reaches the 400 arm",
@@ -145,7 +148,8 @@ describe.skip("[P4] cloud SDK errors are normalized before branching", () => {
   it("resolves the body from HttpError.json, not only HttpError.message", async () => {
     // `message` is a convenience the SDK derives; `json` / `body` are the
     // response. Normalizing on the response keeps the two transports resolving
-    // the same field, which is the point of the shared helper P1 recommends.
+    // the same field, which is the point of extracting a shared error-body
+    // resolver instead of letting the two handlers drift apart.
     const message = await writeErrorMessage(
       InfluxProductType.CloudServerless,
       sdk({ ...CLOUD_SDK_400_DUPLICATE_TAG, message: "Request failed" }),

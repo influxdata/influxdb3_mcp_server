@@ -1,19 +1,24 @@
 /**
  * Write-path routing by product type.
  *
- * Pins the finding that settled impact map open item 3 ("which write endpoint
- * does the server use?") and, with it, patch item P3.
+ * Establishes which endpoint and transport each product type uses to write.
  *
- * The 3.11 notes document the write 400→503 change for the **v2** write API.
- * These tests establish that Core and Enterprise never touch v2 — they use
- * `POST /api/v3/write_lp` — so the documented change does not reach them, and
- * only `clustered` (a separate product on its own release train) is on the v2
- * path. What v3 returns for a stopped node is a different question, tracked as
- * A1.
+ * InfluxDB 3.11's release notes (Core/Enterprise-scoped) document a write
+ * 400→503 change for a stopped node, on the **legacy v1/v2 write endpoint**
+ * (`/api/v2/write`) that Core/Enterprise also expose for backward
+ * compatibility. This server never calls that endpoint for Core/Enterprise —
+ * it always uses `POST /api/v3/write_lp` — so the documented change does not
+ * reach this server's Core/Enterprise write path. The separate `Clustered`
+ * product (InfluxDB Clustered, the self-hosted sibling to Cloud Dedicated —
+ * not a multi-node Enterprise deployment) also posts to `/api/v2/write`
+ * below, but that's a separate, unrelated fact: `Clustered` is a different
+ * product on its own release train, not covered by these Core/Enterprise
+ * release notes at all. What v3 itself returns for a stopped node is
+ * untested here — it needs a live instance with a node stopped mid-write.
  *
  * These are regression tests, not acceptance criteria: they assert what the
  * code does today and must keep doing. If one fails, the routing changed and
- * the 3.11 impact analysis needs redoing.
+ * needs re-auditing against the 3.11 release notes.
  */
 
 import { describe, it, expect, vi } from "vitest";
@@ -73,9 +78,10 @@ describe("write routing – Core and Enterprise use the v3 endpoint", () => {
   });
 
   it("defaults accept_partial to true, so partial-write bodies are reachable", async () => {
-    // Relevant to A2/A3: because the server opts into partial writes, a
-    // rejection may arrive as a partial-write body rather than a whole-batch
-    // refusal. See the [P1/A2] block in write-error-core.test.ts.
+    // Because the server opts into partial writes, a rejection may arrive as
+    // a partial-write body rather than a whole-batch refusal — see
+    // `CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA` in write-error-core.test.ts,
+    // which is exactly this shape.
     const { url } = await postFor(InfluxProductType.Core);
 
     expect(new URLSearchParams(url.split("?")[1]).get("accept_partial")).toBe(
