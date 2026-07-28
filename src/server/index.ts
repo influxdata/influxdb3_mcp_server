@@ -20,6 +20,49 @@ import { InfluxDBMasterService } from "../services/influxdb-master.service.js";
 import { createTools } from "../tools/index.js";
 import { createResources } from "../resources/index.js";
 import { createPrompts } from "../prompts/index.js";
+import { createRequestId, logToolCall } from "../services/telemetry.service.js";
+
+function parseToolPayload(result: {
+  content: Array<{ type: string; text: string }>;
+}): any | undefined {
+  const text = result.content.find((item) => item.type === "text")?.text;
+  if (!text) {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+function logMcpToolResult(
+  toolName: string,
+  fallbackRequestId: string,
+  startedAt: number,
+  result: {
+    content: Array<{ type: string; text: string }>;
+    isError?: boolean;
+  },
+): void {
+  const payload = parseToolPayload(result);
+  const metadata = payload?.metadata || {};
+  const success = !result.isError && payload?.ok !== false;
+
+  logToolCall({
+    tool_name: toolName,
+    request_id: metadata.request_id || fallbackRequestId,
+    query_id: metadata.query_id,
+    timestamp_ms: startedAt,
+    duration_ms: Date.now() - startedAt,
+    db: payload?.db,
+    row_count: metadata.row_count,
+    truncated: metadata.truncated,
+    success,
+    error_code: success ? undefined : payload?.error?.code || "tool_error",
+  });
+}
 
 /**
  * Create and configure the MCP server
@@ -61,16 +104,36 @@ export function createServer(): Server {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
     const tool = tools.find((t) => t.name === name);
+    const requestId = createRequestId();
+    const startedAt = Date.now();
 
     if (!tool) {
+      logToolCall({
+        tool_name: name,
+        request_id: requestId,
+        timestamp_ms: startedAt,
+        duration_ms: Date.now() - startedAt,
+        success: false,
+        error_code: "unknown_tool",
+      });
       throw new Error(`Unknown tool: ${name}`);
     }
 
     const validatedArgs = tool.zodSchema.parse(args || {});
 
     try {
-      return await tool.handler(validatedArgs);
+      const result = await tool.handler(validatedArgs);
+      logMcpToolResult(name, requestId, startedAt, result);
+      return result;
     } catch (error) {
+      logToolCall({
+        tool_name: name,
+        request_id: requestId,
+        timestamp_ms: startedAt,
+        duration_ms: Date.now() - startedAt,
+        success: false,
+        error_code: "tool_exception",
+      });
       return {
         content: [
           {
