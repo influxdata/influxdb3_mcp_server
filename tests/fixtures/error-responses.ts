@@ -60,6 +60,15 @@ export const CORE_500_INVALID_SQL: AxiosErrorShape = {
   message: "Request failed with status code 500",
 };
 
+export const CORE_500_UNKNOWN_QUOTED_WILDCARD_FIELD: AxiosErrorShape = {
+  response: {
+    status: 500,
+    statusText: "Internal Server Error",
+    data: 'query error: error while planning query: Error during planning: No field named "cpu::usage*". Valid fields are cpu::usage_idle, cpu::usage_sys, cpu::usage_user',
+  },
+  message: "Request failed with status code 500",
+};
+
 // ── Cloud Serverless / axios-shaped with {code, message} format ────────────
 
 export const SERVERLESS_AXIOS_400_INVALID_QUERY: AxiosErrorShape = {

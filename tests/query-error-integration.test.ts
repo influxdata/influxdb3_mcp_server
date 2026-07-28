@@ -8,6 +8,10 @@ const RUN =
 describe.skipIf(!RUN)("error path integration tests (live Core)", () => {
   let testClient: TestClient;
 
+  function textContent(result: any): string {
+    return (result.content as Array<{ type: string; text: string }>)[0]?.text;
+  }
+
   beforeAll(async () => {
     const env: Record<string, string> = {};
     if (process.env.INFLUX_DB_INSTANCE_URL)
@@ -44,23 +48,21 @@ describe.skipIf(!RUN)("error path integration tests (live Core)", () => {
       name: "list_databases",
       arguments: {},
     });
-    const dbText = (
-      dbResult.content as Array<{ type: string; text: string }>
-    )[0]?.text;
+    const dbBody = JSON.parse(textContent(dbResult));
 
-    if (dbText?.includes("Found 0 databases")) {
+    if (dbBody.database_count === 0) {
       return;
     }
 
-    const dbMatch = dbText?.match(/"name":\s*"([^"]+)"/);
-    if (!dbMatch) {
+    const dbName = dbBody.databases[0]?.name;
+    if (!dbName) {
       return;
     }
 
     const result = await testClient.client.callTool({
       name: "execute_query",
       arguments: {
-        database: dbMatch[1],
+        database: dbName,
         query: "THIS IS NOT SQL",
       },
     });

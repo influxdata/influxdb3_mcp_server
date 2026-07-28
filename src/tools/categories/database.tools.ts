@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { InfluxDBMasterService } from "../../services/influxdb-master.service.js";
 import { McpTool } from "../index.js";
+import { okResponse } from "../response.js";
 
 export function createDatabaseTools(
   influxService: InfluxDBMasterService,
@@ -321,17 +322,12 @@ export function createDatabaseTools(
         try {
           const databases = await influxService.database.listDatabases();
 
-          const databaseList = databases.map((db) => db.name).join(", ");
-          const count = databases.length;
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Found ${count} database${count !== 1 ? "s" : ""} in InfluxDB instance:\n${databaseList || "None"}\n\nDatabase details:\n${JSON.stringify(databases, null, 2)}`,
-              },
-            ],
-          };
+          return okResponse({
+            ok: true,
+            databases,
+            database_count: databases.length,
+            warnings: [],
+          });
         } catch (error: any) {
           return {
             content: [
