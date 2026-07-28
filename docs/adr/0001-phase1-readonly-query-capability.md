@@ -1,4 +1,15 @@
-# Plan: Phase 1 read-only query capability
+# ADR 0001: Phase 1 read-only query capability
+
+- Status: Accepted (implemented in #69)
+- Date: 2026-07-02
+
+## Decision
+
+Add a read-only tool profile (`INFLUX_MCP_TOOL_PROFILE=readonly`) that
+exposes SQL and InfluxQL query tools, schema discovery, structured
+responses, query safety checks, and lightweight telemetry — and nothing
+that can write, administer, or manage tokens. The sections below are the
+full plan this decision was made from.
 
 ## Overview
 
