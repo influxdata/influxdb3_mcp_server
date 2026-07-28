@@ -26,7 +26,7 @@
     "prepublishOnly": "npm run clean && npm run build",
     "pretest": "npm run build",
     "test": "vitest run",
-    "test:integration": "INFLUX_TEST_ENABLED=true vitest run tests/integration.test.ts",
+    "test:integration": "INFLUX_TEST_ENABLED=true vitest run integration",
     "test:watch": "vitest",
     "test:infra:up": "docker compose -f docker-compose.test.yml up -d --wait",
     "test:infra:down": "docker compose -f docker-compose.test.yml down",
