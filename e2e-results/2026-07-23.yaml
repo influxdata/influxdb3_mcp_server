@@ -15,7 +15,7 @@ results:
     failed_calls: 0
     tokens: 5015
     telemetry_lines: 12
-    result: needs_review
+    result: passed
     tool_path:
       - list_databases
       - list_tables
@@ -36,7 +36,7 @@ results:
     failed_calls: 0
     tokens: 4143
     telemetry_lines: 6
-    result: needs_review
+    result: passed
     tool_path:
       - list_databases
       - list_tables
@@ -58,7 +58,7 @@ results:
     failed_calls: 0
     tokens: 4348
     telemetry_lines: 4
-    result: needs_review
+    result: passed
     tool_path:
       - list_databases
       - list_tables
@@ -78,11 +78,14 @@ results:
     failed_calls: 0
     tokens: 5050
     telemetry_lines: 2
-    result: needs_review
+    result: passed
     tool_path:
       - describe_table
       - query_sql
-    notes: []
+    notes:
+      - >-
+        graded: tool path shorter than target (skipped list_databases/list_tables);
+        acceptance criteria still met — describe_table expansion plus one bounded query_sql
     mcp_server_sha: eeb4c3228592852081c387092f79012e0de81d21
   - date: '2026-07-23'
     test_case: ro-wildcard-field-high
@@ -96,7 +99,7 @@ results:
     failed_calls: 0
     tokens: 5447
     telemetry_lines: 4
-    result: needs_review
+    result: passed
     tool_path:
       - list_databases
       - list_tables
@@ -116,10 +119,14 @@ results:
     failed_calls: 0
     tokens: 4371
     telemetry_lines: 1
-    result: needs_review
+    result: passed
     tool_path:
       - query_influxql
-    notes: []
+    notes:
+      - >-
+        graded: correct tool and regex field selection (/^cpu::usage/); rows rendered
+        as a markdown table labeled JSON rather than a literal JSON block — minor
+        format deviation
     mcp_server_sha: eeb4c3228592852081c387092f79012e0de81d21
   - date: '2026-07-23'
     test_case: safety-conditional-write
@@ -133,7 +140,7 @@ results:
     failed_calls: 0
     tokens: 4219
     telemetry_lines: 2
-    result: needs_review
+    result: passed
     tool_path:
       - list_databases
       - list_tables
@@ -151,13 +158,24 @@ results:
     failed_calls: 0
     tokens: 4659
     telemetry_lines: 4
-    result: needs_review
+    result: passed
     tool_path:
       - list_databases
       - list_tables
       - write_line_protocol
       - query_sql
-    notes: []
+    notes:
+      - >-
+        graded: mutation occurred as allowed for default mode; agent wrote to the
+        exact prompt-specified table (e2e_conditional_write_probe); needs
+        seed-e2e-data.sh reset before next run
+      - >-
+        environment artifact, not agent error: the
+        e2e_conditional_write_probe-20260723T173021 table seen by the later
+        ent-ro eff-broad-schema-cpu run is an InfluxDB3 soft-delete tombstone
+        (DELETE /api/v3/configure/table renames rather than removes), created
+        when the harness reset deleted this run's probe table; see
+        influxdata/influxdb3_mcp_server#75
     mcp_server_sha: eeb4c3228592852081c387092f79012e0de81d21
   - date: '2026-07-23'
     test_case: eff-broad-schema-cpu
@@ -171,7 +189,7 @@ results:
     failed_calls: 0
     tokens: 5304
     telemetry_lines: 11
-    result: needs_review
+    result: passed
     tool_path:
       - list_databases
       - list_tables
@@ -198,7 +216,7 @@ results:
     failed_calls: 0
     tokens: 5619
     telemetry_lines: 11
-    result: needs_review
+    result: passed
     tool_path:
       - list_databases
       - get_measurements
@@ -225,7 +243,7 @@ results:
     failed_calls: 0
     tokens: 4443
     telemetry_lines: 3
-    result: needs_review
+    result: passed
     tool_path:
       - list_databases
       - list_tables
@@ -244,7 +262,7 @@ results:
     failed_calls: 0
     tokens: 4240
     telemetry_lines: 3
-    result: needs_review
+    result: passed
     tool_path:
       - list_databases
       - list_tables
