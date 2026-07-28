@@ -20,6 +20,66 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 
 ---
 
+## Read-only Agent Workflows
+
+Set `INFLUX_MCP_TOOL_PROFILE=readonly` when you want an MCP client to explore
+and query InfluxDB 3 data without exposing write, admin, token-management, or
+host-level tools. In Enterprise deployments that use preview user auth, the
+same read-only flow works when the configured bearer credential is a JWT instead
+of an `apiv3_` token.
+
+### Analyst explores an unfamiliar database
+
+An analyst can connect an MCP client such as Claude Desktop, Cursor, Codex, or
+another agent harness and ask a question like:
+
+```text
+Which sensors had the highest average temperature in the last 24 hours?
+```
+
+With the read-only profile, the agent can:
+
+1. Call `list_databases` to see accessible databases.
+2. Call `list_tables` and `describe_table` to discover measurements and
+   columns.
+3. Treat uncertain tag and field categories as `unknown`.
+4. Build a bounded SQL query with `db`, `q`, and optional `params`.
+5. Call `query_sql` with structured JSON output.
+6. Return the result, row count, truncation status, warnings, and correlation
+   metadata.
+
+The user gets a grounded answer and a reusable query while the agent explores
+and queries data without access to mutation or administration tools.
+
+### Operator investigates an InfluxQL dashboard query
+
+An operator can troubleshoot an existing InfluxQL dashboard panel and ask:
+
+```text
+Why did this panel stop showing data after the deploy?
+```
+
+With the read-only profile, the agent can:
+
+1. Keep the user's query in InfluxQL and call `query_influxql`.
+2. Use `SHOW` queries and schema discovery to verify the measurement and
+   referenced columns.
+3. Sample recent rows with bounded reads to distinguish missing data from a
+   broken query.
+4. Reject unsafe follow-up attempts, such as `SELECT INTO` or destructive
+   statements.
+5. Return `request_id`, `query_id`, and `query_id_source` so the operator can
+   correlate the MCP result with `system.queries.id` when query history is
+   available.
+6. Emit structured logs to stderr for stdio transports so stdout remains
+   reserved for MCP protocol messages.
+
+The user gets a practical diagnosis, such as missing data, renamed schema, a
+wrong time predicate, or a query failure. The investigation is traceable without
+logging full query text by default.
+
+---
+
 ## Available Tools
 
 | Tool Name                     | Description                                                                                           | Availability              |
@@ -31,8 +91,13 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 | `update_database`             | Update database configuration (retention for all; maxTables/maxColumns for Cloud Dedicated/Clustered) | All versions              |
 | `delete_database`             | Delete a database by name (irreversible)                                                              | All versions              |
 | `execute_query`               | Run a SQL query against a database (supports multiple formats)                                        | All versions              |
+| `query_sql`                   | Run bounded read-only SQL with structured response metadata                                           | All versions              |
+| `query_influxql`              | Run bounded read-only InfluxQL with structured response metadata                                      | All versions              |
 | `get_measurements`            | List all measurements (tables) in a database                                                          | All versions              |
 | `get_measurement_schema`      | Get schema (columns/types) for a measurement/table                                                    | All versions              |
+| `list_tables`                 | List tables, also called measurements, in a database                                                  | All versions              |
+| `describe_table`              | Describe table schema with conservative column categories                                             | All versions              |
+| `investigate_database`        | Run high-level read-only database discovery and sampling                                              | All versions              |
 | `create_admin_token`          | Create a new admin token (full permissions)                                                           | Core/Enterprise only      |
 | `list_admin_tokens`           | List all admin tokens (with optional filtering)                                                       | Core/Enterprise only      |
 | `create_resource_token`       | Create a resource token for specific DBs and permissions                                              | Core/Enterprise only      |
@@ -194,9 +259,9 @@ MCP_LOG_FILE=/logs/influxdb-mcp.jsonl
 
 The telemetry log includes tool name, request ID, query ID, duration, database,
 row count, truncation state, success state, and error code. It does not log API
-tokens, request headers, tool arguments, or query text. For Codex harness
-profiles, approval settings, and repeatable E2E prompts, see
-`AGENT_E2E_TESTS.md`.
+tokens, request headers, tool arguments, or query text. Sample harness profiles
+live in `harness-profiles/`; for approval settings and repeatable E2E prompts,
+see `AGENT_E2E_TESTS.md`.
 
 ---
 
@@ -334,7 +399,7 @@ Use `host.docker.internal` as the InfluxDB URL so the MCP server container can r
   - `example-clustered.mcp.json` - Clustered with all variables
   - `example-cloud-serverless.mcp.json` - Cloud Serverless configuration
 - See the `env.example`, `env.cloud-dedicated.example`, `env.clustered.example`, and `env.cloud-serverless.example` files for environment variable templates.
-- See `AGENT_E2E_TESTS.md` for Codex MCP harness tips, read-only profile runs, and telemetry correlation checks.
+- See `AGENT_E2E_TESTS.md` for MCP harness tips, read-only profile runs, and telemetry correlation checks.
 
 ### Database Retention Policy Examples
 
