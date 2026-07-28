@@ -21,8 +21,6 @@ import { describe, it, expect } from "vitest";
 import { InfluxProductType } from "../src/helpers/enums/influx-product-types.enum.js";
 import { writeErrorMessage } from "./helpers/write-service.js";
 import {
-  CORE_400_DUPLICATE_TAG_UNDER_ERROR,
-  CORE_400_DUPLICATE_TAG_UNDER_MESSAGE,
   CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA,
   CORE_401_UNAUTHENTICATED,
   CORE_403_UNAUTHORIZED,
@@ -47,23 +45,20 @@ async function coreWriteError(
 describe("handleWriteError – Core/Enterprise – current behavior", () => {
   // Impact map 1.1: a duplicate-tag-key rejection must reach the model naming
   // the tag. Today the 400 arm throws a fixed string and drops the body, so it
-  // does not — whatever shape InfluxDB reports the tag in.
-  it.each([
-    ["data.error", CORE_400_DUPLICATE_TAG_UNDER_ERROR],
-    ["data.message", CORE_400_DUPLICATE_TAG_UNDER_MESSAGE],
-    ["data[].error_message", CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA],
-  ])(
-    "400: discards the duplicate-tag-key body reported under %s",
-    async (_shape, fixture) => {
-      const message = await coreWriteError(fixture, DUPLICATE_TAG_LINE);
+  // does not. Verified shape (Core 3.11.0-nightly and Enterprise 3.11.0-0.rc.1,
+  // 2026-07-28): the tag name is nested under data[].error_message.
+  it("400: discards the duplicate-tag-key body reported under data[].error_message", async () => {
+    const message = await coreWriteError(
+      CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA,
+      DUPLICATE_TAG_LINE,
+    );
 
-      expect(message).toBe(
-        "Bad request: Invalid line protocol format or parameters",
-      );
-      expect(message).not.toContain(DUPLICATED_TAG_KEY);
-      expect(message).not.toMatch(/duplicate/i);
-    },
-  );
+    expect(message).toBe(
+      "Bad request: Invalid line protocol format or parameters",
+    );
+    expect(message).not.toContain(DUPLICATED_TAG_KEY);
+    expect(message).not.toMatch(/multiple instances/i);
+  });
 
   it("401: discards the InfluxDB body", async () => {
     const message = await coreWriteError(CORE_401_UNAUTHENTICATED);
@@ -130,7 +125,7 @@ describe("handleWriteError – Core/Enterprise – current behavior", () => {
   it("applies identically on Enterprise", async () => {
     const message = await writeErrorMessage(
       InfluxProductType.Enterprise,
-      http(CORE_400_DUPLICATE_TAG_UNDER_ERROR),
+      http(CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA),
       DUPLICATE_TAG_LINE,
     );
 
@@ -147,25 +142,23 @@ describe.skip("[P1] handleWriteError preserves the InfluxDB error body", () => {
   // `handleQueryError` already uses:
   //   data.message → data.error → string body → statusText → error.message
 
+  // Verified shape (Core 3.11.0-nightly and Enterprise 3.11.0-0.rc.1,
+  // 2026-07-28): the tag name is nested under data[].error_message, not
+  // data.error or data.message. Resolving data.error alone is not enough —
+  // it yields the generic "partial write of line protocol occurred" and the
+  // actionable detail stays buried one level down.
   it("400: the duplicated tag key reaches the model (impact map 1.1)", async () => {
     const message = await coreWriteError(
-      CORE_400_DUPLICATE_TAG_UNDER_ERROR,
+      CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA,
       DUPLICATE_TAG_LINE,
     );
 
     expect(message).toMatch(/^Bad request: /);
     expect(message).toContain(DUPLICATED_TAG_KEY);
-    expect(message).toMatch(/duplicate/i);
-  });
-
-  it("400: resolves data.message ahead of data.error", async () => {
-    const message = await coreWriteError(
-      CORE_400_DUPLICATE_TAG_UNDER_MESSAGE,
-      DUPLICATE_TAG_LINE,
+    expect(message).toMatch(/multiple instances/i);
+    expect(message).not.toBe(
+      "Bad request: partial write of line protocol occurred",
     );
-
-    expect(message).toMatch(/^Bad request: /);
-    expect(message).toContain(DUPLICATED_TAG_KEY);
   });
 
   it("401: the InfluxDB body survives", async () => {
@@ -220,27 +213,5 @@ describe.skip("[P2] handleWriteError adds a 503 arm and serializes bodies", () =
 
     expect(message).toContain("internal error while persisting write");
     expect(message).not.toContain("[object Object]");
-  });
-});
-
-describe.skip("[P1/A2] partial-write bodies name the tag one level down", () => {
-  // Blocked on A2: whether 3.11 reports a duplicate-tag-key rejection inside
-  // the partial-write `data[].error_message` structure at all. If it does,
-  // resolving `data.error` is not enough — it yields the generic "partial write
-  // of line protocol occurred" and the actionable detail stays buried. The
-  // MCP server sends accept_partial=true on this path, so it would hit this.
-  //
-  // Un-skip only once A2 confirms the shape; delete if A2 rules it out.
-  it("400: the duplicated tag key reaches the model from data[].error_message", async () => {
-    const message = await coreWriteError(
-      CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA,
-      DUPLICATE_TAG_LINE,
-    );
-
-    expect(message).toContain(DUPLICATED_TAG_KEY);
-    expect(message).toMatch(/duplicate/i);
-    expect(message).not.toBe(
-      "Bad request: partial write of line protocol occurred",
-    );
   });
 });

@@ -13,15 +13,20 @@
  *
  * RECORDED   Body text observed against a real instance, or carried over from
  *            `error-responses.ts`.
- * PROVISIONAL Body text is a placeholder pending an answer from the
- *            Core/Enterprise team. Tests using these fixtures must assert on
- *            structure and on substrings the fixture itself defines
- *            (`DUPLICATED_TAG_KEY`), never on exact InfluxDB wording, so that
- *            correcting the fixture does not invalidate the assertion.
+ * PROVISIONAL Body text is a placeholder pending live verification. Tests
+ *            using these fixtures must assert on structure and on substrings
+ *            the fixture itself defines (`DUPLICATED_TAG_KEY`), never on
+ *            exact InfluxDB wording, so that correcting the fixture does not
+ *            invalidate the assertion.
  *
- * Open questions that pin down the PROVISIONAL entries are tracked in the plan
- * as A1 (503 on write_lp) and A2 (duplicate-tag-key response shape). See
- * `tests/open-questions.stub.test.ts`.
+ * A2 (duplicate-tag-key response shape) is resolved: verified 2026-07-28
+ * against both an Enterprise instance (`--upgrade-pacha-tree`, 3.11.0-0.rc.1)
+ * and a Core instance (3.11.0-nightly) — identical response on both. See
+ * `CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA` below.
+ *
+ * A1 (503 on write_lp for a stopped node) remains open. See
+ * `tests/open-questions.stub.test.ts` on the `influxdb-3.11-compat-patch`
+ * branch.
  */
 
 import type { AxiosErrorShape, SdkErrorShape } from "./error-responses.js";
@@ -48,51 +53,17 @@ export const DUPLICATE_TAG_LINE = "m,region=east,region=west f=1i";
 export const DUPLICATED_TAG_KEY = "region";
 
 /**
- * PROVISIONAL (A2) — duplicated tag named under `data.error`.
- *
- * The shape the query-path resolver handles second. Matches how Core reports
- * most write_lp rejections today.
- */
-export const CORE_400_DUPLICATE_TAG_UNDER_ERROR: AxiosErrorShape = {
-  response: {
-    status: 400,
-    statusText: "Bad Request",
-    data: {
-      error: `invalid line protocol: duplicate tag key '${DUPLICATED_TAG_KEY}' on line 1`,
-    },
-  },
-  message: "Request failed with status code 400",
-};
-
-/**
- * PROVISIONAL (A2) — duplicated tag named under `data.message`.
- *
- * The shape the query-path resolver handles first. Included because the write
- * path must not regress the `{code, message}` family that the query path
- * already had to grow support for.
- */
-export const CORE_400_DUPLICATE_TAG_UNDER_MESSAGE: AxiosErrorShape = {
-  response: {
-    status: 400,
-    statusText: "Bad Request",
-    data: {
-      code: "invalid",
-      message: `invalid line protocol: duplicate tag key '${DUPLICATED_TAG_KEY}' on line 1`,
-    },
-  },
-  message: "Request failed with status code 400",
-};
-
-/**
- * PROVISIONAL (A2) — duplicated tag named only inside the partial-write
+ * RECORDED (A2) — duplicated tag named only inside the partial-write
  * `data[].error_message` structure.
  *
- * This is the variant the query-path resolver does NOT reach: `data.error`
+ * Verified 2026-07-28 against both Core (3.11.0-nightly) and Enterprise
+ * (3.11.0-0.rc.1, `--upgrade-pacha-tree`) — identical on both. `data.error`
  * resolves to the generic "partial write of line protocol occurred" and the
- * actionable detail stays buried one level down. The MCP server sends
- * `accept_partial=true` on the Core/Enterprise v3 path, so if 3.11 reports the
- * rejection this way, resolving `data.error` is not sufficient. Tracked as A2
- * and A3.
+ * actionable detail is one level down, under `data[].error_message`. The MCP
+ * server sends `accept_partial=true` on the Core/Enterprise v3 path, so this
+ * is the shape a real rejection takes; resolving `data.error` alone is not
+ * sufficient. `original_line` is truncated by InfluxDB itself, mid tag value —
+ * not something our code does.
  */
 export const CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA: AxiosErrorShape = {
   response: {
@@ -102,9 +73,9 @@ export const CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA: AxiosErrorShape = {
       error: "partial write of line protocol occurred",
       data: [
         {
-          error_message: `duplicate tag key '${DUPLICATED_TAG_KEY}'`,
+          error_message: `invalid line protocol - multiple instances of '${DUPLICATED_TAG_KEY}' tag found`,
           line_number: 1,
-          original_line: DUPLICATE_TAG_LINE,
+          original_line: "m,region=east,region",
         },
       ],
     },
