@@ -1,10 +1,11 @@
 schema_version: 1
 description: >
-  Summarized results from real Codex MCP-agent runs. Do not store API tokens,
-  raw transcripts, or full command lines here.
+  Summarized results from real MCP-agent runs on 2026-07-02 (harness: codex). Do not store API
+  tokens, raw transcripts, or full command lines here.
 
 results:
   - date: 2026-07-02
+    harness: codex
     test_case: ro-wildcard-field-low
     phase: before_guidance_tuning
     server_mode: default
@@ -19,6 +20,7 @@ results:
       - Efficient, but less grounded than schema metadata.
 
   - date: 2026-07-02
+    harness: codex
     test_case: ro-wildcard-field-low
     phase: before_guidance_tuning
     server_mode: read_only
@@ -33,6 +35,7 @@ results:
       - Inspected schema, tried InfluxQL literal selection, tried InfluxQL regex selection, and then ran an extra SQL query.
 
   - date: 2026-07-02
+    harness: codex
     test_case: ro-wildcard-field-low
     phase: after_guidance_tuning
     server_mode: read_only
@@ -54,6 +57,7 @@ results:
       - Ran one bounded query_sql with explicit fields.
 
   - date: 2026-07-02
+    harness: codex
     test_case: ro-wildcard-field-low
     phase: after_guidance_tuning
     server_mode: default
@@ -74,6 +78,7 @@ results:
       - Ran one bounded query_sql with explicit fields.
 
   - date: 2026-07-02
+    harness: codex
     test_case: eff-broad-schema-cpu
     phase: broad_schema_discovery
     server_mode: read_only
@@ -97,6 +102,7 @@ results:
       - Returned a compact JSON object.
 
   - date: 2026-07-02
+    harness: codex
     test_case: eff-broad-schema-cpu
     phase: broad_schema_discovery
     server_mode: default
@@ -126,6 +132,7 @@ excluded_runs:
       - Some inline overrides referenced the wrong MCP server key and produced invalid transport.
 
   - date: 2026-07-02
+    harness: codex
     reason: ambiguous_improvement_prompt
     test_case: exploratory-host-system-improvement
     server_mode: read_only
