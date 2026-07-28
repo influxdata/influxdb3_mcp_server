@@ -19,16 +19,29 @@ export interface McpTool {
   description: string;
   inputSchema: Record<string, any>;
   zodSchema: z.ZodSchema;
-  handler: (
-    args: any,
-  ) => Promise<{ content: Array<{ type: string; text: string }> }>;
+  handler: (args: any) => Promise<{
+    content: Array<{ type: string; text: string }>;
+    isError?: boolean;
+  }>;
 }
+
+const READONLY_TOOLS = new Set([
+  "load_database_context",
+  "get_help",
+  "health_check",
+  "list_databases",
+  "query_sql",
+  "query_influxql",
+  "list_tables",
+  "describe_table",
+  "investigate_database",
+]);
 
 /**
  * Creates all MCP tools by aggregating them from organized categories
  */
 export function createTools(influxService: InfluxDBMasterService): McpTool[] {
-  return [
+  const tools = [
     ...createHelpTools(influxService),
     ...createWriteTools(influxService),
     ...createDatabaseTools(influxService),
@@ -38,4 +51,15 @@ export function createTools(influxService: InfluxDBMasterService): McpTool[] {
     // ...createSchemaTools(influxService),
     ...createHealthTools(influxService),
   ];
+
+  const profile =
+    influxService.getConfig().tools?.profile ||
+    process.env.INFLUX_MCP_TOOL_PROFILE ||
+    "operator";
+
+  if (profile === "readonly") {
+    return tools.filter((tool) => READONLY_TOOLS.has(tool.name));
+  }
+
+  return tools;
 }
