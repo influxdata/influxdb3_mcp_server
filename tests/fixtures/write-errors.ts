@@ -1,5 +1,5 @@
 /**
- * Write-path error fixtures for the InfluxDB 3.11 compatibility patch.
+ * Write-path error fixtures.
  *
  * Companion to `error-responses.ts`, which covers the query path. Shapes follow
  * the same two families:
@@ -19,14 +19,14 @@
  *            exact InfluxDB wording, so that correcting the fixture does not
  *            invalidate the assertion.
  *
- * A2 (duplicate-tag-key response shape) is resolved: verified 2026-07-28
+ * The duplicate-tag-key response shape is resolved: verified 2026-07-28
  * against both an Enterprise instance (`--upgrade-pacha-tree`, 3.11.0-0.rc.1)
  * and a Core instance (3.11.0-nightly) — identical response on both. See
  * `CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA` below.
  *
- * A1 (503 on write_lp for a stopped node) remains open. See
- * `tests/open-questions.stub.test.ts` on the `influxdb-3.11-compat-patch`
- * branch.
+ * Whether a stopped node makes `write_lp` return 503 (instead of the current
+ * 400) remains unverified — needs a live instance with a node stopped
+ * mid-write. See `CORE_503_NODE_STOPPED` below.
  */
 
 import type { AxiosErrorShape, SdkErrorShape } from "./error-responses.js";
@@ -36,16 +36,16 @@ export type { AxiosErrorShape, SdkErrorShape };
 // ── The 3.11 duplicate-tag-key case ─────────────────────────────────────────
 //
 // 3.11 rejects a line carrying the same tag key twice up front, the same way
-// duplicate field keys were already refused. The impact map's central
-// requirement is that the rejection reach the model naming the duplicated tag.
+// duplicate field keys were already refused. The rejection needs to reach the
+// model naming the duplicated tag, not just as a generic "bad request."
 
 /**
  * Line protocol that 3.11 rejects: the same tag key appears twice.
  *
- * The plan writes this case as `m,t=a,t=a f=1i`. A one-letter tag key is not
- * usable in an assertion — `not.toContain("t")` matches ordinary English in the
- * generic error string and passes for the wrong reason — so the fixture uses a
- * distinctive key instead. The condition under test is identical.
+ * A one-letter tag key (e.g. `m,t=a,t=a f=1i`) is not usable in an assertion —
+ * `not.toContain("t")` matches ordinary English in the generic error string
+ * and passes for the wrong reason — so the fixture uses a distinctive key
+ * instead. The condition under test is identical.
  */
 export const DUPLICATE_TAG_LINE = "m,region=east,region=west f=1i";
 
@@ -53,7 +53,7 @@ export const DUPLICATE_TAG_LINE = "m,region=east,region=west f=1i";
 export const DUPLICATED_TAG_KEY = "region";
 
 /**
- * RECORDED (A2) — duplicated tag named only inside the partial-write
+ * RECORDED — duplicated tag named only inside the partial-write
  * `data[].error_message` structure.
  *
  * Verified 2026-07-28 against both Core (3.11.0-nightly) and Enterprise
@@ -131,13 +131,20 @@ export const CORE_422_UNPROCESSABLE: AxiosErrorShape = {
 // ── 503 — the status neither handler has an arm for ─────────────────────────
 
 /**
- * PROVISIONAL (A1) — a stopped node.
+ * PROVISIONAL — a stopped node.
  *
- * The 3.11 notes document the 400→503 change for `/api/v2/write`, which only
- * the `clustered` product type uses. Whether `/api/v3/write_lp` behaves the
- * same on Core/Enterprise is A1, and answerable only on a live instance. The
+ * InfluxDB 3.11's release notes (Core/Enterprise-scoped) document a 400→503
+ * change for the legacy `/api/v2/write` endpoint that Core/Enterprise also
+ * expose for backward compatibility — not the `/api/v3/write_lp` endpoint
+ * this server actually calls for those product types. Whether
+ * `/api/v3/write_lp` behaves the same on a stopped node is unverified,
+ * answerable only on a live instance with a node stopped mid-write. The
  * fixture exists so the handler's 503 arm is testable either way — the arm is
- * needed for the `clustered` path regardless of how A1 lands.
+ * also needed for the separate `Clustered` product (InfluxDB Clustered, the
+ * self-hosted sibling to Cloud Dedicated — not a multi-node Enterprise
+ * deployment), which does call `/api/v2/write` (see `write-routing.test.ts`).
+ * That's unrelated to these Core/Enterprise release notes: `Clustered` is a
+ * different product on its own release train.
  */
 export const CORE_503_NODE_STOPPED: AxiosErrorShape = {
   response: {
