@@ -42,6 +42,52 @@ describe("QuerySafetyService", () => {
     );
   });
 
+  it.each(["sql", "influxql"] as const)(
+    "adds an outer limit when a nested %s query is the only bounded query",
+    (language) => {
+      const query =
+        language === "sql"
+          ? "SELECT * FROM metrics WHERE host IN (SELECT host FROM hosts LIMIT 1)"
+          : "SELECT * FROM (SELECT * FROM metrics LIMIT 1)";
+
+      const result = service.validate(query, language, 25);
+
+      expect(result.normalizedQuery).toBe(`${query} LIMIT 25`);
+      expect(result.warnings).toContainEqual(
+        expect.objectContaining({ code: "limit_added" }),
+      );
+    },
+  );
+
+  it("only reduces the outer SQL limit", () => {
+    const result = service.validate(
+      "SELECT * FROM (SELECT * FROM metrics LIMIT 1000) LIMIT 100",
+      "sql",
+      25,
+    );
+
+    expect(result.normalizedQuery).toBe(
+      "SELECT * FROM (SELECT * FROM metrics LIMIT 1000) LIMIT 25",
+    );
+  });
+
+  it("does not treat limits in strings, comments, or identifiers as outer limits", () => {
+    const query =
+      "SELECT \"limit\" FROM metrics WHERE note = 'LIMIT 100' /* LIMIT 100 */";
+
+    const result = service.validate(query, "sql", 25);
+
+    expect(result.normalizedQuery).toBe(`${query} LIMIT 25`);
+  });
+
+  it("appends a limit outside a trailing line comment", () => {
+    const query = "SELECT * FROM metrics -- LIMIT 100";
+
+    const result = service.validate(query, "sql", 25);
+
+    expect(result.normalizedQuery).toBe(`${query}\nLIMIT 25`);
+  });
+
   it("rejects SQL writes and multi-statement input", () => {
     expect(service.validate("DROP TABLE cpu", "sql").code).toBe(
       "not_read_only",

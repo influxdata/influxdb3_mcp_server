@@ -98,22 +98,19 @@ export class QuerySafetyService {
     }
 
     let normalizedQuery = trimmed.replace(/;+$/u, "");
-    const limit = this.limitValue(normalizedQuery);
+    const limit = this.topLevelLimit(normalizedQuery);
     if (this.shouldEnforceLimit(firstKeyword)) {
       if (limit === undefined) {
-        normalizedQuery = `${normalizedQuery} LIMIT ${maxRows}`;
+        normalizedQuery = this.appendLimit(normalizedQuery, maxRows);
         warnings.push({
           code: "limit_added",
           message: `Added LIMIT ${maxRows} to enforce a bounded result set.`,
         });
-      } else if (limit > maxRows) {
-        normalizedQuery = normalizedQuery.replace(
-          /\blimit\s+\d+\b/iu,
-          `LIMIT ${maxRows}`,
-        );
+      } else if (limit.value > maxRows) {
+        normalizedQuery = `${normalizedQuery.slice(0, limit.valueStart)}${maxRows}${normalizedQuery.slice(limit.valueEnd)}`;
         warnings.push({
           code: "limit_reduced",
-          message: `Reduced LIMIT ${limit} to ${maxRows}.`,
+          message: `Reduced LIMIT ${limit.value} to ${maxRows}.`,
         });
       }
     }
@@ -173,8 +170,100 @@ export class QuerySafetyService {
     return firstKeyword === "SELECT" || firstKeyword === "WITH";
   }
 
-  private limitValue(query: string): number | undefined {
-    const value = query.match(/\blimit\s+(\d+)\b/iu)?.[1];
-    return value ? Number(value) : undefined;
+  private topLevelLimit(
+    query: string,
+  ): { value: number; valueStart: number; valueEnd: number } | undefined {
+    let depth = 0;
+
+    for (let index = 0; index < query.length; ) {
+      const character = query[index];
+      const next = query[index + 1];
+
+      if (character === "'" || character === '"' || character === "`") {
+        index = this.skipQuoted(query, index, character);
+      } else if (character === "-" && next === "-") {
+        index = query.indexOf("\n", index + 2);
+        if (index === -1) return undefined;
+      } else if (character === "/" && next === "*") {
+        const end = query.indexOf("*/", index + 2);
+        index = end === -1 ? query.length : end + 2;
+      } else if (character === "(") {
+        depth += 1;
+        index += 1;
+      } else if (character === ")") {
+        depth = Math.max(0, depth - 1);
+        index += 1;
+      } else if (
+        depth === 0 &&
+        query.slice(index, index + 5).toUpperCase() === "LIMIT" &&
+        !this.isIdentifierCharacter(query[index - 1]) &&
+        !this.isIdentifierCharacter(query[index + 5])
+      ) {
+        let valueStart = index + 5;
+        while (/\s/u.test(query[valueStart] ?? "")) valueStart += 1;
+        const valueEnd = this.readDigits(query, valueStart);
+        if (valueEnd > valueStart) {
+          return {
+            value: Number(query.slice(valueStart, valueEnd)),
+            valueStart,
+            valueEnd,
+          };
+        }
+        index += 5;
+      } else {
+        index += 1;
+      }
+    }
+
+    return undefined;
+  }
+
+  private skipQuoted(query: string, start: number, quote: string): number {
+    for (let index = start + 1; index < query.length; index += 1) {
+      if (query[index] !== quote) continue;
+      if (query[index + 1] === quote) {
+        index += 1;
+        continue;
+      }
+      return index + 1;
+    }
+    return query.length;
+  }
+
+  private appendLimit(query: string, maxRows: number): string {
+    const separator = this.endsInLineComment(query) ? "\n" : " ";
+    return `${query}${separator}LIMIT ${maxRows}`;
+  }
+
+  private endsInLineComment(query: string): boolean {
+    for (let index = 0; index < query.length; ) {
+      const character = query[index];
+      const next = query[index + 1];
+
+      if (character === "'" || character === '"' || character === "`") {
+        index = this.skipQuoted(query, index, character);
+      } else if (character === "-" && next === "-") {
+        const end = query.indexOf("\n", index + 2);
+        if (end === -1) return true;
+        index = end + 1;
+      } else if (character === "/" && next === "*") {
+        const end = query.indexOf("*/", index + 2);
+        index = end === -1 ? query.length : end + 2;
+      } else {
+        index += 1;
+      }
+    }
+
+    return false;
+  }
+
+  private isIdentifierCharacter(character: string | undefined): boolean {
+    return !!character && /[A-Za-z0-9_$]/u.test(character);
+  }
+
+  private readDigits(query: string, start: number): number {
+    let end = start;
+    while (/\d/u.test(query[end] ?? "")) end += 1;
+    return end;
   }
 }
