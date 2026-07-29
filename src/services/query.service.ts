@@ -5,6 +5,7 @@
  */
 
 import { BaseConnectionService } from "./base-connection.service.js";
+import type { QParamType } from "@influxdata/influxdb3-client";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import { QueryLanguage, QuerySafetyService } from "./query-safety.service.js";
 import { createRequestId } from "./telemetry.service.js";
@@ -118,11 +119,11 @@ export class QueryService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
-        return this.executeCloudDedicatedQuery(query, database);
+        return this.executeCloudDedicatedQuery(query, database, options);
       case InfluxProductType.Clustered:
-        return this.executeClusteredQuery(query, database);
+        return this.executeClusteredQuery(query, database, options);
       case InfluxProductType.CloudServerless:
-        return this.executeCloudServerlessQuery(query, database);
+        return this.executeCloudServerlessQuery(query, database, options);
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
         return this.executeCoreEnterpriseQuery(query, database, {
@@ -388,7 +389,7 @@ export class QueryService {
         );
       case InfluxProductType.CloudDedicated:
       case InfluxProductType.Clustered:
-        return this.executeClusteredQuery(query, database);
+        return this.executeClusteredQuery(query, database, options);
       default:
         throw new Error(
           `InfluxQL queries are not supported for ${connectionInfo.type}`,
@@ -508,11 +509,20 @@ export class QueryService {
   private async executeCloudDedicatedQuery(
     query: string,
     database: string,
+    options: {
+      params?: Record<string, unknown> | unknown[];
+      timeoutMs?: number;
+    },
   ): Promise<any> {
+    const params = this.flightParams(options);
+
     try {
       const client = this.baseService.getClient();
       if (!client) throw new Error("InfluxDB client not initialized");
-      const result = client.queryPoints(query, database, { type: "sql" });
+      const result = client.queryPoints(query, database, {
+        type: "sql",
+        ...(params !== undefined && { params }),
+      });
       const rows: any[] = [];
       for await (const row of result) {
         rows.push(row);
@@ -529,6 +539,10 @@ export class QueryService {
   private async executeClusteredQuery(
     query: string,
     database: string,
+    options: {
+      params?: Record<string, unknown> | unknown[];
+      timeoutMs?: number;
+    } = {},
   ): Promise<any> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
@@ -536,7 +550,9 @@ export class QueryService {
         params: {
           db: database,
           q: query,
+          ...(options.params !== undefined && { params: options.params }),
         },
+        ...(options.timeoutMs !== undefined && { timeout: options.timeoutMs }),
       });
       return response;
     } catch (error: any) {
@@ -550,11 +566,20 @@ export class QueryService {
   private async executeCloudServerlessQuery(
     query: string,
     database: string,
+    options: {
+      params?: Record<string, unknown> | unknown[];
+      timeoutMs?: number;
+    },
   ): Promise<any> {
+    const params = this.flightParams(options);
+
     try {
       const client = this.baseService.getClient();
       if (!client) throw new Error("InfluxDB client not initialized");
-      const result = client.queryPoints(query, database, { type: "sql" });
+      const result = client.queryPoints(query, database, {
+        type: "sql",
+        ...(params !== undefined && { params }),
+      });
       const rows: any[] = [];
       for await (const row of result) {
         rows.push(row);
@@ -563,6 +588,39 @@ export class QueryService {
     } catch (error: any) {
       this.handleQueryError(error);
     }
+  }
+
+  private flightParams(options: {
+    params?: Record<string, unknown> | unknown[];
+    timeoutMs?: number;
+  }): Record<string, QParamType> | undefined {
+    if (options.timeoutMs !== undefined) {
+      throw new Error(
+        "timeoutMs is not supported for Flight queries; configure the client query timeout instead",
+      );
+    }
+
+    if (Array.isArray(options.params)) {
+      throw new Error(
+        "Array query params are not supported for Flight queries; use a named parameter object instead",
+      );
+    }
+
+    if (
+      options.params !== undefined &&
+      Object.values(options.params).some(
+        (value) =>
+          typeof value !== "string" &&
+          typeof value !== "number" &&
+          typeof value !== "boolean",
+      )
+    ) {
+      throw new Error(
+        "Flight query params must be strings, numbers, or booleans",
+      );
+    }
+
+    return options.params as Record<string, QParamType> | undefined;
   }
 
   /**
