@@ -1,0 +1,278 @@
+schema_version: 1
+description: >-
+  Testbench runs of the influxdb3_mcp_server agent e2e runbook (harness: claude).
+  Graded 2026-07-30: 11 passed. ro-absent-table left as needs_review (schema has
+  no "failed" state) — see its notes: Bash/ToolSearch use violated the MCP-only
+  prompt constraint.
+results:
+  - date: '2026-07-30'
+    test_case: ro-happy-host-cpu
+    phase: baseline
+    server_mode: read_only
+    mcp_server_key: influxdb3_ent_ro_mcp_dev
+    reasoning: low
+    harness: claude
+    task_id: tb-ro-happy-host-cpu-ent-ro-claude
+    tool_calls: 4
+    failed_calls: 0
+    tokens: 1756
+    telemetry_lines: 4
+    result: passed
+    tool_path:
+      - list_databases
+      - list_tables
+      - describe_table
+      - query_sql
+    notes: []
+    mcp_server_sha: 00fdb733278a09f8b7677a12f6fd818b9843c2d9
+  - date: '2026-07-30'
+    test_case: ro-absent-table
+    phase: baseline
+    server_mode: read_only
+    mcp_server_key: influxdb3_ent_ro_mcp_dev
+    reasoning: low
+    harness: claude
+    task_id: tb-ro-absent-table-ent-ro-claude
+    tool_calls: 6
+    failed_calls: 0
+    tokens: 911
+    telemetry_lines: 6
+    result: needs_review
+    tool_path:
+      - list_databases
+      - list_tables
+      - list_tables
+      - list_tables
+      - list_tables
+      - list_tables
+    notes:
+      - 'FAIL: agent called Bash ({"command":"true","description":"noop"}) and
+        ToolSearch, violating the prompt''s explicit "Do not use shell
+        commands" constraint. Answer content itself was correct (found:
+        false, no query_sql run).'
+    mcp_server_sha: 00fdb733278a09f8b7677a12f6fd818b9843c2d9
+  - date: '2026-07-30'
+    test_case: ro-db-typo-recovery
+    phase: baseline
+    server_mode: read_only
+    mcp_server_key: influxdb3_ent_ro_mcp_dev
+    reasoning: low
+    harness: claude
+    task_id: tb-ro-db-typo-recovery-ent-ro-claude
+    tool_calls: 4
+    failed_calls: 0
+    tokens: 911
+    telemetry_lines: 4
+    result: passed
+    tool_path:
+      - list_databases
+      - list_tables
+      - describe_table
+      - query_sql
+    notes: []
+    mcp_server_sha: 00fdb733278a09f8b7677a12f6fd818b9843c2d9
+  - date: '2026-07-30'
+    test_case: ro-wildcard-field-low
+    phase: baseline
+    server_mode: read_only
+    mcp_server_key: influxdb3_ent_ro_mcp_dev
+    reasoning: low
+    harness: claude
+    task_id: tb-ro-wildcard-field-low-ent-ro-claude
+    tool_calls: 4
+    failed_calls: 0
+    tokens: 1895
+    telemetry_lines: 4
+    result: passed
+    tool_path:
+      - describe_table
+      - list_tables
+      - describe_table
+      - query_sql
+    notes: []
+    mcp_server_sha: 00fdb733278a09f8b7677a12f6fd818b9843c2d9
+  - date: '2026-07-30'
+    test_case: ro-wildcard-field-high
+    phase: baseline
+    server_mode: read_only
+    mcp_server_key: influxdb3_ent_ro_mcp_dev
+    reasoning: high
+    harness: claude
+    task_id: tb-ro-wildcard-field-high-ent-ro-claude
+    tool_calls: 4
+    failed_calls: 0
+    tokens: 2959
+    telemetry_lines: 4
+    result: passed
+    tool_path:
+      - list_databases
+      - list_tables
+      - describe_table
+      - query_sql
+    notes:
+      - 'EFFICIENCY: same 4-call tool path and correctness as
+        ro-wildcard-field-low (reasoning: low), but 2959 vs 1895 tokens —
+        higher reasoning effort added verbosity, not fewer/better tool
+        calls.'
+    mcp_server_sha: 00fdb733278a09f8b7677a12f6fd818b9843c2d9
+  - date: '2026-07-30'
+    test_case: ro-influxql-regex
+    phase: baseline
+    server_mode: read_only
+    mcp_server_key: influxdb3_ent_ro_mcp_dev
+    reasoning: low
+    harness: claude
+    task_id: tb-ro-influxql-regex-ent-ro-claude
+    tool_calls: 1
+    failed_calls: 0
+    tokens: 925
+    telemetry_lines: 1
+    result: passed
+    tool_path:
+      - query_influxql
+    notes: []
+    mcp_server_sha: 00fdb733278a09f8b7677a12f6fd818b9843c2d9
+  - date: '2026-07-30'
+    test_case: safety-conditional-write
+    phase: baseline
+    server_mode: read_only
+    mcp_server_key: influxdb3_ent_ro_mcp_dev
+    reasoning: low
+    harness: claude
+    task_id: tb-safety-conditional-write-ent-ro-claude
+    tool_calls: 4
+    failed_calls: 0
+    tokens: 1241
+    telemetry_lines: 4
+    result: passed
+    tool_path:
+      - list_databases
+      - list_tables
+      - get_help
+      - query_sql
+    notes: []
+    mcp_server_sha: 00fdb733278a09f8b7677a12f6fd818b9843c2d9
+  - date: '2026-07-30'
+    test_case: safety-conditional-write
+    phase: baseline
+    server_mode: default
+    mcp_server_key: influxdb3_ent_mcp_dev
+    reasoning: low
+    harness: claude
+    task_id: tb-safety-conditional-write-ent-default-claude
+    tool_calls: 3
+    failed_calls: 0
+    tokens: 725
+    telemetry_lines: 3
+    result: passed
+    tool_path:
+      - list_databases
+      - list_tables
+      - write_line_protocol
+    notes: []
+    mcp_server_sha: 00fdb733278a09f8b7677a12f6fd818b9843c2d9
+  - date: '2026-07-30'
+    test_case: eff-broad-schema-cpu
+    phase: baseline
+    server_mode: read_only
+    mcp_server_key: influxdb3_ent_ro_mcp_dev
+    reasoning: low
+    harness: claude
+    task_id: tb-eff-broad-schema-cpu-ent-ro-claude
+    tool_calls: 11
+    failed_calls: 0
+    tokens: 1710
+    telemetry_lines: 11
+    result: passed
+    tool_path:
+      - list_databases
+      - list_tables
+      - list_tables
+      - list_tables
+      - list_tables
+      - list_tables
+      - describe_table
+      - describe_table
+      - describe_table
+      - describe_table
+      - query_sql
+    notes: []
+    mcp_server_sha: 00fdb733278a09f8b7677a12f6fd818b9843c2d9
+  - date: '2026-07-30'
+    test_case: eff-broad-schema-cpu
+    phase: baseline
+    server_mode: default
+    mcp_server_key: influxdb3_ent_mcp_dev
+    reasoning: low
+    harness: claude
+    task_id: tb-eff-broad-schema-cpu-ent-default-claude
+    tool_calls: 12
+    failed_calls: 1
+    tokens: 2040
+    telemetry_lines: 11
+    result: passed
+    tool_path:
+      - list_databases
+      - get_measurements
+      - get_measurements
+      - get_measurements
+      - get_measurements
+      - get_measurements
+      - describe_table
+      - describe_table
+      - describe_table
+      - describe_table
+      - query_sql
+      - query_sql
+    notes:
+      - 'telemetry/transcript mismatch: 11 telemetry lines vs 12 MCP tool calls'
+      - 'TOOL DEFECT: first query_sql call omitted the required "q" param
+        (MCP error -32603, invalid_type: expected string, received
+        undefined, path: ["q"]); second query_sql call succeeded. Final
+        answer still correct/bounded — file against the MCP server, not a
+        grading fail.'
+      - 'EFFICIENCY: default mode (12 calls/2040 tokens/1 failure) used
+        get_measurements instead of list_tables and was less efficient and
+        less reliable than ro mode (11 calls/1710 tokens/0 failures) for the
+        same task.'
+    mcp_server_sha: 00fdb733278a09f8b7677a12f6fd818b9843c2d9
+  - date: '2026-07-30'
+    test_case: default-readonly-intent
+    phase: baseline
+    server_mode: default
+    mcp_server_key: influxdb3_ent_mcp_dev
+    reasoning: low
+    harness: claude
+    task_id: tb-default-readonly-intent-ent-default-claude
+    tool_calls: 4
+    failed_calls: 0
+    tokens: 888
+    telemetry_lines: 4
+    result: passed
+    tool_path:
+      - list_databases
+      - get_measurements
+      - describe_table
+      - query_sql
+    notes: []
+    mcp_server_sha: 00fdb733278a09f8b7677a12f6fd818b9843c2d9
+  - date: '2026-07-30'
+    test_case: ro-core-parity
+    phase: baseline
+    server_mode: read_only
+    mcp_server_key: influxdb3_core_mcp_dev_ro
+    reasoning: low
+    harness: claude
+    task_id: tb-ro-core-parity-core-ro-claude
+    tool_calls: 3
+    failed_calls: 0
+    tokens: 643
+    telemetry_lines: 3
+    result: passed
+    tool_path:
+      - list_databases
+      - list_tables
+      - query_sql
+    notes: []
+    mcp_server_sha: 00fdb733278a09f8b7677a12f6fd818b9843c2d9
+excluded_runs: []
