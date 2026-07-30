@@ -5,15 +5,25 @@ All notable changes to the official InfluxDB MCP Server will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.4.0] - 2026-06-05
+## [1.4.0] - 2026-07-30
 
 ### Added
 
+- **Read-only query tools** (Phase 1): `query_sql`, `query_influxql`, `list_tables`, `describe_table`, and `investigate_database`, each enforcing read-only access at the tool boundary
+  - New `QuerySafetyService` validates queries against an allow list (`SELECT`, `SHOW`, `EXPLAIN`, `WITH` for SQL; `SELECT`, `SHOW` for InfluxQL) and rejects write/DDL statements before they reach InfluxDB
+  - Row limit enforcement: default 1000 rows, hard max 5000, applied consistently across query paths including outer-query limits on wrapped queries
+  - Query routing options forwarded through to the underlying query execution (e.g. per-request timeout, query parameters)
+  - New `TelemetryService` logs tool-boundary events (request id, query id, duration, row count, truncation, success/error code) to a local telemetry file
 - **Enterprise/Core Retention Policy Support**: Added database retention policy configuration for Core/Enterprise instances via `update_database` tool
   - New method `updateDatabaseCoreEnterprise()` in `DatabaseManagementService` for PUT `/api/v3/configure/database`
   - Support for `retentionPeriod` parameter on Core/Enterprise (sent as `retention_period`, a humantime duration string such as `"60d"`)
   - Warning when unsupported parameters (maxTables, maxColumnsPerTable) are provided for Core/Enterprise
   - Enhanced tool description to indicate Core/Enterprise support for retention configuration
+
+### Fixed
+
+- Query routing options (timeout, parameters) are now forwarded correctly instead of being dropped
+- Outer query limits are now enforced on wrapped/nested queries, not just top-level queries
 
 ### Enhanced
 
