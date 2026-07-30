@@ -32,9 +32,15 @@ jobs:
           fi
 
       - name: npm publish
-        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [[ "$version" == *-* ]]; then
+            npm publish --tag prerelease
+          else
+            npm publish
+          fi
 
   docker-publish:
     name: Publish to Docker Hub
@@ -59,11 +65,18 @@ jobs:
         run: |
           version="${TAG_NAME#v}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          tags="influxdata/influxdb3-mcp-server:$version"
+          if [[ "$version" != *-* ]]; then
+            tags="$tags"$'\n'"influxdata/influxdb3-mcp-server:latest"
+          fi
+          {
+            echo "tags<<EOF"
+            echo "$tags"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
           push: true
-          tags: |
-            influxdata/influxdb3-mcp-server:${{ steps.tags.outputs.version }}
-            influxdata/influxdb3-mcp-server:latest
+          tags: ${{ steps.tags.outputs.tags }}
