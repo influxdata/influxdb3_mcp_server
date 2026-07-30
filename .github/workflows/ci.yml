@@ -86,6 +86,9 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+      - name: Print InfluxDB 3 Core version
+        run: docker run --rm influxdb:3-core influxdb3 --version
+
       - name: Start InfluxDB 3 Core
         run: |
           docker run -d --name influxdb3-core \
