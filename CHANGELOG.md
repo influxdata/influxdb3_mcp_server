@@ -5,6 +5,15 @@ All notable changes to the official InfluxDB MCP Server will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1-test.1] - 2026-07-30
+
+### Changed
+
+- Test release: no functional changes. Cut to verify the environment-gated
+  release-publish workflow (#95, #96) publishes under the npm `prerelease`
+  dist-tag and skips the Docker `latest` tag, without moving `latest` on
+  either registry.
+
 ## [1.4.0] - 2026-07-30
 
 ### Added
