@@ -39,7 +39,7 @@ reviewer approves that job in the Actions tab. There are no manual
    This fires the release-publish workflow.
 5. **Approve the environment gates** in the Actions run: one for npm, one
    for Docker Hub. **Docker Hub publish requires sign-off from Platform
-   Services Team** — ping them rather than trying to approve it yourself.
+   Services Team** — ping them instead of approving that gate directly.
 
 ## Test releases
 
