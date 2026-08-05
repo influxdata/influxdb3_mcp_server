@@ -15,6 +15,11 @@ rejection reach the model as an actionable error. The rest are a status-code gap
 shape mismatch, an auth-scheme bug, two verification-only checks, and one critical
 packaging fix.
 
+**Correction (2026-08-05):** test scaffolding for P1/P2/P4 already exists on this branch,
+committed 2026-07-28 — three days before this spec's prior `Updated` date. See P1 and the
+Tests section below. The duplicate-tag-key response shape (A2) is resolved from those fixtures,
+not still open.
+
 Version rationale is in [`PLAN.md`](PLAN.md). 1.4.0 published 2026-07-30; this patch is 1.4.1,
 final — no retitle pending.
 
@@ -85,13 +90,29 @@ the response body dropped entirely. A duplicate-tag-key rejection arrives as a 4
 the model as `Bad request: Invalid line protocol format or parameters` — no tag name, nothing
 to act on.
 
-**Fix.** The correct pattern already exists in the same codebase, in `handleQueryError`
-(`src/services/query.service.ts:629-653`): resolve the message through
-`data.message` → `data.error` → string body → `statusText` → `message`, then prefix per status
-so the body always survives. Apply the same resolution on the write path.
+**A2 is resolved — do not port `handleQueryError`'s resolution order as-is.**
+`tests/fixtures/write-errors.ts` (already on this branch: `ba5eeea`, `0a9fc96`, `d71d780`,
+2026-07-28) records the real shape, verified live against both Core 3.11.0-nightly and
+Enterprise 3.11.0-0.rc.1, identical on both:
 
-Prefer lifting the resolution into a shared helper over copying it — the two handlers drifting
-apart is what produced this defect. `src/services/token-management.service.ts:81-83`,
+```
+data: {
+  error: "partial write of line protocol occurred",
+  data: [{ error_message: "invalid line protocol - multiple instances of '<tag>' tag found", ... }]
+}
+```
+
+`handleQueryError`'s chain (`data.message` → `data.error` → string body → `statusText` →
+`message`) stops at `data.error`, which is only the generic "partial write of line protocol
+occurred" string — the tag name is one level down, under `data.data[].error_message`. The MCP
+server sends `accept_partial=true` on the Core/Enterprise v3 path, so this partial-write shape
+is what a real rejection always takes; resolving `data.error` alone does not surface the tag.
+
+**Fix.** Resolve the write-path error body from `data.data[].error_message` (partial-write
+array) before falling back to the query-path chain (`data.message` → `data.error` → string body
+→ `statusText` → `message`), so both the duplicate-tag-key case and the other status arms are
+covered by one resolver. Prefer lifting this into a shared helper over copying it — the two
+handlers drifting apart is what produced this defect. `src/services/token-management.service.ts:81-83`,
 `database-management.service.ts:751`, and `cloud-token-management.service.ts:246` already
 preserve bodies with their own variants, so a single helper has several callers.
 
@@ -179,17 +200,31 @@ This qualifies as a critical fix under the freeze and should ride along rather t
 
 ## Tests
 
-**There is currently no test of any kind covering `handleWriteError`.** The recorded fixtures
-and the unit tests (`tests/query-error-core.test.ts`, `tests/query-error-serverless.test.ts`)
-target `handleQueryError` only. That gap is why this defect survived to a release deadline.
+**Correction: test scaffolding already exists on this branch**, added 2026-07-28
+(`ba5eeea`, `0a9fc96`, `d71d780`) — before this spec's `Updated` date. `tests/write-error-core.test.ts`,
+`tests/write-error-cloud.test.ts`, `tests/write-routing.test.ts`, and `tests/fixtures/write-errors.ts`
+cover `handleWriteError` with two kinds of blocks:
 
-Add, mirroring the existing query-error unit tests:
+- **Active characterization tests** (`describe("handleWriteError – ... – current behavior")`) —
+  pin down exactly what the model sees today (fixed strings, dropped bodies, `[object Object]`
+  fallback). These pass now and describe the defect as executable assertions.
+- **`describe.skip(...)` acceptance blocks** — the target behavior for P1/P2/P4. Un-skip when
+  implementing; the paired characterization test above is expected to go red at the same
+  moment, which is deliberate (forces the stale test to be deleted, not left behind).
 
-1. One case per status arm, asserting the InfluxDB body text survives into the thrown message.
-2. **The duplicate-tag-key case** — write `m,t=a,t=a f=1i` and assert the model-facing error
-   names the duplicated tag. This is the assertion impact map 1.1 explicitly requires.
-3. A 503 case asserting retryable phrasing.
-4. A cloud `HttpError`-shaped case (P4), asserting the status branch is actually reached.
+`handleWriteError` itself (`src/services/write.service.ts:193-214`) is unfixed — still throws
+fixed strings, still has no 503 arm. **The fix is genuinely not started; the tests for it are.**
+
+What remains to add, beyond un-skipping the existing blocks:
+
+1. One case per status arm, asserting the InfluxDB body text survives into the thrown message —
+   already covered by the skipped blocks above.
+2. **The duplicate-tag-key case** — already covered; see A2 above for the verified shape.
+3. A 503 case asserting retryable phrasing — already covered.
+4. A cloud `HttpError`-shaped case (P4) — already covered in `write-error-cloud.test.ts`.
+
+The remaining work is implementing `handleWriteError` to make the skipped blocks pass, not
+writing new tests.
 
 **Fix the integration harness too.** `npm run test:integration` runs only
 `tests/integration.test.ts` (`package.json:29`), so `tests/query-error-integration.test.ts`
