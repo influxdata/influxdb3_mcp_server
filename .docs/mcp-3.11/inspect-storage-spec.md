@@ -1,8 +1,8 @@
 # Capability spec — `inspect_storage`: read-only operational visibility
 
 - **Repo:** `influxdata/influxdb3_mcp_server`
-- **Verified against:** `main` HEAD `4ab9849`, InfluxDB `3.11.0-0.rc.1`
-- **Updated:** 2026-07-27
+- **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`), InfluxDB `3.11.0-0.rc.1`
+- **Updated:** 2026-08-06
 - **Status:** spec ready — **target: next 1.x release after 1.4.1, sign-off granted (F2/F3), see Governance**
 - **Applies to:** InfluxDB 3 Enterprise on a PachaTree catalog (3.11+). Not Core.
 
@@ -26,15 +26,15 @@ would be the mirror anti-pattern, and would force the model to sequence them cor
 
 **One tool, `inspect_storage`, with an `aspect` enum:**
 
-| `aspect` | Answers |
-|---|---|
-| `overview` *(default)* | Shard count and total size, compaction backlog, age of the newest checkpoint, per-node ingest summary |
-| `shards` | Per-shard storage — the "how much storage is each shard using" half of the impact map's example question |
-| `compaction` | Compaction file state and whether compaction is keeping up — the other half |
-| `snapshots` | Snapshot and checkpoint recency, for backup and restore posture |
+| `aspect`               | Answers                                                                                                  |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `overview` _(default)_ | Shard count and total size, compaction backlog, age of the newest checkpoint, per-node ingest summary    |
+| `shards`               | Per-shard storage — the "how much storage is each shard using" half of the impact map's example question |
+| `compaction`           | Compaction file state and whether compaction is keeping up — the other half                              |
+| `snapshots`            | Snapshot and checkpoint recency, for backup and restore posture                                          |
 
-`overview` alone should answer the impact map's example question — *"how much storage is each
-shard using, and is compaction keeping up?"* — without a follow-up call. The other aspects
+`overview` alone should answer the impact map's example question — _"how much storage is each
+shard using, and is compaction keeping up?"_ — without a follow-up call. The other aspects
 exist for when the model needs to drill in.
 
 **Returns a summarized digest, not raw rows.** Computed answers ("compaction is ~4 minutes
@@ -60,6 +60,11 @@ and `system.pt_compaction_deferred_snapshots` (snapshots stuck failing to compac
 Also `pt_ingest_wal` and `pt_ingest_files`, which gained `node_id` and `node_name` columns in
 3.11 — that is what makes a per-node breakdown possible.
 
+This ten-table list is assembled from release notes plus admin docs, not from an instance.
+Rebuild it from the `information_schema` dump in
+[`verification-questions.md`](verification-questions.md) §3 (C2's observable half) before
+finalizing the aspect-to-table mapping above.
+
 Schemas, stability guarantees, and required token scope are all unconfirmed; see questions
 **C1–C5**. **C2 is a gate:** if these tables are internal and subject to change, a supported
 capability cannot be built on them and this spec stops here.
@@ -72,15 +77,17 @@ This is the structurally interesting part, and it is worth more than the feature
 
 1. The product type is trusted verbatim from `INFLUX_DB_PRODUCT_TYPE`
    (`src/config.ts:41-42`). Nothing checks it against the instance.
-2. `/ping` *does* return `x-influxdb-version` (`src/services/base-connection.service.ts:277-314`),
+2. `/ping` _does_ return `x-influxdb-version` (`src/services/base-connection.service.ts:277-314`),
    but it is never parsed. Every consumer — `influxdb-master.service.ts:58-65`,
    `src/resources/index.ts:78-79`, `src/tools/categories/health.tools.ts:40,56` — passes the
    string straight through to output.
-3. There is no list-time tool filtering. `src/server/index.ts:51-59` advertises all 22 tools
-   unconditionally, whatever the product type. `validateOperationSupport()`
-   (`src/services/base-connection.service.ts:210-252`) gates at **call** time only, so
-   unsupported tools are advertised and then fail — precisely what the capability design
-   forbids.
+3. There is no **capability-based** list-time filtering. `ListToolsRequestSchema`
+   (`src/server/index.ts:94-99`) advertises whatever `createTools()` returns — all 27 tools,
+   whatever the product type and whatever the instance actually supports. The one filter that
+   exists, `INFLUX_MCP_TOOL_PROFILE` (`src/tools/index.ts:57-61`), is a static name list set
+   by the operator, not a probe of the instance. `validateOperationSupport()`
+   (`src/services/base-connection.service.ts:218`) gates at **call** time only, so unsupported
+   tools are advertised and then fail — precisely what the capability design forbids.
 
 So this capability needs a small, cached **capability probe**:
 
@@ -91,9 +98,10 @@ So this capability needs a small, cached **capability probe**:
 - Advertise `inspect_storage` only on success.
 
 The probe is deliberately reusable. It is the same "advertise only what works" mechanism the
-capability design calls for generally, and the natural place to generalize PR #69's
-`INFLUX_MCP_TOOL_PROFILE` allowlist — a static name list — into capability-driven filtering.
-Built once here, it serves every later target that is Enterprise-shaped but incomplete.
+capability design calls for generally, and the natural place to generalize the shipped
+`INFLUX_MCP_TOOL_PROFILE` allowlist (`src/tools/index.ts:28,57-61`) — a static name list — into
+capability-driven filtering. Built once here, it serves every later target that is
+Enterprise-shaped but incomplete, InfluxDB 3 Cloud support included (see F3).
 
 **Design constraint:** the probe must be cheap and must fail closed. A failed probe hides the
 tool; it must never block startup or degrade `health_check`.
@@ -123,9 +131,18 @@ tool; it must never block startup or degrade `health_check`.
 
 ## Interaction with the read-only profile
 
-`inspect_storage` is read-only and belongs in PR #69's `READONLY_TOOLS` set. If both land, the
-tool should be available under the `readonly` profile — a natural fit, since "how is my server
-doing?" is an investigation question, not an administrative one.
+The read-only profile is **already shipped** — PR #69 merged and released in 1.4.0. On `main`
+today, `READONLY_TOOLS` is a static name `Set` (`src/tools/index.ts:28`) filtered by
+`INFLUX_MCP_TOOL_PROFILE` (`:57-61`, validated in `src/config.ts:55`).
+
+So this is not a "if both land" question. `inspect_storage` is read-only and its name goes
+into that existing set when it's implemented — a natural fit, since "how is my server doing?"
+is an investigation question, not an administrative one. Adding it is one line plus a bump to
+`EXPECTED_TOOL_COUNT` (`tests/protocol.test.ts:7`, currently 27).
+
+The capability probe below is the generalization of that static set: the same "advertise only
+what works" mechanism, driven by what the instance can actually do rather than by a hardcoded
+name list.
 
 ## Governance — resolved, 2026-08-05
 
@@ -151,7 +168,17 @@ Enterprise-shaped but incomplete, and that need arrives on its own schedule rega
 
 ## Open questions
 
-Blocking: **C1** (minimum sufficient token scope — narrowed but not resolved), **C2** (schema
-stability — a hard gate), **B2** (sanctioned engine detection), **F2** (target release).
-**B3** and **C4** are resolved — see above. Full list and rationale in
-[`open-questions-core-enterprise.md`](open-questions-core-enterprise.md).
+Full list, with the exact checks to run, in
+[`verification-questions.md`](verification-questions.md). What gates this spec:
+
+| ID     | Question                                                                      | How it's answered                                                                                                                                      |
+| ------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **C2** | Are the `pt_*` schemas public and stable?                                     | **Hard gate, Engineering only.** Today's schemas are observable (§3) but a stability commitment is not. If internal, this spec stops here.             |
+| **C1** | Minimum token scope that can read `pt_*`                                      | **Testable** (§4) — three scoped tokens against one `SELECT`. Decides whether the "query permission only, no operator token" guardrail above survives. |
+| **C3** | Do `pt_*` appear in `information_schema.columns`, under which `table_schema`? | **Testable** (§3). Also decides C5's fallback probe.                                                                                                   |
+| **C5** | Core's failure mode for a `pt_*` query — error or empty success?              | **Testable** (§3). An empty 200 breaks the probe's fail-closed design.                                                                                 |
+| **B1** | Is `x-influxdb-version` guaranteed and stably formatted?                      | **Testable** (§3), except for what GA reports.                                                                                                         |
+| **B2** | Sanctioned engine detection over HTTP                                         | **Half testable** (§3) — which probes work is observable; which is _supported_ is an Engineering question.                                             |
+
+**F2** is resolved (target release settled, see Governance above) and is no longer an open
+question. **B3** and **C4** are resolved — see above.

@@ -1,9 +1,9 @@
 # Patch spec — v1.4.1: 3.11 compatibility and write-path error fidelity
 
 - **Repo:** `influxdata/influxdb3_mcp_server`
-- **Verified against:** `main` HEAD `cc8bce2`, InfluxDB `3.11.0-0.rc.1`
+- **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`), InfluxDB `3.11.0-0.rc.1`
 - **Branch:** `docs/mcp-3.11-patch-plan`, off `main` post-1.4.0-publish
-- **Updated:** 2026-07-31
+- **Updated:** 2026-08-06
 - **Status:** review — planning only, implementation not started
 - **Executes:** release plan workstream 2; impact map §1
 
@@ -15,10 +15,14 @@ rejection reach the model as an actionable error. The rest are a status-code gap
 shape mismatch, an auth-scheme bug, two verification-only checks, and one critical
 packaging fix.
 
-**Correction (2026-08-05):** test scaffolding for P1/P2/P4 already exists on this branch,
-committed 2026-07-28 — three days before this spec's prior `Updated` date. See P1 and the
-Tests section below. The duplicate-tag-key response shape (A2) is resolved from those fixtures,
-not still open.
+**Correction (2026-08-06):** test scaffolding for P1/P2/P4/P7 is on **`main`**, not just on
+this planning branch — `write-error-core.test.ts`, `write-error-cloud.test.ts`,
+`write-routing.test.ts`, `packaging.test.ts`, and `fixtures/write-errors.ts` are all in
+`tests/` at `249f612`, and `tests/README.md` documents the skip conventions they use. An
+earlier version of this spec said "on this branch," which read as if the scaffolding were
+part of this PR. It isn't — it's already merged, and the fixes it tests are still unwritten.
+See P1 and the Tests section below. The duplicate-tag-key response shape (A2) is resolved from
+those fixtures, not still open.
 
 Version rationale is in [`PLAN.md`](PLAN.md). 1.4.0 published 2026-07-30; this patch is 1.4.1,
 final — no retitle pending.
@@ -105,8 +109,11 @@ data: {
 `handleQueryError`'s chain (`data.message` → `data.error` → string body → `statusText` →
 `message`) stops at `data.error`, which is only the generic "partial write of line protocol
 occurred" string — the tag name is one level down, under `data.data[].error_message`. The MCP
-server sends `accept_partial=true` on the Core/Enterprise v3 path, so this partial-write shape
-is what a real rejection always takes; resolving `data.error` alone does not surface the tag.
+server sends `accept_partial=true` by default on the Core/Enterprise v3 path
+(`src/services/write.service.ts:82`), so this partial-write shape is what a real rejection
+takes in the default case; resolving `data.error` alone does not surface the tag. Whether
+`accept_partial=false` collapses to a flat `data.error` is question **A3** — if it does, the
+resolver needs both arms, not just the array unwrap.
 
 **Fix.** Resolve the write-path error body from `data.data[].error_message` (partial-write
 array) before falling back to the query-path chain (`data.message` → `data.error` → string body
@@ -138,11 +145,16 @@ use `POST /api/v3/write_lp` (`src/services/write.service.ts:85-100`), not v2. On
 `clustered` product type uses `/api/v2/write` (`:146-159`), and Clustered is a separate
 product on its own release train.
 
-So the documented change does not reach the Core/Enterprise path. What remains open is what
-**v3** returns for a stopped node on 3.11 — unknown, and answerable only on a test instance.
+So the change is not _documented_ to reach the Core/Enterprise path. That is as far as the
+notes take us — they say nothing about v3, and silence about v3 is not evidence about v3. What
+remains open is what v3 actually returns for a stopped node on 3.11, which is observable on a
+test instance rather than derivable from the notes.
 
-**Action:** verify on the matrix below, then close the item. Blocks nothing in P1/P2, since
-those fix the handler generically. See question **A1**.
+**Action:** verify per [`verification-questions.md`](verification-questions.md) §2, then close
+the item. Blocks nothing in P1/P2 — the 503 arm is missing regardless of what 3.11 does, so P2
+adds it either way. The answer decides only whether this item closes as "confirmed, no v3
+change" and whether the 503 acceptance test (`tests/write-error-core.test.ts:195`) can use a
+live fixture instead of a synthetic one. See question **A1**.
 
 ## P4 — Normalize the cloud SDK error shape
 
@@ -184,15 +196,23 @@ merely a constructed client.
   data types, and error wording are unchanged from Parquet.
 - **New system tables in schema listings** (impact map 1.4). `get_measurements` and
   `get_measurement_schema` filter on `table_schema = 'iox'`
-  (`src/services/query.service.ts:753` and `:1010`), so the five new `system.pt_*` tables
-  are excluded by construction on Core/Enterprise — they should neither appear nor cause an
-  error. Confirm on a live instance; see question **C3**.
+  (`src/services/query.service.ts:753`, `:776`, `:1010`, `:1060`), so the new `system.pt_*`
+  tables are expected to be excluded by construction on Core/Enterprise — they should neither
+  appear nor cause an error. Confirm on a live instance; see question **C3**.
 
 ## P7 — Critical packaging fix to fold in
 
-`zod` is declared in `devDependencies` (`package.json:77`) but imported at runtime by
-`src/tools/index.ts` and every `src/tools/categories/*.tools.ts`. A clean
-`npm i --omit=dev` — or any consumer installing the published package — breaks.
+`zod` is declared in `devDependencies` but imported at runtime by `src/tools/index.ts` and
+every `src/tools/categories/*.tools.ts` (nine files). `package.json`'s `dependencies` on
+`main` are only `@influxdata/influxdb3-client`, `@modelcontextprotocol/sdk`, `axios`, and
+`dotenv`. A clean `npm i --omit=dev` — or any consumer installing the published package —
+gets a server that cannot start.
+
+`tests/packaging.test.ts` already encodes this, and deliberately as an invariant over _every_
+runtime import rather than a check on `zod` specifically, so it keeps working after the move
+and catches the next occurrence. The acceptance block is
+`describe.skip("zod is a runtime dependency")` (`:97`) — un-skip it when moving `zod` into
+`dependencies`.
 
 This qualifies as a critical fix under the freeze and should ride along rather than wait.
 
@@ -200,10 +220,12 @@ This qualifies as a critical fix under the freeze and should ride along rather t
 
 ## Tests
 
-**Correction: test scaffolding already exists on this branch**, added 2026-07-28
-(`ba5eeea`, `0a9fc96`, `d71d780`) — before this spec's `Updated` date. `tests/write-error-core.test.ts`,
-`tests/write-error-cloud.test.ts`, `tests/write-routing.test.ts`, and `tests/fixtures/write-errors.ts`
-cover `handleWriteError` with two kinds of blocks:
+**Correction: the test scaffolding is on `main`**, added 2026-07-28
+(`ba5eeea`, `0a9fc96`, `d71d780`) — not on this planning branch, and not part of this PR.
+`tests/write-error-core.test.ts`, `tests/write-error-cloud.test.ts`,
+`tests/write-routing.test.ts`, `tests/packaging.test.ts`, and `tests/fixtures/write-errors.ts`
+cover `handleWriteError` and P7 with two kinds of blocks (the conventions are documented in
+`tests/README.md`):
 
 - **Active characterization tests** (`describe("handleWriteError – ... – current behavior")`) —
   pin down exactly what the model sees today (fixed strings, dropped bodies, `[object Object]`
@@ -226,20 +248,31 @@ What remains to add, beyond un-skipping the existing blocks:
 The remaining work is implementing `handleWriteError` to make the skipped blocks pass, not
 writing new tests.
 
-**Fix the integration harness too.** `npm run test:integration` runs only
-`tests/integration.test.ts` (`package.json:29`), so `tests/query-error-integration.test.ts`
-never runs against a live instance in CI — and under `npm test` it self-skips for want of
-`INFLUX_TEST_ENABLED`. It has been dead in both paths.
+**Correction — the integration harness is not broken.** A prior version of this spec claimed
+`npm run test:integration` runs only `tests/integration.test.ts`, leaving
+`tests/query-error-integration.test.ts` dead in both paths. That is wrong. The script is
+`INFLUX_TEST_ENABLED=true vitest run integration` (`package.json`), and vitest's positional
+argument is a **substring filter over test file paths**, not a filename. Against
+`vitest.config.ts`'s `include: ["tests/**/*.test.ts"]` it matches both `integration.test.ts`
+and `query-error-integration.test.ts`. `tests/README.md` already documents it correctly
+("Every file matching `integration`"). No harness fix is needed; drop the item.
+
+**What the tests are genuinely missing** is the open list. `tests/README.md` documents an
+`it.todo(...)` convention — "a test that cannot be written yet because the answer it would
+assert against is unknown. Each names the question ID and what unblocks it. These appear in
+every vitest run, so the open list stays visible in CI output." Not one `it.todo` exists.
+Each question in [`verification-questions.md`](verification-questions.md) should land as one,
+so the unanswered set is visible in CI rather than only in a planning doc.
 
 ## Test matrix
 
 Permanent, per impact map §2. This patch is the first release to run it.
 
-| Row | Instance | Purpose |
-|---|---|---|
-| 1 | Fresh 3.11 Enterprise | PachaTree by default, no flags — where every new customer lands |
-| 2 | Enterprise upgraded with `--upgrade-pacha-tree` | Hybrid: old data in Parquet, new in PachaTree, one query spanning both. Where surprises are likeliest |
-| 3 | 3.11 Core | Parquet-only, unchanged — the no-regression baseline |
+| Row | Instance                                        | Purpose                                                                                               |
+| --- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 1   | Fresh 3.11 Enterprise                           | PachaTree by default, no flags — where every new customer lands                                       |
+| 2   | Enterprise upgraded with `--upgrade-pacha-tree` | Hybrid: old data in Parquet, new in PachaTree, one query spanning both. Where surprises are likeliest |
+| 3   | 3.11 Core                                       | Parquet-only, unchanged — the no-regression baseline                                                  |
 
 Image digests for the RC are in the 3.11 internal notes. Pin GA tags once published; see
 question **E1**.
