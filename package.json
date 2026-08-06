@@ -13,7 +13,7 @@
   },
   "main": "./build/index.js",
   "bin": {
-    "influxdb-mcp-server": "./build/index.js"
+    "influxdb-mcp-server": "build/index.js"
   },
   "scripts": {
     "build": "tsc",
