@@ -9,7 +9,7 @@
   `influxdb-3.11-compat-patch`, which was cut from `main` at `9460044` — before 1.4.0 published — and is
   now stale against the version-anchor and sequencing sections below.
 - **Updated:** 2026-08-06
-- **Status:** review — planning only, implementation not started. Eleven of the fifteen
+- **Status:** review — planning only, implementation not started. Twelve of the fifteen
   verification sub-items now have live-tested answers; see
   [`verification-questions.md`](verification-questions.md).
 
@@ -30,20 +30,19 @@ questions still to be answered before implementation starts.
 
 ## Companion documents
 
-| Document                                                 | Contents                                                                                                                    |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| [`patch-1.4.1-spec.md`](patch-1.4.1-spec.md)             | The next patch — items P1–P7, tests, matrix                                                                                 |
-| [`inspect-storage-spec.md`](inspect-storage-spec.md)     | The new capability, and the detection work it forces                                                                        |
-| [`verification-questions.md`](verification-questions.md) | 21 tracked sub-items, grouped by the instance they're run against — 11 resolved live 2026-08-06, 7 open, 3 Engineering-only |
+| Document                                                 | Contents                                                                                                                                         |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`patch-1.4.1-spec.md`](patch-1.4.1-spec.md)             | The next patch — items P1–P7, tests, matrix                                                                                                      |
+| [`inspect-storage-spec.md`](inspect-storage-spec.md)     | The new capability, and the detection work it forces                                                                                             |
+| [`verification-questions.md`](verification-questions.md) | 21 tracked sub-items, grouped by the instance they're run against — 12 resolved live (2026-08-06 through 2026-08-18), 6 open, 3 Engineering-only |
 
 `verification-questions.md` replaces `open-questions-core-enterprise.md`, which routed most
 items to the Core/Enterprise implementing team. That routing was wrong for all but three
 sub-items, which still need an Engineering consult; everything else was answerable on a local
-instance and, as of 2026-08-06, mostly has been. The one open item that isn't a quick local
-check is **A1** (stopped-node 503 behavior on a real 2-node Enterprise cluster) — blocked on
-Enterprise license capacity in docs-tooling, not a local-instance question anymore. See
-verification-questions.md §2 and docs-tooling's `.agents/skills/influxdb-docker-testing.md`
-("License ceiling") for the concrete unblock.
+instance and, as of 2026-08-18, has been. **A1** (stopped-node write behavior on a real 3-node
+Enterprise cluster) is resolved: writing directly to a stopped node's own port returns a plain
+connection failure, not an HTTP 503 — no v3 503 change reaches this configuration. See
+verification-questions.md §2.
 
 Upstream drafts this plan executes against: _MCP_Server_Release_Plan.md_ v1.3,
 _InfluxDB_3.11_MCP_Impact_Map.md_ v1.2, _AI_Tooling_Brief_v2.md_ v2.2.
@@ -118,25 +117,24 @@ after 1.4.1 ships. F3: `inspect_storage` stays the new capability; Cloud support
 plan. All three are recorded in [`verification-questions.md`](verification-questions.md)'s
 closed-items table.
 
-**Verified live 2026-08-06:** eleven sub-items in
-[`verification-questions.md`](verification-questions.md) now have live-tested answers (E1, B1,
-C3, C5, A3, A4, C1, D2, D3, and the observable halves of C2 and B2), run against Core +
+**Verified live, 2026-08-06 through 2026-08-18:** twelve sub-items in
+[`verification-questions.md`](verification-questions.md) now have live-tested answers (A1, E1,
+B1, C3, C5, A3, A4, C1, D2, D3, and the observable halves of C2 and B2), run against Core +
 Enterprise 3.11.0 GA. Notable results: A4 found no new write-rejection shapes beyond A2/A3, so
 P1's resolver design is fully scoped; C1 found a plain per-database read token is sufficient
 for `system.pt_*` (no admin/operator token needed), which decides `inspect_storage`'s risk
 posture in its favor; C2's observable half found two `pt_*` tables (`pt_ingest_wal`,
-`pt_ingest_files`) the capability spec's table mapping doesn't account for yet.
+`pt_ingest_files`) the capability spec's table mapping doesn't account for yet; A1 found that a
+stopped node returns a plain connection failure, not an HTTP 503, when a client writes to it
+directly on a 3-node cluster with no proxy in front — closes P3 as "no v3 503 change reaches
+this configuration."
 
-What remains is **seven open sub-items**: three still need an Engineering consult (C2's
+What remains is **six open sub-items**: three still need an Engineering consult (C2's
 stability commitment, B2's "is this the sanctioned probe", D1's OAuth design half — **C2 is
 the only one that can stop a deliverable**, unchanged: if the `pt_*` schemas are internal,
 `inspect_storage` does not get built); D1's observable half wasn't run this session (would mean
 restarting the shared Enterprise dev instance a second time); E2/E3 need a
-Parquet-mode-to-PachaTree-upgrade fixture that doesn't exist yet; and **A1** — the stopped-node
-503 question — is attempted but blocked on Enterprise license capacity, not on anything code-
-or Engineering-related. See verification-questions.md §2 for the detail: the Enterprise Home
-license caps at one 2-core node, the trial license is already bound to another cluster, and a
-real 2-node cluster needs a bigger license (contact sales@influxdata.com) before this can run.
+Parquet-mode-to-PachaTree-upgrade fixture that doesn't exist yet.
 
 ## Documentation requirement (each implementation phase)
 

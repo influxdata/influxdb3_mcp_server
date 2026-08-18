@@ -5,20 +5,19 @@
   (Core revision `139bab4c54b54db01d67539b6dc9f1e1a81dd1b7`, Enterprise revision
   `e5242f505d23039a340d21693a994b1a053b0f15` — both now the pinned defaults in docs-tooling's
   `docker-compose.yml`)
-- **Status:** eleven sub-items verified live this session (Core + Enterprise 3.11.0 GA, via
-  docs-tooling's shared containers): E1, B1, C3, C5, A3, A4, C1, D2, D3, plus the observable
-  halves of C2 and B2. Seven sub-items remain open — see below.
+- **Status:** twelve sub-items verified live this session (Core + Enterprise 3.11.0 GA, via
+  docs-tooling's shared containers): A1, E1, B1, C3, C5, A3, A4, C1, D2, D3, plus the observable
+  halves of C2 and B2. Six sub-items remain open — see below.
 - **Replaces:** `open-questions-core-enterprise.md` (deleted). Question IDs are unchanged, so
   the cross-references in [`PLAN.md`](PLAN.md), [`patch-1.4.1-spec.md`](patch-1.4.1-spec.md),
   and [`inspect-storage-spec.md`](inspect-storage-spec.md) still resolve.
 
-Of the previous pass's 21 tracked sub-items, eleven are now resolved (see
-[Closed questions](#closed-questions)), leaving seven open: **A1** (blocked on Enterprise
-license capacity — see §2), **C2**'s stability gate and **B2**'s sanctioned-probe half (both
-Engineering-only), **D1**'s observable half (not run this session) and oauth half
-(Engineering-only), and **E2**/**E3** (Parquet→PachaTree hybrid fixture, not yet built). The
-previous version of this list routed most items to the Core/Enterprise implementing team. That
-was wrong for all but a few sub-items: most of what's below turned out to be directly
+Of the previous pass's 21 tracked sub-items, twelve are now resolved (see
+[Closed questions](#closed-questions)), leaving six open: **C2**'s stability gate and **B2**'s
+sanctioned-probe half (both Engineering-only), **D1**'s observable half (not run this session)
+and oauth half (Engineering-only), and **E2**/**E3** (Parquet→PachaTree hybrid fixture, not yet
+built). The previous version of this list routed most items to the Core/Enterprise implementing
+team. That was wrong for all but a few sub-items: most of what's below turned out to be directly
 observable on an instance we can start ourselves. This file is organized by **what you need
 running**, not by who owns the answer, so each section is one setup and several questions
 against it.
@@ -28,12 +27,12 @@ none exist yet, so the open list is currently invisible in CI output.
 
 ## Setup
 
-| Instance                      | How                                                                                                                                                                                | Used by      |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **Core 3.11**                 | docs-tooling `docker compose up influxdb3-core` (GA `3.11.0`, port 8282) — or `npm run test:infra:up` locally                                                                      | §1, §2       |
-| **Enterprise 3.11, fresh**    | docs-tooling `docker compose up influxdb3-enterprise` (GA `3.11.0`, PachaTree by default, port 8181) — matrix row 1                                                                | §3, §4       |
-| **Enterprise 3.11, upgraded** | `--upgrade-pacha-tree` over a Parquet catalog — matrix row 2. Not yet built; no fixture exists                                                                                     | §5           |
-| **Enterprise, multi-node**    | **Blocked on Enterprise license capacity** — see the A1 write-up below and docs-tooling's `.agents/skills/influxdb-docker-testing.md` ("License ceiling") for the concrete unblock | §2 (A1 only) |
+| Instance                      | How                                                                                                                                        | Used by |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
+| **Core 3.11**                 | docs-tooling `docker compose up influxdb3-core` (GA `3.11.0`, port 8282) — or `npm run test:infra:up` locally                              | §1, §2  |
+| **Enterprise 3.11, fresh**    | docs-tooling `docker compose up influxdb3-enterprise` (GA `3.11.0`, PachaTree by default, port 8181) — matrix row 1                        | §3, §4  |
+| **Enterprise 3.11, upgraded** | `--upgrade-pacha-tree` over a Parquet catalog — matrix row 2. Not yet built; no fixture exists                                             | §5      |
+| **Enterprise, multi-node**    | docs-tooling `docker compose up influxdb3-enterprise influxdb3-enterprise-verify-node1 influxdb3-enterprise-verify-node2` — 3-node cluster | §2 (A1) |
 
 `docker-compose.test.yml` (this repo) still pins `influxdb:3-core`, not a 3.11 tag — that gap
 is unchanged. Prefer docs-tooling's compose file, which now pins the GA digests above by
@@ -82,7 +81,7 @@ table above has the exact `error_message` text for each.
 
 ---
 
-## §2 — Stopped node: the 503 question — ATTEMPTED, BLOCKED
+## §2 — Stopped node: the 503 question — CLOSED
 
 **A1. What does `POST /api/v3/write_lp` return when a target node is stopped?**
 _(Was "blocking P3." It is not — see below.)_
@@ -96,46 +95,40 @@ _(Was "blocking P3." It is not — see below.)_
 > 503 already falls through to the `[object Object]` fallback (P2). The v2/v3 split is a
 > reason the note might not apply, not a finding that it doesn't.
 
-**Status (2026-08-06): blocked on Enterprise license capacity, not yet answered.** A real
-2-node Enterprise cluster was built in docs-tooling specifically for this question
-(`influxdb3-enterprise` + `influxdb3-enterprise-verify-node1`, shared cluster-id, shared MinIO
-object store — see `docs-tooling/docker-compose.yml`) and confirmed to cluster correctly
-(both nodes share one catalog uuid). It cannot run both nodes yet:
+**RESOLVED — no 503, connection-level failure only.** Tested live 2026-08-18 against a real
+3-node Enterprise 3.11.0 GA cluster (docs-tooling `influxdb3-enterprise` +
+`influxdb3-enterprise-verify-node1` + `-node2`, shared cluster-id, shared MinIO object store —
+see `docs-tooling/docker-compose.yml`).
 
-- The Home license (`docs-tooling-influxdb3-enterprise-home`) is `core_count=2` total, and
-  `--num-cores` has a hard floor of 2 per node (confirmed: `--num-cores=0`, which the server's
-  own error message suggests as a workaround, is rejected — "Cannot specify less than 2 for
-  --num-cores"). One node claims the entire budget; a second always fails with
-  `2 cores licensed, 2 cores in use on other nodes`.
-- The trial license is capped at one cluster total per account, and is already bound to an
-  existing cluster for this email — requesting it for this _new_ cluster identity returns
-  `TrialExpired`.
+With all three nodes up, wrote to `node0` (`:8181`) — succeeded. Stopped `node1`, wrote to
+`node0` again — still succeeded (204), confirming the rest of the cluster stays available.
+Then wrote directly to `node1`'s own (stopped) port `:8183`:
 
-Neither license currently supports 2+ nodes. Unblock: a license with `core_count >= 4` (2
-nodes × the 2-core floor). Full detail and the concrete next step (contact sales@influxdata.com)
-are in docs-tooling's `.agents/skills/influxdb-docker-testing.md`, "License ceiling" section —
-that file is the source of truth for this, not this doc, since it's docs-tooling infrastructure
-state that will change independently of this plan.
-
-This blocks nothing in P1/P2. P2 adds a 503 arm phrased as retryable regardless of whether
-3.11's v2 change has a v3 counterpart, because the arm is missing either way. The answer
-decides two narrower things: whether the P3 verification item closes as "confirmed, no v3
-change" or opens new work, and whether the 503 acceptance test in
-`tests/write-error-core.test.ts:195` can be backed by a live fixture instead of a synthetic one.
-
-```bash
-# once the 2-node cluster's license is unblocked:
-docker stop influxdb3-enterprise-verify-node1
-curl -sS -i -X POST "http://localhost:8183/api/v3/write_lp?db=test&precision=nanosecond&accept_partial=true" \
-  -H "Authorization: Bearer $TOK" -H 'Content-Type: text/plain; charset=utf-8' \
-  --data-binary "m,t=a f=1i $(date +%s%N)"
+```
+curl: (7) Failed to connect to localhost port 8183 after 0 ms: Couldn't connect to server
 ```
 
-**Record:** status code, body, and whether the body distinguishes "retry" from "your request
-is wrong". The weaker single-node fallback (stop the lone `influxdb3-enterprise` mid-write,
-observe a connection-level failure rather than a true 503) was deliberately not run this
-session, since it means taking down docs-tooling's shared dev instance a second time — left for
-a deliberate decision, not a default.
+**A plain TCP connection failure, not an HTTP 503.** There is no reverse proxy or load balancer
+in front of this cluster (each node's port is a direct Docker port mapping), and each node runs
+`--mode=all` — fully independent, no internal write-forwarding between nodes. A client that
+targets a specific node directly gets exactly what the single-node case would give: connection
+refused when that node is down. **No v3 503 was observed in this topology.** This confirms the
+weaker fallback verification-questions.md originally proposed as a stand-in was, in fact, the
+real answer, not just an approximation of one.
+
+**What this means for P2:** the 503 arm P2 adds is not exercised by "one node in a
+same-role, no-proxy cluster is down" — that case is a connection error, which
+`handleWriteError` already reaches via its catch-all path (not via any status-code branch). A
+v3 503 would need to come from an actual proxy/load balancer in front of a production
+deployment, or from a topology with internal request-forwarding this test didn't cover
+(e.g. a dedicated query/coordinator node forwarding writes to a specific ingest peer). P2's
+503 arm still ships — the gap it fixes (`[object Object]` on any object-body error, regardless
+of status) is real independent of this finding — but this closes the "does v3 return 503 for a
+down node" question as **no, not in this configuration**, rather than leaving it open.
+
+**Record:** closes P3 as "confirmed, no v3 503 change reaches this configuration." The 503
+acceptance test in `tests/write-error-core.test.ts:195` should stay a synthetic fixture — this
+test found no live 503 to back it with.
 
 ---
 
@@ -338,22 +331,23 @@ Send C2 first. It is the only one that can stop a deliverable.
 
 Kept as a record so nothing looks silently dropped.
 
-| ID                       | Resolution                                                                                                                                                                                                                                                                                                                                          |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A2**                   | Duplicate-tag-key response shape — resolved by live verification, recorded in `tests/fixtures/write-errors.ts` (on `main`). `data.error` is the generic `"partial write of line protocol occurred"`; the tag name is under `data.data[].error_message`. Identical on Core 3.11.0-nightly and Enterprise 3.11.0-0.rc.1. Drives P1's resolver design. |
-| **B3**                   | Hybrid-migration detection — `system.upgrade_parquet_node` (per-node status) and `system.upgrade_parquet` (per-file progress) are documented and sanctioned for exactly this. No inference from `pt_*` presence needed.                                                                                                                             |
-| **C4**                   | Compaction-lag detection — `system.pt_compaction_ingest_nodes.compaction_lag` is a direct per-node column; `deferred_snapshot_count` plus `system.pt_compaction_deferred_snapshots.error_message` cover backlog. No heuristic needed.                                                                                                               |
-| **F1**                   | Version anchor — 1.4.0 published 2026-07-30 with PR #69's read-only capability folded in. Sequencing: 1.4.0 → 1.4.1 (this patch).                                                                                                                                                                                                                   |
-| **F2**                   | Target release for `inspect_storage` — admitted on the 1.x line with sign-off, sequenced after 1.4.1 ships.                                                                                                                                                                                                                                         |
-| **F3**                   | `inspect_storage` vs. InfluxDB 3 Cloud support — `inspect_storage` stays this plan's new capability; Cloud support gets its own plan, timed to land before Cloud's GA. Both need the same capability-detection prerequisite.                                                                                                                        |
-| **E1**                   | GA tag — confirmed 2026-08-06: `3.11.0` (no RC suffix). Core revision `139bab4c54b54db01d67539b6dc9f1e1a81dd1b7`, Enterprise revision `e5242f505d23039a340d21693a994b1a053b0f15`. Both now the pinned defaults in docs-tooling's `docker-compose.yml`.                                                                                              |
-| **B1**                   | `x-influxdb-version` — present and `3.11.0` when authenticated on both Core and Enterprise; absent entirely (not empty) when unauthenticated. Confirms "3.11 or later" can be a simple semver parse. See §3.                                                                                                                                        |
-| **C3**                   | `pt_*` tables live under `table_schema = 'system'`, not `'iox'` — `get_measurements`'s `table_schema = 'iox'` filter excludes them by construction, confirmed clean against real data. Closes impact map 1.4.                                                                                                                                       |
-| **C2** (observable half) | Live schema dump found 12 `pt_*` tables, not the 10 previously assumed — `pt_ingest_wal` and `pt_ingest_files` are additional. `inspect-storage-spec.md`'s aspect-to-table mapping needs rebuilding to include them. The stability _gate_ (public/contractual vs. internal) is unchanged and still needs Engineering.                               |
-| **B2** (observable half) | Only the `system.pt_*` query works as a PachaTree-vs-Parquet probe — `/health`, `/metrics`, and `/api/v3/configure` were all checked and expose no storage-mode field. Whether it's the _sanctioned_ probe is still open (needs Engineering).                                                                                                       |
-| **C5**                   | Core returns a clean `400` planning error for `system.pt_*` queries (`table ... not found`), not an empty `200` — the spec's worried-about failure mode doesn't occur. Query success/failure is a safe probe signal.                                                                                                                                |
-| **A3**                   | `accept_partial=false` does not collapse to a flat `data.error` as guessed — it's a flat `data` **object** (vs. an array when `true`), with a different top-level `error` string too (`"line protocol parsing error"` vs. `"partial write of line protocol occurred"`). P1's resolver needs a second arm.                                           |
-| **A4**                   | Swept 5 more rejected-write conditions on Core 3.11 GA — duplicate field key, tag/field collision, empty tag value, missing field set, field type conflict. All five match A2/A3's `accept_partial=true` shape exactly; no third resolver arm needed. Exact `error_message` text recorded in §1 for `tests/fixtures/write-errors.ts`.               |
-| **C1**                   | A plain per-database read token (`db:<name>:read`) is sufficient to query `system.pt_*` scoped to that database — no special `system:*:read` or admin/operator token needed. `_internal` stays admin/operator-only regardless of grant. Validates `inspect-storage-spec.md`'s guardrail language as written.                                        |
-| **D2**                   | `/ping` and `/health` accept both `Bearer` and `Token` on Core and Enterprise 3.11 GA; neither allows anonymous access (401 with no auth header). Confirms `createAuthHeader()`'s Bearer choice, and that Token still works too.                                                                                                                    |
-| **D3**                   | Nothing in C1's live results contradicts the documented Enterprise token model. Closes as a side effect of C1.                                                                                                                                                                                                                                      |
+| ID                       | Resolution                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A2**                   | Duplicate-tag-key response shape — resolved by live verification, recorded in `tests/fixtures/write-errors.ts` (on `main`). `data.error` is the generic `"partial write of line protocol occurred"`; the tag name is under `data.data[].error_message`. Identical on Core 3.11.0-nightly and Enterprise 3.11.0-0.rc.1. Drives P1's resolver design.                     |
+| **B3**                   | Hybrid-migration detection — `system.upgrade_parquet_node` (per-node status) and `system.upgrade_parquet` (per-file progress) are documented and sanctioned for exactly this. No inference from `pt_*` presence needed.                                                                                                                                                 |
+| **C4**                   | Compaction-lag detection — `system.pt_compaction_ingest_nodes.compaction_lag` is a direct per-node column; `deferred_snapshot_count` plus `system.pt_compaction_deferred_snapshots.error_message` cover backlog. No heuristic needed.                                                                                                                                   |
+| **F1**                   | Version anchor — 1.4.0 published 2026-07-30 with PR #69's read-only capability folded in. Sequencing: 1.4.0 → 1.4.1 (this patch).                                                                                                                                                                                                                                       |
+| **F2**                   | Target release for `inspect_storage` — admitted on the 1.x line with sign-off, sequenced after 1.4.1 ships.                                                                                                                                                                                                                                                             |
+| **F3**                   | `inspect_storage` vs. InfluxDB 3 Cloud support — `inspect_storage` stays this plan's new capability; Cloud support gets its own plan, timed to land before Cloud's GA. Both need the same capability-detection prerequisite.                                                                                                                                            |
+| **E1**                   | GA tag — confirmed 2026-08-06: `3.11.0` (no RC suffix). Core revision `139bab4c54b54db01d67539b6dc9f1e1a81dd1b7`, Enterprise revision `e5242f505d23039a340d21693a994b1a053b0f15`. Both now the pinned defaults in docs-tooling's `docker-compose.yml`.                                                                                                                  |
+| **B1**                   | `x-influxdb-version` — present and `3.11.0` when authenticated on both Core and Enterprise; absent entirely (not empty) when unauthenticated. Confirms "3.11 or later" can be a simple semver parse. See §3.                                                                                                                                                            |
+| **C3**                   | `pt_*` tables live under `table_schema = 'system'`, not `'iox'` — `get_measurements`'s `table_schema = 'iox'` filter excludes them by construction, confirmed clean against real data. Closes impact map 1.4.                                                                                                                                                           |
+| **C2** (observable half) | Live schema dump found 12 `pt_*` tables, not the 10 previously assumed — `pt_ingest_wal` and `pt_ingest_files` are additional. `inspect-storage-spec.md`'s aspect-to-table mapping needs rebuilding to include them. The stability _gate_ (public/contractual vs. internal) is unchanged and still needs Engineering.                                                   |
+| **B2** (observable half) | Only the `system.pt_*` query works as a PachaTree-vs-Parquet probe — `/health`, `/metrics`, and `/api/v3/configure` were all checked and expose no storage-mode field. Whether it's the _sanctioned_ probe is still open (needs Engineering).                                                                                                                           |
+| **C5**                   | Core returns a clean `400` planning error for `system.pt_*` queries (`table ... not found`), not an empty `200` — the spec's worried-about failure mode doesn't occur. Query success/failure is a safe probe signal.                                                                                                                                                    |
+| **A3**                   | `accept_partial=false` does not collapse to a flat `data.error` as guessed — it's a flat `data` **object** (vs. an array when `true`), with a different top-level `error` string too (`"line protocol parsing error"` vs. `"partial write of line protocol occurred"`). P1's resolver needs a second arm.                                                               |
+| **A4**                   | Swept 5 more rejected-write conditions on Core 3.11 GA — duplicate field key, tag/field collision, empty tag value, missing field set, field type conflict. All five match A2/A3's `accept_partial=true` shape exactly; no third resolver arm needed. Exact `error_message` text recorded in §1 for `tests/fixtures/write-errors.ts`.                                   |
+| **C1**                   | A plain per-database read token (`db:<name>:read`) is sufficient to query `system.pt_*` scoped to that database — no special `system:*:read` or admin/operator token needed. `_internal` stays admin/operator-only regardless of grant. Validates `inspect-storage-spec.md`'s guardrail language as written.                                                            |
+| **D2**                   | `/ping` and `/health` accept both `Bearer` and `Token` on Core and Enterprise 3.11 GA; neither allows anonymous access (401 with no auth header). Confirms `createAuthHeader()`'s Bearer choice, and that Token still works too.                                                                                                                                        |
+| **D3**                   | Nothing in C1's live results contradicts the documented Enterprise token model. Closes as a side effect of C1.                                                                                                                                                                                                                                                          |
+| **A1**                   | Stopped-node write, tested on a real 3-node Enterprise cluster: writing directly to a stopped node's own port returns a plain TCP connection failure, not an HTTP 503 — confirmed no v3 503 change reaches this configuration (no proxy in front, no inter-node forwarding). Closes P3. The rest of the cluster (a live node) keeps serving writes normally throughout. |
