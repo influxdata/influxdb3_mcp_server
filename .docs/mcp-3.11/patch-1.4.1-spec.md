@@ -1,7 +1,8 @@
 # Patch spec — v1.4.1: 3.11 compatibility and write-path error fidelity
 
 - **Repo:** `influxdata/influxdb3_mcp_server`
-- **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`), InfluxDB `3.11.0-0.rc.1`
+- **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`), InfluxDB `3.11.0` GA
+  (was `3.11.0-0.rc.1`; see `verification-questions.md` E1)
 - **Branch:** `docs/mcp-3.11-patch-plan`, off `main` post-1.4.0-publish
 - **Updated:** 2026-08-06
 - **Status:** review — planning only, implementation not started
@@ -111,9 +112,16 @@ data: {
 occurred" string — the tag name is one level down, under `data.data[].error_message`. The MCP
 server sends `accept_partial=true` by default on the Core/Enterprise v3 path
 (`src/services/write.service.ts:82`), so this partial-write shape is what a real rejection
-takes in the default case; resolving `data.error` alone does not surface the tag. Whether
-`accept_partial=false` collapses to a flat `data.error` is question **A3** — if it does, the
-resolver needs both arms, not just the array unwrap.
+takes in the default case; resolving `data.error` alone does not surface the tag.
+
+**A3 is resolved (verified live, 2026-08-06) — it does not collapse to a flat `data.error`.**
+`accept_partial=false` returns a _different_ top-level `error` string
+(`"line protocol parsing error"`, not `"partial write of line protocol occurred"`) and a flat
+`data` **object** (`data.error_message`) instead of an array. **The resolver needs both arms**:
+unwrap `data.data[0].error_message` when `data` is an array, `data.data.error_message` when
+it's an object. A4 (also resolved) swept five more rejected-write conditions and found none of
+them produce a third shape — see `verification-questions.md` §1 for the full table and exact
+`error_message` text to seed `tests/fixtures/write-errors.ts` with.
 
 **Fix.** Resolve the write-path error body from `data.data[].error_message` (partial-write
 array) before falling back to the query-path chain (`data.message` → `data.error` → string body
@@ -150,8 +158,14 @@ notes take us — they say nothing about v3, and silence about v3 is not evidenc
 remains open is what v3 actually returns for a stopped node on 3.11, which is observable on a
 test instance rather than derivable from the notes.
 
-**Action:** verify per [`verification-questions.md`](verification-questions.md) §2, then close
-the item. Blocks nothing in P1/P2 — the 503 arm is missing regardless of what 3.11 does, so P2
+**Status (2026-08-06): attempted, blocked — not yet closed.** A real 2-node Enterprise cluster
+was built specifically to answer this (docs-tooling `influxdb3-enterprise` +
+`influxdb3-enterprise-verify-node1`) and confirmed to cluster correctly, but neither available
+Enterprise license (Home: 2-core cap, one node max; trial: already bound to another cluster)
+can run both nodes at once. Unblock is a bigger license — see
+[`verification-questions.md`](verification-questions.md) §2 for the evidence and
+docs-tooling's `.agents/skills/influxdb-docker-testing.md` ("License ceiling") for the concrete
+next step. Blocks nothing in P1/P2 — the 503 arm is missing regardless of what 3.11 does, so P2
 adds it either way. The answer decides only whether this item closes as "confirmed, no v3
 change" and whether the 503 acceptance test (`tests/write-error-core.test.ts:195`) can use a
 live fixture instead of a synthetic one. See question **A1**.
