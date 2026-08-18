@@ -158,17 +158,18 @@ notes take us — they say nothing about v3, and silence about v3 is not evidenc
 remains open is what v3 actually returns for a stopped node on 3.11, which is observable on a
 test instance rather than derivable from the notes.
 
-**Status (2026-08-06): attempted, blocked — not yet closed.** A real 2-node Enterprise cluster
-was built specifically to answer this (docs-tooling `influxdb3-enterprise` +
-`influxdb3-enterprise-verify-node1`) and confirmed to cluster correctly, but neither available
-Enterprise license (Home: 2-core cap, one node max; trial: already bound to another cluster)
-can run both nodes at once. Unblock is a bigger license — see
-[`verification-questions.md`](verification-questions.md) §2 for the evidence and
-docs-tooling's `.agents/skills/influxdb-docker-testing.md` ("License ceiling") for the concrete
-next step. Blocks nothing in P1/P2 — the 503 arm is missing regardless of what 3.11 does, so P2
-adds it either way. The answer decides only whether this item closes as "confirmed, no v3
-change" and whether the 503 acceptance test (`tests/write-error-core.test.ts:195`) can use a
-live fixture instead of a synthetic one. See question **A1**.
+**Resolved, 2026-08-18 — closes as "confirmed, no v3 change."** Tested against a real 3-node
+Enterprise 3.11.0 GA cluster (docs-tooling `influxdb3-enterprise` +
+`influxdb3-enterprise-verify-node1` + `-node2`). Writing directly to a stopped node's own port
+returns a plain TCP connection failure, not an HTTP 503 — there's no proxy in front of this
+cluster and no inter-node write forwarding, so a client targeting a down node sees exactly what
+the single-node case would show. Writes to a live node keep succeeding throughout. **No v3 503
+was observed.** Full detail in [`verification-questions.md`](verification-questions.md) §2.
+
+The 503 acceptance test (`tests/write-error-core.test.ts:195`) should stay a synthetic fixture
+— this test found no live 503 response to back it with. P2's 503 arm still ships regardless:
+the `[object Object]` fallback it fixes is a real defect independent of whether 3.11 changed
+anything for stopped nodes. See question **A1**.
 
 ## P4 — Normalize the cloud SDK error shape
 
