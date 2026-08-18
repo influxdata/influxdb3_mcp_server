@@ -1,93 +1,91 @@
 # Verification questions — what still has to be tested
 
 - **Updated:** 2026-08-06
-- **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`), InfluxDB `3.11.0-0.rc.1`
-- **Status:** ready to run — every item below is answerable on a local instance
+- **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`), InfluxDB `3.11.0` GA
+  (Core revision `139bab4c54b54db01d67539b6dc9f1e1a81dd1b7`, Enterprise revision
+  `e5242f505d23039a340d21693a994b1a053b0f15` — both now the pinned defaults in docs-tooling's
+  `docker-compose.yml`)
+- **Status:** eleven sub-items verified live this session (Core + Enterprise 3.11.0 GA, via
+  docs-tooling's shared containers): E1, B1, C3, C5, A3, A4, C1, D2, D3, plus the observable
+  halves of C2 and B2. Seven sub-items remain open — see below.
 - **Replaces:** `open-questions-core-enterprise.md` (deleted). Question IDs are unchanged, so
   the cross-references in [`PLAN.md`](PLAN.md), [`patch-1.4.1-spec.md`](patch-1.4.1-spec.md),
   and [`inspect-storage-spec.md`](inspect-storage-spec.md) still resolve.
 
-Fifteen questions remain. Six are closed — see [Closed questions](#closed-questions) at the bottom.
-
-The previous version of this list routed most of these to the Core/Enterprise implementing
-team. That was wrong for all but four sub-items: everything else is directly observable on an
-instance we can start ourselves. This file is organized by **what you need running**, not by
-who owns the answer, so each section is one setup and several questions against it.
+Of the previous pass's 21 tracked sub-items, eleven are now resolved (see
+[Closed questions](#closed-questions)), leaving seven open: **A1** (blocked on Enterprise
+license capacity — see §2), **C2**'s stability gate and **B2**'s sanctioned-probe half (both
+Engineering-only), **D1**'s observable half (not run this session) and oauth half
+(Engineering-only), and **E2**/**E3** (Parquet→PachaTree hybrid fixture, not yet built). The
+previous version of this list routed most items to the Core/Enterprise implementing team. That
+was wrong for all but a few sub-items: most of what's below turned out to be directly
+observable on an instance we can start ourselves. This file is organized by **what you need
+running**, not by who owns the answer, so each section is one setup and several questions
+against it.
 
 Per `tests/README.md`, each question here should land as an `it.todo(...)` naming its ID —
 none exist yet, so the open list is currently invisible in CI output.
 
 ## Setup
 
-| Instance                      | How                                                                                         | Used by      |
-| ----------------------------- | ------------------------------------------------------------------------------------------- | ------------ |
-| **Core 3.11**                 | `npm run test:infra:up` (`docker-compose.test.yml`, `influxdb:3-core`, memory object store) | §1, §2       |
-| **Enterprise 3.11, fresh**    | PachaTree by default, no flags — matrix row 1                                               | §3, §4       |
-| **Enterprise 3.11, upgraded** | `--upgrade-pacha-tree` over a Parquet catalog — matrix row 2                                | §5           |
-| **Enterprise, multi-node**    | Two ingest nodes, one stoppable                                                             | §2 (A1 only) |
+| Instance                      | How                                                                                                                                                                                | Used by      |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Core 3.11**                 | docs-tooling `docker compose up influxdb3-core` (GA `3.11.0`, port 8282) — or `npm run test:infra:up` locally                                                                      | §1, §2       |
+| **Enterprise 3.11, fresh**    | docs-tooling `docker compose up influxdb3-enterprise` (GA `3.11.0`, PachaTree by default, port 8181) — matrix row 1                                                                | §3, §4       |
+| **Enterprise 3.11, upgraded** | `--upgrade-pacha-tree` over a Parquet catalog — matrix row 2. Not yet built; no fixture exists                                                                                     | §5           |
+| **Enterprise, multi-node**    | **Blocked on Enterprise license capacity** — see the A1 write-up below and docs-tooling's `.agents/skills/influxdb-docker-testing.md` ("License ceiling") for the concrete unblock | §2 (A1 only) |
 
-`docker-compose.test.yml` pins `influxdb:3-core`, not a 3.11 tag. Pin the tag before running
-anything version-specific, or the answers below are about whatever `3-core` resolves to today.
+`docker-compose.test.yml` (this repo) still pins `influxdb:3-core`, not a 3.11 tag — that gap
+is unchanged. Prefer docs-tooling's compose file, which now pins the GA digests above by
+default.
 
 ---
 
-## §1 — Core 3.11, single node: write-path error shapes
+## §1 — Core 3.11, single node: write-path error shapes — CLOSED
 
-Setup: `npm run test:infra:up`, then write directly with `curl` against
-`POST /api/v3/write_lp` (the endpoint Core/Enterprise use — `src/services/write.service.ts:85-100`).
-The MCP server always sends `accept_partial=true` on this path, so test with that default and
-without it.
+Verified live 2026-08-06 against Core 3.11.0 GA (docs-tooling `influxdb3-core`, port 8282).
 
-**A3. Does `accept_partial=true` change the status or body shape for a rejected line?**
-_(Non-blocking — refines P1's resolver.)_
+**A3 — RESOLVED.** `accept_partial` changes both the top-level `error` string and the shape of
+`data`, not just whether the batch partially succeeds:
 
-```bash
-TOK=apiv3_test
-for AP in true false; do
-  echo "--- accept_partial=$AP ---"
-  curl -sS -i -X POST "http://localhost:8181/api/v3/write_lp?db=test&precision=nanosecond&accept_partial=$AP" \
-    -H "Authorization: Bearer $TOK" -H 'Content-Type: text/plain; charset=utf-8' \
-    --data-binary 'm,t=a,t=a f=1i'
-done
+```
+accept_partial=true  → 400 {"error":"partial write of line protocol occurred",
+                             "data":[{"error_message":"invalid line protocol - multiple instances of 't' tag found","line_number":1,"original_line":"..."}]}
+
+accept_partial=false → 400 {"error":"line protocol parsing error",
+                             "data":{"error_message":"invalid line protocol - multiple instances of 't' tag found","line_number":1,"original_line":"..."}}
 ```
 
-Whole-batch refusal and partial success need different handling in the resolver. The verified
-shape recorded in `tests/fixtures/write-errors.ts` is the `accept_partial=true` one
-(`data.error` generic, tag name under `data.data[].error_message`). What P1 needs to know is
-whether the `false` path collapses to a flat `data.error` — if so, the resolver must handle
-both, not just the partial-write array.
+`data` is an **array** when `accept_partial=true`, a flat **object** when `false`. The MCP
+server always sends `accept_partial=true` (`write.service.ts:82`), so production traffic only
+ever hits the array shape — but P1's resolver should handle both defensively, since
+`accept_partial` is a query param the resolver's own code path could see either value for.
+**P1's resolver needs a second arm**, confirming the concern this question was written to
+settle.
 
-**Record:** status code and full body for each, and whether P1's resolver needs a second arm.
+**A4 — RESOLVED.** Swept five more conditions against the same endpoint (`accept_partial=true`,
+Core 3.11.0 GA). All five hit the identical shape as A2/A3's `true` case — 400,
+`data.error: "partial write of line protocol occurred"`, `data.data[0].error_message` — no new
+shape, no third resolver arm needed:
 
----
+| Case                                   | Line protocol           | `error_message`                                                                                                      |
+| -------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Duplicate tag key (A2, known)          | `m,t=a,t=a f=1i`        | `invalid line protocol - multiple instances of 't' tag found`                                                        |
+| Duplicate field key                    | `m,t=a f=1i,f=2i`       | `invalid line protocol - multiple instances of 'f' field found`                                                      |
+| Tag/field name collision               | `m,x=a x=1i`            | `invalid column type for column 'x', expected iox::column_type::tag, got iox::column_type::field::integer`           |
+| Empty tag value                        | `m,t= f=1i`             | `` Expected tag value, got ` f=1i ...` ``                                                                            |
+| Missing field set                      | `m,t=a`                 | `No fields were provided`                                                                                            |
+| Type conflict (write int, then string) | `m f=1i` then `m f="s"` | `invalid column type for column 'f', expected iox::column_type::field::integer, got iox::column_type::field::string` |
 
-**A4. Are there other newly-rejected line-protocol conditions in 3.11 beyond duplicate tag
-keys?** _(Non-blocking — scopes P1's test coverage.)_
-
-The 3.11 notes describe duplicate tag keys as now refused "the same way duplicate field keys
-already were." If other validations tightened in the same pass, they need the same
-error-fidelity treatment and the same fixtures. Sweep the obvious candidates against the same
-endpoint:
-
-| Case                               | Line protocol           |
-| ---------------------------------- | ----------------------- |
-| Duplicate tag key (known)          | `m,t=a,t=a f=1i`        |
-| Duplicate field key                | `m,t=a f=1i,f=2i`       |
-| Tag/field name collision           | `m,x=a x=1i`            |
-| Type conflict on an existing field | `m f=1i` then `m f="s"` |
-| Empty tag value                    | `m,t= f=1i`             |
-| Missing field set                  | `m,t=a`                 |
-
-**Record:** which of these 3.11 rejects up front, at what status, and whether any produces a
-body shape the P1 resolver would not reach. Anything new goes into
-`tests/fixtures/write-errors.ts` alongside the duplicate-tag-key fixture.
+All six (A2 + these five) should land in `tests/fixtures/write-errors.ts` as named cases — the
+table above has the exact `error_message` text for each.
 
 ---
 
-## §2 — Stopped node: the 503 question
+## §2 — Stopped node: the 503 question — ATTEMPTED, BLOCKED
 
 **A1. What does `POST /api/v3/write_lp` return when a target node is stopped?**
-_(Was "blocking P3." It is not — see below. Verify and close.)_
+_(Was "blocking P3." It is not — see below.)_
 
 > **Reviewer note (2026-08-06): the previous framing of this question was flawed.** It argued
 > that because the 3.11 notes document the 400→503 change for `/api/v2/write` only, and
@@ -98,8 +96,26 @@ _(Was "blocking P3." It is not — see below. Verify and close.)_
 > 503 already falls through to the `[object Object]` fallback (P2). The v2/v3 split is a
 > reason the note might not apply, not a finding that it doesn't.
 
-Restated: what status and body does v3 return for an unavailable node on 3.11? Directly
-observable — stop a node and write to it.
+**Status (2026-08-06): blocked on Enterprise license capacity, not yet answered.** A real
+2-node Enterprise cluster was built in docs-tooling specifically for this question
+(`influxdb3-enterprise` + `influxdb3-enterprise-verify-node1`, shared cluster-id, shared MinIO
+object store — see `docs-tooling/docker-compose.yml`) and confirmed to cluster correctly
+(both nodes share one catalog uuid). It cannot run both nodes yet:
+
+- The Home license (`docs-tooling-influxdb3-enterprise-home`) is `core_count=2` total, and
+  `--num-cores` has a hard floor of 2 per node (confirmed: `--num-cores=0`, which the server's
+  own error message suggests as a workaround, is rejected — "Cannot specify less than 2 for
+  --num-cores"). One node claims the entire budget; a second always fails with
+  `2 cores licensed, 2 cores in use on other nodes`.
+- The trial license is capped at one cluster total per account, and is already bound to an
+  existing cluster for this email — requesting it for this _new_ cluster identity returns
+  `TrialExpired`.
+
+Neither license currently supports 2+ nodes. Unblock: a license with `core_count >= 4` (2
+nodes × the 2-core floor). Full detail and the concrete next step (contact sales@influxdata.com)
+are in docs-tooling's `.agents/skills/influxdb-docker-testing.md`, "License ceiling" section —
+that file is the source of truth for this, not this doc, since it's docs-tooling infrastructure
+state that will change independently of this plan.
 
 This blocks nothing in P1/P2. P2 adds a 503 arm phrased as retryable regardless of whether
 3.11's v2 change has a v3 counterpart, because the arm is missing either way. The answer
@@ -108,199 +124,154 @@ change" or opens new work, and whether the 503 acceptance test in
 `tests/write-error-core.test.ts:195` can be backed by a live fixture instead of a synthetic one.
 
 ```bash
-# two-node Enterprise, then:
-docker stop <ingest-node-2>
-curl -sS -i -X POST "http://<host>:8181/api/v3/write_lp?db=test&precision=nanosecond&accept_partial=true" \
+# once the 2-node cluster's license is unblocked:
+docker stop influxdb3-enterprise-verify-node1
+curl -sS -i -X POST "http://localhost:8183/api/v3/write_lp?db=test&precision=nanosecond&accept_partial=true" \
   -H "Authorization: Bearer $TOK" -H 'Content-Type: text/plain; charset=utf-8' \
   --data-binary "m,t=a f=1i $(date +%s%N)"
 ```
 
 **Record:** status code, body, and whether the body distinguishes "retry" from "your request
-is wrong". If a two-node Enterprise cluster is impractical, killing the single Core container
-mid-write gives a weaker but still useful answer (connection-level failure rather than 503) —
-note which one you ran.
+is wrong". The weaker single-node fallback (stop the lone `influxdb3-enterprise` mid-write,
+observe a connection-level failure rather than a true 503) was deliberately not run this
+session, since it means taking down docs-tooling's shared dev instance a second time — left for
+a deliberate decision, not a default.
 
 ---
 
-## §3 — Enterprise 3.11 (PachaTree): system tables and detection
+## §3 — Enterprise 3.11 (PachaTree): system tables and detection — CLOSED
 
-Setup: fresh Enterprise, no upgrade flags. Query through `/api/v3/query_sql`.
+Verified live 2026-08-06 against Enterprise 3.11.0 GA (docs-tooling `influxdb3-enterprise`,
+port 8181, fresh PachaTree, no upgrade flags — matrix row 1).
 
-**C3. Do the `system.pt_*` tables surface in `information_schema.columns`, and under which
-`table_schema`?** _(Blocking P6 — verification-only, no code change expected.)_
+**C3 — RESOLVED.** `pt_*` tables live under `table_schema = 'system'`, not `'iox'`:
 
-`get_measurements` and `get_measurement_schema` filter on `table_schema = 'iox'`
-(`src/services/query.service.ts:753`, `:776`, `:1010`, `:1060`). The expectation is that the
-new tables are excluded by construction and that this causes no error.
-
-```sql
-SELECT DISTINCT table_schema, table_name
-FROM information_schema.columns
-WHERE table_name LIKE 'pt_%';
-
--- and the exact query the MCP server runs:
-SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'iox';
+```
+SELECT DISTINCT table_schema, table_name FROM information_schema.columns WHERE table_name LIKE 'pt_%';
+→ all 12 rows: table_schema = "system"
 ```
 
-**Record:** the `table_schema` value for `pt_*` rows (if any), and confirmation that
-`get_measurements` returns cleanly on a PachaTree instance. Closes impact map 1.4.
+`get_measurements`'s actual query (`SELECT DISTINCT table_name FROM information_schema.columns
+WHERE table_schema = 'iox'`) confirmed clean against a database with a real measurement written
+into it: only the real measurement appeared, zero `pt_*` pollution, no error. **Closes impact
+map 1.4 — P6 confirmed, no code change needed.**
 
 ---
 
-**C2 (observable half). What are the actual column schemas of the `pt_*` tables on 3.11?**
-_(The stability commitment is a hard gate and is **not** testable — see
-[Needs Engineering](#needs-engineering-not-testable-locally).)_
+**C2 (observable half) — RESOLVED for "what exists today."** Full schema dump
+(`SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_name
+LIKE 'pt_%' ORDER BY table_name, ordinal_position`) found **12 tables, not the 10 the spec's
+aspect-to-table mapping assumed**:
 
-Capture the real schemas so the `inspect_storage` spec stops citing a table list assembled
-from release notes plus docs:
+| Table                              | Columns |
+| ---------------------------------- | ------- |
+| `pt_compaction_active_jobs`        | 10      |
+| `pt_compaction_deferred_snapshots` | 4       |
+| `pt_compaction_files`              | 14      |
+| `pt_compaction_ingest_nodes`       | 11      |
+| `pt_compaction_nodes`              | 6       |
+| `pt_compaction_run_sets`           | 15      |
+| `pt_ingest_files` **(new)**        | 12      |
+| `pt_ingest_wal` **(new)**          | 13      |
+| `pt_shards`                        | 5       |
+| `pt_storage_checkpoints`           | 8       |
+| `pt_storage_run_set_indexes`       | 6       |
+| `pt_storage_snapshots`             | 14      |
 
-```sql
-SELECT table_name, column_name, data_type
-FROM information_schema.columns
-WHERE table_name LIKE 'pt_%'
-ORDER BY table_name, ordinal_position;
+All 10 originally-expected tables exist; `pt_ingest_wal` and `pt_ingest_files` are additional
+and unaccounted for in `inspect-storage-spec.md`'s aspect-to-table mapping — **that mapping
+needs to be rebuilt to include them.** The stability gate (is this schema public/contractual
+across versions, or could it change in 3.12) is unchanged and still needs Engineering — see
+[Needs Engineering](#needs-engineering-not-testable-locally).
+
+---
+
+**B2 (observable half) — RESOLVED.** Only the system-table probe distinguishes PachaTree from
+Parquet. Checked every alternate candidate on both Core and Enterprise: `/health` (200 on both,
+no distinguishing field), `/metrics` (Prometheus text; grepped for storage/mode/engine/pacha/
+parquet — only unrelated cache-status labels, no storage-mode field), `/api/v3/configure`
+(404 on both — no such discovery endpoint exists). **None of the alternates expose storage
+mode.** `system.pt_*` query success/failure (see C5, next) is the only working signal. Whether
+it's the _sanctioned_ one is still an Engineering question (unchanged, see below).
+
+---
+
+**C5 — RESOLVED, better than the worst case.** Core (Parquet-only) returns a clean planning
+error, not an empty success:
+
+```
+POST /api/v3/query_sql {"q":"SELECT 1 FROM system.pt_shards LIMIT 1", ...}
+→ 400 Bad Request: "Error during planning: table 'public.system.pt_shards' not found"
 ```
 
-Ten tables are expected: `pt_shards`, `pt_compaction_files`, `pt_storage_snapshots`,
-`pt_storage_checkpoints`, `pt_storage_run_set_indexes`, `pt_compaction_active_jobs`,
-`pt_compaction_ingest_nodes`, `pt_compaction_nodes`, `pt_compaction_run_sets`,
-`pt_compaction_deferred_snapshots`.
-
-**Record:** the full schema dump, and any table in that list that does not exist (or any
-`pt_*` table not in it). This is what `inspect-storage-spec.md`'s aspect-to-table mapping
-should be rebuilt from.
+`information_schema.columns` also returns **zero rows** for `pt_%` on Core — the schema plainly
+doesn't exist there, not just hidden. The probe can safely use query success/failure as the
+signal; the spec's worried-about failure mode (an empty 200 misread as "healthy PachaTree
+cluster with zero shards") does not occur. **Closes the probe-design half of this question.**
 
 ---
 
-**B2 (observable half). Which probes actually distinguish PachaTree from Parquet over HTTP?**
-*(Blocking the capability probe. Whether the working probe is *sanctioned* is an Engineering
-question — see below.)*
+**B1 — RESOLVED.** `x-influxdb-version` is present and reports plain `3.11.0` (no RC suffix) on
+both Core and Enterprise GA, confirming "3.11 or later" can be a simple semver parse:
 
-Test each candidate on both a PachaTree Enterprise and a Parquet Core instance, and record
-what each returns on each:
-
-| Candidate                   | Probe                                                                                       |
-| --------------------------- | ------------------------------------------------------------------------------------------- |
-| System-table presence       | `SELECT 1 FROM system.pt_shards LIMIT 1`                                                    |
-| Version header              | `curl -sSI .../ping \| grep -i x-influxdb-`                                                 |
-| Any status/catalog endpoint | `curl -sS .../health`, `.../metrics`, `/api/v3/configure/*` — look for a storage-mode field |
-
-**Record:** which probes are unambiguous, and specifically whether anything short of querying
-`system.pt_*` reports the storage mode.
-
----
-
-**C5. On Parquet-only (Core), does a `system.pt_*` query error or return an empty result?**
-_(Blocking the probe design.)_
-
-The probe in `inspect-storage-spec.md` treats failure as "not PachaTree." An empty _success_
-would be read as a healthy PachaTree cluster with zero shards — the wrong answer, and a silent
-one.
-
-```bash
-# against Core (§1's container)
-curl -sS -X POST "http://localhost:8181/api/v3/query_sql" \
-  -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
-  -d '{"db":"test","q":"SELECT 1 FROM system.pt_shards LIMIT 1","format":"json"}' -i
+```
+Authenticated:   x-influxdb-version: 3.11.0   x-influxdb-build: Core | Enterprise
+Unauthenticated: header absent entirely (401, no x-influxdb-* headers at all)
 ```
 
-**Record:** status code and body on Core, and the same on PachaTree Enterprise for contrast.
-If Core returns an empty 200, the probe must check for the table's _existence_ (via C3's
-`information_schema` query) rather than for query success.
+**The probe must handle the unauthenticated case as "header absent," not "header empty"** — if
+it runs before a token is validated, there is nothing to parse yet, not an empty string.
 
 ---
 
-**B1. Is `x-influxdb-version` guaranteed present and stably formatted on 3.11 Core and
-Enterprise?** _(Blocking the capability probe's version half.)_
+## §4 — Enterprise 3.11: tokens and auth — MOSTLY CLOSED
 
-`/ping` returns it (`src/services/base-connection.service.ts:302`) and nothing parses it —
-every consumer passes the string through to output. The RC reports `3.11.0-0.rc.1`.
+Verified live 2026-08-06 against Enterprise 3.11.0 GA, using a **scoped, non-admin** token
+created via `influxdb3 create token --permission`.
 
-```bash
-curl -sSI -H "Authorization: Bearer $TOK" http://localhost:8181/ping | grep -i 'x-influxdb-'
-# repeat unauthenticated, and against Enterprise
+**C1 — RESOLVED, and more permissive than the spec feared.** Created three tokens and tested
+`SELECT * FROM system.pt_shards LIMIT 1` with each:
+
+| Token                                      | Result                                                                                                                                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Plain per-database read (`db:<name>:read`) | **Succeeds** — real per-database shard data returned. No special permission needed.                                                                                                   |
+| `system:*:read` alone                      | 403 — on this query _and_ on a plain `SELECT 1` against the same db. This permission does not grant `/api/v3/query_sql` access at all; it gates a different, non-SQL system endpoint. |
+| `db:_internal:read`                        | 403 — including on a plain `SELECT 1` against `_internal`. Confirms `_internal` requires admin/operator regardless of an explicit db-scoped grant naming it.                          |
+
+**A plain database-read token is sufficient for `system.pt_*` scoped to that database** —
+`inspect-storage-spec.md`'s guardrail language ("query permission only, no operator token") is
+validated as written for ordinary databases. It is **not** sufficient for anything under
+`_internal`, which stays admin/operator-only regardless of grant. **Closes — decides the
+capability's risk posture in inspect_storage's favor.**
+
+---
+
+**D2 — RESOLVED.** 3×2 auth matrix, identical on Core and Enterprise:
+
+```
+Bearer <token>  →  ping: 200   health: 200
+Token <token>   →  ping: 200   health: 200
+(no header)     →  ping: 401   health: 401
 ```
 
-**Record:** exact header values from Core, Enterprise, and (when available) a GA build. What
-GA reports — `3.11.0`? — decides whether a "3.11 or later" gate can be a simple semver parse.
-Also record whether the header is present when the request is unauthenticated, since the probe
-may run before a token is validated.
+Both schemes accepted, no anonymous access on either endpoint. Confirms `createAuthHeader()`'s
+Bearer choice works, and that the legacy Token scheme is still accepted too (no breaking
+change either way).
 
 ---
 
-## §4 — Enterprise 3.11: tokens and auth
-
-Setup: same fresh Enterprise, plus a **scoped, non-admin** token. This section is the one the
-previous list most wrongly routed to Engineering — the docs gap is real, but the answer is a
-token away.
-
-**C1. What is the minimum token scope that can read `system.pt_*`?** _(Blocking — decides the
-capability's risk posture.)_
-
-An admin token can read any table; that is not in question. Enterprise resource tokens support
-a `system:<endpoint>:read` permission format, and `system.tokens` is documented as requiring
-admin or `_internal` read — but nothing documents which permission, if any short of admin,
-suffices for `system.queries`, `system.parquet_files`, or `pt_*`.
-
-Create three tokens and try the same `SELECT` with each:
-
-1. Database read token on the target database only.
-2. Resource token with `system:<endpoint>:read` (try the `pt_*`-relevant endpoint names).
-3. `_internal` database read token.
-
-**Record:** for each token, whether `SELECT * FROM system.pt_shards LIMIT 1` succeeds, and the
-error when it doesn't. The narrowest token that works becomes the documented requirement for
-`inspect_storage`; if only admin works, the capability's guardrail language ("query permission
-only, no operator token") in `inspect-storage-spec.md` is wrong and must change.
+**D3 — RESOLVED as a side effect of C1.** Nothing in C1's results contradicts the documented
+token model: ordinary db-scoped permissions behave as documented, `_internal` stays gated to
+admin/operator. Closes.
 
 ---
 
-**D2. Do `/ping` and `/health` accept `Bearer`, `Token`, or both — and do they require auth at
-all?** _(Non-blocking — confirm-only. The code fix already shipped in 1.4.0.)_
-
-`createAuthHeader()` (`src/services/base-connection.service.ts:79-85`) now returns `Bearer` for
-every product type except cloud-serverless, matching `http-client.service.ts`; covered by
-`tests/base-connection-auth.test.ts`. This is a live confirmation that the reasoning holds on
-3.11, not a gate on anything.
-
-```bash
-for H in "Authorization: Bearer $TOK" "Authorization: Token $TOK" ""; do
-  for EP in ping health; do
-    printf '%-40s %-8s ' "${H:-<none>}" "$EP"
-    curl -sS -o /dev/null -w '%{http_code}\n' ${H:+-H "$H"} "http://localhost:8181/$EP"
-  done
-done
-```
-
-**Record:** the 3×2 status matrix on Core and on Enterprise.
-
----
-
-**D3. Does 3.11 change token scopes or the operator/admin token model on Enterprise?**
-_(Non-blocking.)_
-
-The notes don't mention it and we're treating it as unchanged. The permission-scoped tool
-design rests on Enterprise tokens having meaningfully limited permissions, so it's worth a
-positive confirmation rather than an assumption. Largely answered as a side effect of C1 —
-if the three tokens there behave as documented, this closes.
-
-**Record:** whether anything in C1's results contradicts the documented token model.
-
----
-
-**D1 (observable half). Is `--user-auth-type` enforced on Enterprise HTTP API routes, or only
-on Web UI routes?** _(Non-blocking for the patch; significant for the protocol migration.)_
-
-Start Enterprise with `--user-auth-type basic`, then hit the API routes the MCP server uses
-(`/ping`, `/api/v3/query_sql`, `/api/v3/write_lp`) with an ordinary API token and confirm they
-still work unchanged. That is the whole question as far as this patch is concerned — we have
-assumed it doesn't affect API tokens, and this is a five-minute check of that assumption.
-
-The rest of D1 — what `oauth` mode integrates with, whether it exposes OpenID Connect
-discovery, and what authorizes database operations after a user authenticates — is design
-information, not behavior, and stays with Engineering.
-
-**Record:** status codes on each route under each `--user-auth-type` value with an API token.
+**D1 (observable half) — NOT RUN this session.** Would require restarting Enterprise with
+`--user-auth-type basic`, which means taking down the shared dev instance a second time in one
+session — deliberately deferred rather than done reflexively. Still open; the check itself is
+unchanged from the original write-up (start with `--user-auth-type basic`, confirm `/ping`,
+`/api/v3/query_sql`, `/api/v3/write_lp` still work with an ordinary API token). The design half
+(what OAuth mode integrates with) remains Engineering's, unchanged.
 
 ---
 
@@ -350,15 +321,14 @@ and see whether everything in §3–§5 works.
 
 ## Needs Engineering (not testable locally)
 
-Four sub-items, down from the previous list's twenty questions. Each is a commitment or a
+Three sub-items, down from the previous list's twenty questions. Each is a commitment or a
 design fact, not a behavior:
 
-| ID            | Question                                                                                                                                 | Why it can't be tested                                                                                                                                               |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **C2** (gate) | Are the `pt_*` column schemas **public and stable** for 3.11, or internal and subject to change?                                         | Observing today's schema (§3) doesn't tell us whether it may change in 3.12. A hard gate: if internal, `inspect_storage` cannot be built on them and the spec stops. |
-| **B2** (half) | Is querying `system.pt_*` the **sanctioned** engine probe, or is there an intended status/catalog endpoint?                              | §3 finds what _works_; only Engineering can say what's supported. Ship-blocking only if the working probe turns out to be one they'd rather we didn't depend on.     |
-| **D1** (half) | What does `--user-auth-type oauth` integrate with, does it expose OIDC discovery, and what authorizes DB operations post-authentication? | Design information. Matters for the protocol migration (MCP servers are OAuth 2.1 resource servers as of the 2026-07-28 spec), not for this patch.                   |
-| **E1**        | Is there a 3.11 **GA** tag to pin instead of `3.11.0-0.rc.1`, and do the RC digests change at GA?                                        | Partly answers itself once GA publishes — check the registry first; only ask if the tag isn't obvious.                                                               |
+| ID            | Question                                                                                                                                 | Why it can't be tested                                                                                                                                                                                                 |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **C2** (gate) | Are the `pt_*` column schemas **public and stable** for 3.11, or internal and subject to change?                                         | Observing today's schema (§3 — now including `pt_ingest_wal`/`pt_ingest_files`) doesn't tell us whether it may change in 3.12. A hard gate: if internal, `inspect_storage` cannot be built on them and the spec stops. |
+| **B2** (half) | Is querying `system.pt_*` the **sanctioned** engine probe, or is there an intended status/catalog endpoint?                              | §3 confirmed it's the only _working_ probe; only Engineering can say whether it's _supported_. Ship-blocking only if the working probe turns out to be one they'd rather we didn't depend on.                          |
+| **D1** (half) | What does `--user-auth-type oauth` integrate with, does it expose OIDC discovery, and what authorizes DB operations post-authentication? | Design information. Matters for the protocol migration (MCP servers are OAuth 2.1 resource servers as of the 2026-07-28 spec), not for this patch.                                                                     |
 
 Send C2 first. It is the only one that can stop a deliverable.
 
@@ -368,11 +338,22 @@ Send C2 first. It is the only one that can stop a deliverable.
 
 Kept as a record so nothing looks silently dropped.
 
-| ID     | Resolution                                                                                                                                                                                                                                                                                                                                          |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A2** | Duplicate-tag-key response shape — resolved by live verification, recorded in `tests/fixtures/write-errors.ts` (on `main`). `data.error` is the generic `"partial write of line protocol occurred"`; the tag name is under `data.data[].error_message`. Identical on Core 3.11.0-nightly and Enterprise 3.11.0-0.rc.1. Drives P1's resolver design. |
-| **B3** | Hybrid-migration detection — `system.upgrade_parquet_node` (per-node status) and `system.upgrade_parquet` (per-file progress) are documented and sanctioned for exactly this. No inference from `pt_*` presence needed.                                                                                                                             |
-| **C4** | Compaction-lag detection — `system.pt_compaction_ingest_nodes.compaction_lag` is a direct per-node column; `deferred_snapshot_count` plus `system.pt_compaction_deferred_snapshots.error_message` cover backlog. No heuristic needed.                                                                                                               |
-| **F1** | Version anchor — 1.4.0 published 2026-07-30 with PR #69's read-only capability folded in. Sequencing: 1.4.0 → 1.4.1 (this patch).                                                                                                                                                                                                                   |
-| **F2** | Target release for `inspect_storage` — admitted on the 1.x line with sign-off, sequenced after 1.4.1 ships.                                                                                                                                                                                                                                         |
-| **F3** | `inspect_storage` vs. InfluxDB 3 Cloud support — `inspect_storage` stays this plan's new capability; Cloud support gets its own plan, timed to land before Cloud's GA. Both need the same capability-detection prerequisite.                                                                                                                        |
+| ID                       | Resolution                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A2**                   | Duplicate-tag-key response shape — resolved by live verification, recorded in `tests/fixtures/write-errors.ts` (on `main`). `data.error` is the generic `"partial write of line protocol occurred"`; the tag name is under `data.data[].error_message`. Identical on Core 3.11.0-nightly and Enterprise 3.11.0-0.rc.1. Drives P1's resolver design. |
+| **B3**                   | Hybrid-migration detection — `system.upgrade_parquet_node` (per-node status) and `system.upgrade_parquet` (per-file progress) are documented and sanctioned for exactly this. No inference from `pt_*` presence needed.                                                                                                                             |
+| **C4**                   | Compaction-lag detection — `system.pt_compaction_ingest_nodes.compaction_lag` is a direct per-node column; `deferred_snapshot_count` plus `system.pt_compaction_deferred_snapshots.error_message` cover backlog. No heuristic needed.                                                                                                               |
+| **F1**                   | Version anchor — 1.4.0 published 2026-07-30 with PR #69's read-only capability folded in. Sequencing: 1.4.0 → 1.4.1 (this patch).                                                                                                                                                                                                                   |
+| **F2**                   | Target release for `inspect_storage` — admitted on the 1.x line with sign-off, sequenced after 1.4.1 ships.                                                                                                                                                                                                                                         |
+| **F3**                   | `inspect_storage` vs. InfluxDB 3 Cloud support — `inspect_storage` stays this plan's new capability; Cloud support gets its own plan, timed to land before Cloud's GA. Both need the same capability-detection prerequisite.                                                                                                                        |
+| **E1**                   | GA tag — confirmed 2026-08-06: `3.11.0` (no RC suffix). Core revision `139bab4c54b54db01d67539b6dc9f1e1a81dd1b7`, Enterprise revision `e5242f505d23039a340d21693a994b1a053b0f15`. Both now the pinned defaults in docs-tooling's `docker-compose.yml`.                                                                                              |
+| **B1**                   | `x-influxdb-version` — present and `3.11.0` when authenticated on both Core and Enterprise; absent entirely (not empty) when unauthenticated. Confirms "3.11 or later" can be a simple semver parse. See §3.                                                                                                                                        |
+| **C3**                   | `pt_*` tables live under `table_schema = 'system'`, not `'iox'` — `get_measurements`'s `table_schema = 'iox'` filter excludes them by construction, confirmed clean against real data. Closes impact map 1.4.                                                                                                                                       |
+| **C2** (observable half) | Live schema dump found 12 `pt_*` tables, not the 10 previously assumed — `pt_ingest_wal` and `pt_ingest_files` are additional. `inspect-storage-spec.md`'s aspect-to-table mapping needs rebuilding to include them. The stability _gate_ (public/contractual vs. internal) is unchanged and still needs Engineering.                               |
+| **B2** (observable half) | Only the `system.pt_*` query works as a PachaTree-vs-Parquet probe — `/health`, `/metrics`, and `/api/v3/configure` were all checked and expose no storage-mode field. Whether it's the _sanctioned_ probe is still open (needs Engineering).                                                                                                       |
+| **C5**                   | Core returns a clean `400` planning error for `system.pt_*` queries (`table ... not found`), not an empty `200` — the spec's worried-about failure mode doesn't occur. Query success/failure is a safe probe signal.                                                                                                                                |
+| **A3**                   | `accept_partial=false` does not collapse to a flat `data.error` as guessed — it's a flat `data` **object** (vs. an array when `true`), with a different top-level `error` string too (`"line protocol parsing error"` vs. `"partial write of line protocol occurred"`). P1's resolver needs a second arm.                                           |
+| **A4**                   | Swept 5 more rejected-write conditions on Core 3.11 GA — duplicate field key, tag/field collision, empty tag value, missing field set, field type conflict. All five match A2/A3's `accept_partial=true` shape exactly; no third resolver arm needed. Exact `error_message` text recorded in §1 for `tests/fixtures/write-errors.ts`.               |
+| **C1**                   | A plain per-database read token (`db:<name>:read`) is sufficient to query `system.pt_*` scoped to that database — no special `system:*:read` or admin/operator token needed. `_internal` stays admin/operator-only regardless of grant. Validates `inspect-storage-spec.md`'s guardrail language as written.                                        |
+| **D2**                   | `/ping` and `/health` accept both `Bearer` and `Token` on Core and Enterprise 3.11 GA; neither allows anonymous access (401 with no auth header). Confirms `createAuthHeader()`'s Bearer choice, and that Token still works too.                                                                                                                    |
+| **D3**                   | Nothing in C1's live results contradicts the documented Enterprise token model. Closes as a side effect of C1.                                                                                                                                                                                                                                      |

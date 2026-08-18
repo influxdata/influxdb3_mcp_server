@@ -1,10 +1,18 @@
 # Capability spec — `inspect_storage`: read-only operational visibility
 
 - **Repo:** `influxdata/influxdb3_mcp_server`
-- **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`), InfluxDB `3.11.0-0.rc.1`
+- **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`), InfluxDB `3.11.0` GA
+  (was `3.11.0-0.rc.1`; see `verification-questions.md` E1)
 - **Updated:** 2026-08-06
 - **Status:** spec ready — **target: next 1.x release after 1.4.1, sign-off granted (F2/F3), see Governance**
 - **Applies to:** InfluxDB 3 Enterprise on a PachaTree catalog (3.11+). Not Core.
+- **Open from live verification (2026-08-06, not yet folded into this spec's body):** the live
+  schema dump found **12** `pt_*` tables, not the 10 below — `pt_ingest_wal` and
+  `pt_ingest_files` exist and aren't in the aspect-to-table mapping yet. Token scope (C1) is
+  narrower than assumed in the guardrail language below: a plain per-database read token was
+  sufficient in testing, no `system:*:read`/admin/operator token required. Full detail in
+  `verification-questions.md` §3/§4 (C2, C1). The stability gate (C2, Needs Engineering) is
+  still open and is what determines whether the table list below can be trusted long-term.
 
 ## Why this capability, and why now
 

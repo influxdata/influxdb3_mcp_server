@@ -2,12 +2,16 @@
 
 - **Repo under plan:** `influxdata/influxdb3_mcp_server` (standalone TypeScript MCP server)
 - **Source ref verified against:** `influxdb3_mcp_server@main` (HEAD `249f612`, `package.json`
-  version `1.4.1-test.1`), InfluxDB `3.11.0-0.rc.1`
+  version `1.4.1-test.1`), InfluxDB `3.11.0` GA (superseded the `3.11.0-0.rc.1` this plan
+  started against — see the version note in
+  [`verification-questions.md`](verification-questions.md))
 - **Working branch:** `docs/mcp-3.11-patch-plan`, cut from `main` after the 1.4.0 publish. Supersedes
   `influxdb-3.11-compat-patch`, which was cut from `main` at `9460044` — before 1.4.0 published — and is
   now stale against the version-anchor and sequencing sections below.
 - **Updated:** 2026-08-06
-- **Status:** review — planning only, implementation not started
+- **Status:** review — planning only, implementation not started. Eleven of the fifteen
+  verification sub-items now have live-tested answers; see
+  [`verification-questions.md`](verification-questions.md).
 
 ## Goal
 
@@ -26,15 +30,20 @@ questions still to be answered before implementation starts.
 
 ## Companion documents
 
-| Document                                                 | Contents                                                            |
-| -------------------------------------------------------- | ------------------------------------------------------------------- |
-| [`patch-1.4.1-spec.md`](patch-1.4.1-spec.md)             | The next patch — items P1–P7, tests, matrix                         |
-| [`inspect-storage-spec.md`](inspect-storage-spec.md)     | The new capability, and the detection work it forces                |
-| [`verification-questions.md`](verification-questions.md) | 15 remaining questions, grouped by the instance they're run against |
+| Document                                                 | Contents                                                                                                                    |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| [`patch-1.4.1-spec.md`](patch-1.4.1-spec.md)             | The next patch — items P1–P7, tests, matrix                                                                                 |
+| [`inspect-storage-spec.md`](inspect-storage-spec.md)     | The new capability, and the detection work it forces                                                                        |
+| [`verification-questions.md`](verification-questions.md) | 21 tracked sub-items, grouped by the instance they're run against — 11 resolved live 2026-08-06, 7 open, 3 Engineering-only |
 
 `verification-questions.md` replaces `open-questions-core-enterprise.md`, which routed most
-items to the Core/Enterprise implementing team. All but four sub-items are answerable on a
-local instance; only those four still need an Engineering consult.
+items to the Core/Enterprise implementing team. That routing was wrong for all but three
+sub-items, which still need an Engineering consult; everything else was answerable on a local
+instance and, as of 2026-08-06, mostly has been. The one open item that isn't a quick local
+check is **A1** (stopped-node 503 behavior on a real 2-node Enterprise cluster) — blocked on
+Enterprise license capacity in docs-tooling, not a local-instance question anymore. See
+verification-questions.md §2 and docs-tooling's `.agents/skills/influxdb-docker-testing.md`
+("License ceiling") for the concrete unblock.
 
 Upstream drafts this plan executes against: _MCP_Server_Release_Plan.md_ v1.3,
 _InfluxDB_3.11_MCP_Impact_Map.md_ v1.2, _AI_Tooling_Brief_v2.md_ v2.2.
@@ -109,13 +118,25 @@ after 1.4.1 ships. F3: `inspect_storage` stays the new capability; Cloud support
 plan. All three are recorded in [`verification-questions.md`](verification-questions.md)'s
 closed-items table.
 
-What remains is **15 verification questions**, in
-[`verification-questions.md`](verification-questions.md). Eleven of them are answerable on a
-local instance and are written as runnable checks grouped by the instance they need; four
-sub-items (C2's stability commitment, B2's "is this the sanctioned probe", D1's OAuth design
-half, E1's GA tags) are the only ones that still need an Engineering consult. **C2 is the only
-one that can stop a deliverable** — if the `pt_*` schemas are internal, `inspect_storage` does
-not get built.
+**Verified live 2026-08-06:** eleven sub-items in
+[`verification-questions.md`](verification-questions.md) now have live-tested answers (E1, B1,
+C3, C5, A3, A4, C1, D2, D3, and the observable halves of C2 and B2), run against Core +
+Enterprise 3.11.0 GA. Notable results: A4 found no new write-rejection shapes beyond A2/A3, so
+P1's resolver design is fully scoped; C1 found a plain per-database read token is sufficient
+for `system.pt_*` (no admin/operator token needed), which decides `inspect_storage`'s risk
+posture in its favor; C2's observable half found two `pt_*` tables (`pt_ingest_wal`,
+`pt_ingest_files`) the capability spec's table mapping doesn't account for yet.
+
+What remains is **seven open sub-items**: three still need an Engineering consult (C2's
+stability commitment, B2's "is this the sanctioned probe", D1's OAuth design half — **C2 is
+the only one that can stop a deliverable**, unchanged: if the `pt_*` schemas are internal,
+`inspect_storage` does not get built); D1's observable half wasn't run this session (would mean
+restarting the shared Enterprise dev instance a second time); E2/E3 need a
+Parquet-mode-to-PachaTree-upgrade fixture that doesn't exist yet; and **A1** — the stopped-node
+503 question — is attempted but blocked on Enterprise license capacity, not on anything code-
+or Engineering-related. See verification-questions.md §2 for the detail: the Enterprise Home
+license caps at one 2-core node, the trial license is already bound to another cluster, and a
+real 2-node cluster needs a bigger license (contact sales@influxdata.com) before this can run.
 
 ## Documentation requirement (each implementation phase)
 
