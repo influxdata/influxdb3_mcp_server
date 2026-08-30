@@ -1,22 +1,23 @@
 # Verification questions — what still has to be tested
 
-- **Updated:** 2026-08-06
-- **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`), InfluxDB `3.11.0` GA
-  (Core revision `139bab4c54b54db01d67539b6dc9f1e1a81dd1b7`, Enterprise revision
-  `e5242f505d23039a340d21693a994b1a053b0f15` — both now the pinned defaults in docs-tooling's
-  `docker-compose.yml`)
-- **Status:** twelve sub-items verified live this session (Core + Enterprise 3.11.0 GA, via
-  docs-tooling's shared containers): A1, E1, B1, C3, C5, A3, A4, C1, D2, D3, plus the observable
-  halves of C2 and B2. Six sub-items remain open — see below.
+- **Updated:** 2026-08-30
+- **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`); most items against
+  InfluxDB `3.11.0` GA (Core revision `139bab4c54b54db01d67539b6dc9f1e1a81dd1b7`, Enterprise
+  revision `e5242f505d23039a340d21693a994b1a053b0f15`); D1's observable half against `3.11.2`
+  (docs-tooling's containers were bumped between sessions — no re-check of the earlier items
+  against `3.11.2` yet, but none of them are the kind of behavior a patch release typically
+  changes)
+- **Status:** thirteen sub-items verified live: A1, E1, B1, C3, C5, A3, A4, C1, D2, D3, D1
+  (observable half), plus the observable halves of C2 and B2. Five sub-items remain open — see
+  below.
 - **Replaces:** `open-questions-core-enterprise.md` (deleted). Question IDs are unchanged, so
   the cross-references in [`PLAN.md`](PLAN.md), [`patch-1.4.1-spec.md`](patch-1.4.1-spec.md),
   and [`inspect-storage-spec.md`](inspect-storage-spec.md) still resolve.
 
-Of the previous pass's 21 tracked sub-items, twelve are now resolved (see
-[Closed questions](#closed-questions)), leaving six open: **C2**'s stability gate and **B2**'s
-sanctioned-probe half (both Engineering-only), **D1**'s observable half (not run this session)
-and oauth half (Engineering-only), and **E2**/**E3** (Parquet→PachaTree hybrid fixture, not yet
-built). The previous version of this list routed most items to the Core/Enterprise implementing
+Of the previous pass's 21 tracked sub-items, thirteen are now resolved (see
+[Closed questions](#closed-questions)), leaving five open: **C2**'s stability gate and **B2**'s
+sanctioned-probe half (both Engineering-only), **D1**'s oauth half (Engineering-only), and
+**E2**/**E3** (Parquet→PachaTree hybrid fixture, not yet built). The previous version of this list routed most items to the Core/Enterprise implementing
 team. That was wrong for all but a few sub-items: most of what's below turned out to be directly
 observable on an instance we can start ourselves. This file is organized by **what you need
 running**, not by who owns the answer, so each section is one setup and several questions
@@ -259,12 +260,37 @@ admin/operator. Closes.
 
 ---
 
-**D1 (observable half) — NOT RUN this session.** Would require restarting Enterprise with
-`--user-auth-type basic`, which means taking down the shared dev instance a second time in one
-session — deliberately deferred rather than done reflexively. Still open; the check itself is
-unchanged from the original write-up (start with `--user-auth-type basic`, confirm `/ping`,
-`/api/v3/query_sql`, `/api/v3/write_lp` still work with an ordinary API token). The design half
-(what OAuth mode integrates with) remains Engineering's, unchanged.
+**D1 (observable half) — RESOLVED.** Tested live 2026-08-30 against a standalone, throwaway
+Enterprise 3.11.2 container (`--mode=all`, single node, memory object store) rather than
+bouncing the shared multi-node cluster — the D1 check doesn't need cluster topology, only the
+`--user-auth-type` flag, so a disposable single node is a strictly lower-risk way to answer it.
+**Caveat:** this confirms the flag's effect on the API-token path in isolation, not its
+interaction with a multi-node deployment, which is what production Enterprise looks like.
+
+Started with `--user-auth-type basic --license-type=trial --license-email=<fresh alias>`:
+
+```
+ping (no auth):    401
+health (no auth):  401
+```
+
+`influxdb3 create token --admin` still worked normally, and the resulting API token worked
+unchanged on every endpoint:
+
+```
+ping (Bearer):    200      ping (Token scheme):  200
+health (Bearer):  200
+write (Bearer):   204   (POST /api/v3/write_lp)
+query (Bearer):   200   (POST /api/v3/query_sql, row returned correctly)
+```
+
+**`--user-auth-type basic` only adds a user-login auth path; it does not disable or change
+ordinary API-token (Bearer/Token) auth.** The two mechanisms are independent — enabling basic
+auth for interactive users doesn't gate the token-based API surface this MCP server uses. No
+code change indicated for the server itself.
+
+The design half (what OAuth mode integrates with, OIDC discovery, post-auth authorization)
+remains Engineering's, unchanged — see [Needs Engineering](#needs-engineering-not-testable-locally).
 
 ---
 
@@ -321,7 +347,7 @@ design fact, not a behavior:
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **C2** (gate) | Are the `pt_*` column schemas **public and stable** for 3.11, or internal and subject to change?                                         | Observing today's schema (§3 — now including `pt_ingest_wal`/`pt_ingest_files`) doesn't tell us whether it may change in 3.12. A hard gate: if internal, `inspect_storage` cannot be built on them and the spec stops. |
 | **B2** (half) | Is querying `system.pt_*` the **sanctioned** engine probe, or is there an intended status/catalog endpoint?                              | §3 confirmed it's the only _working_ probe; only Engineering can say whether it's _supported_. Ship-blocking only if the working probe turns out to be one they'd rather we didn't depend on.                          |
-| **D1** (half) | What does `--user-auth-type oauth` integrate with, does it expose OIDC discovery, and what authorizes DB operations post-authentication? | Design information. Matters for the protocol migration (MCP servers are OAuth 2.1 resource servers as of the 2026-07-28 spec), not for this patch.                                                                     |
+| **D1** (oauth half) | What does `--user-auth-type oauth` integrate with, does it expose OIDC discovery, and what authorizes DB operations post-authentication? | Design information. Matters for the protocol migration (MCP servers are OAuth 2.1 resource servers as of the 2026-07-28 spec), not for this patch.                                                                     |
 
 Send C2 first. It is the only one that can stop a deliverable.
 
@@ -351,3 +377,4 @@ Kept as a record so nothing looks silently dropped.
 | **D2**                   | `/ping` and `/health` accept both `Bearer` and `Token` on Core and Enterprise 3.11 GA; neither allows anonymous access (401 with no auth header). Confirms `createAuthHeader()`'s Bearer choice, and that Token still works too.                                                                                                                                        |
 | **D3**                   | Nothing in C1's live results contradicts the documented Enterprise token model. Closes as a side effect of C1.                                                                                                                                                                                                                                                          |
 | **A1**                   | Stopped-node write, tested on a real 3-node Enterprise cluster: writing directly to a stopped node's own port returns a plain TCP connection failure, not an HTTP 503 — confirmed no v3 503 change reaches this configuration (no proxy in front, no inter-node forwarding). Closes P3. The rest of the cluster (a live node) keeps serving writes normally throughout. |
+| **D1** (observable half) | `--user-auth-type basic` only adds a user-login path; it doesn't touch ordinary API-token (Bearer/Token) auth. On a throwaway single-node Enterprise 3.11.2 container, unauthenticated `/ping`/`/health` returned 401, and an admin token created normally still worked on `/ping`, `/health`, `/api/v3/write_lp`, and `/api/v3/query_sql`. No code change indicated. Caveat: single-node only, not tested against multi-node topology. |
