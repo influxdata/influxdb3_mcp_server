@@ -125,12 +125,14 @@ jobs:
   test-integration-cloud-serverless:
     name: Integration tests (InfluxDB Cloud Serverless)
     runs-on: ubuntu-latest
-    # Skip on forked PRs — environment secrets (INFLUXDB_CLOUD_URL/TOKEN) are
-    # not exposed to fork runs, which would fail on empty credentials.
+    # Skip on forked and Dependabot PRs — environment secrets
+    # (INFLUXDB_CLOUD_URL/TOKEN) are not exposed to those runs, which would
+    # fail on empty credentials.
     # merge_group runs only happen for same-repo branches that already
     # cleared review, so they're always safe to include here.
     if: |
       github.repository_owner == 'influxdata' &&
+      github.actor != 'dependabot[bot]' &&
       (github.event_name == 'push' ||
        github.event_name == 'merge_group' ||
        github.event.pull_request.head.repo.full_name == github.repository)
