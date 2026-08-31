@@ -1,23 +1,26 @@
 # Verification questions — what still has to be tested
 
-- **Updated:** 2026-08-30
+- **Updated:** 2026-08-31 (P6 resolved against the live hybrid window)
 - **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`); most items against
   InfluxDB `3.11.0` GA (Core revision `139bab4c54b54db01d67539b6dc9f1e1a81dd1b7`, Enterprise
   revision `e5242f505d23039a340d21693a994b1a053b0f15`); D1's observable half against `3.11.2`
   (docs-tooling's containers were bumped between sessions — no re-check of the earlier items
   against `3.11.2` yet, but none of them are the kind of behavior a patch release typically
   changes)
-- **Status:** thirteen sub-items verified live: A1, E1, B1, C3, C5, A3, A4, C1, D2, D3, D1
-  (observable half), plus the observable halves of C2 and B2. Five sub-items remain open — see
-  below.
+- **Status:** fifteen sub-items verified live: A1, E1, B1, C3, C5, A3, A4, C1, D2, D3, D1
+  (observable half), E2, E3, plus the observable halves of C2 and B2. Three sub-items remain
+  open — see below. E2's first pass wrongly concluded B3 was wrong (a query-scoping mistake,
+  since corrected); B3 stands as originally resolved.
 - **Replaces:** `open-questions-core-enterprise.md` (deleted). Question IDs are unchanged, so
   the cross-references in [`PLAN.md`](PLAN.md), [`patch-1.4.1-spec.md`](patch-1.4.1-spec.md),
   and [`inspect-storage-spec.md`](inspect-storage-spec.md) still resolve.
 
-Of the previous pass's 21 tracked sub-items, thirteen are now resolved (see
-[Closed questions](#closed-questions)), leaving five open: **C2**'s stability gate and **B2**'s
-sanctioned-probe half (both Engineering-only), **D1**'s oauth half (Engineering-only), and
-**E2**/**E3** (Parquet→PachaTree hybrid fixture, not yet built). The previous version of this list routed most items to the Core/Enterprise implementing
+Of the previous pass's 21 tracked sub-items, fifteen are now resolved (see
+[Closed questions](#closed-questions)), leaving three open, all Engineering-only: **C2**'s
+stability gate, **B2**'s sanctioned-probe half, and **D1**'s oauth half. **E2**/**E3** (the
+Parquet→PachaTree hybrid fixture) are resolved — see §5 — and, unlike this session's first draft
+concluded, the hybrid window is both real and reliably catchable with `--upgrade-poll-interval`
+raised. The previous version of this list routed most items to the Core/Enterprise implementing
 team. That was wrong for all but a few sub-items: most of what's below turned out to be directly
 observable on an instance we can start ourselves. This file is organized by **what you need
 running**, not by who owns the answer, so each section is one setup and several questions
@@ -32,7 +35,7 @@ none exist yet, so the open list is currently invisible in CI output.
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------- |
 | **Core 3.11**                 | docs-tooling `docker compose up influxdb3-core` (GA `3.11.0`, port 8282) — or `npm run test:infra:up` locally                              | §1, §2  |
 | **Enterprise 3.11, fresh**    | docs-tooling `docker compose up influxdb3-enterprise` (GA `3.11.0`, PachaTree by default, port 8181) — matrix row 1                        | §3, §4  |
-| **Enterprise 3.11, upgraded** | `--upgrade-pacha-tree` over a Parquet catalog — matrix row 2. Not yet built; no fixture exists                                             | §5      |
+| **Enterprise 3.11, upgraded** | `influxdb3-enterprise-verify-upgrade` in docs-tooling's compose (added 2026-08-30) — matrix row 2. See §5 for the two-phase build          | §5      |
 | **Enterprise, multi-node**    | docs-tooling `docker compose up influxdb3-enterprise influxdb3-enterprise-verify-node1 influxdb3-enterprise-verify-node2` — 3-node cluster | §2 (A1) |
 
 `docker-compose.test.yml` (this repo) still pins `influxdb:3-core`, not a 3.11 tag — that gap
@@ -299,42 +302,168 @@ remains Engineering's, unchanged — see [Needs Engineering](#needs-engineering-
 Setup: Parquet-mode Enterprise with data, restarted with `--upgrade-pacha-tree`. Matrix row 2
 — the impact map calls this the row where surprises are likeliest.
 
-**E2. Can a Parquet→PachaTree migration be scripted deterministically, and how long does the
-hybrid state persist?** _(Blocking matrix row 2.)_
-
-If the migration completes in seconds under a small test dataset, the row tests nothing —
-there's no hybrid window to query across. Two things to establish: how much data is needed to
-hold the hybrid state open long enough to run a query spanning both engines, and whether
-`--upgrade-poll-interval` (default 5s) can be raised to widen the window on purpose.
+**E2 — RESOLVED 2026-08-30 (corrected same day — first pass had a query-scoping bug).**
+The first attempt at this concluded `system.upgrade_parquet_node`/`system.upgrade_parquet`
+don't exist and there's no observable hybrid window. **Both conclusions were wrong.** The
+tables are queried against the **`_internal`** database, not the database being migrated —
+querying them against the user db (as the first pass did) returns `table ... not found` even
+mid-migration, which looks exactly like "the table doesn't exist" if you don't know to look
+elsewhere. Re-run against `_internal` on the same live cluster immediately turned up real,
+correct data:
 
 ```sql
--- migration progress, per B3's resolved mechanism
-SELECT * FROM system.upgrade_parquet_node;   -- per-node status; watch for 'completed'
-SELECT * FROM system.upgrade_parquet;        -- per-file progress
+-- run with db=_internal, not the migrated database
+SELECT node_id, mode, status FROM system.upgrade_parquet_node;
+-- [{"node_id":"node0","mode":"ingest","status":"completed"},
+--  {"node_id":"node0","mode":"compactor","status":"upgrading"}]   ← caught mid-migration
+
+SELECT status, COUNT(*) AS files FROM system.upgrade_parquet GROUP BY status;
+-- [{"status":"compacted","files":16}]
 ```
 
-**Record:** dataset size vs. time-to-completed, whether `--upgrade-poll-interval` widens the
-window usefully, and a single query that demonstrably spans old-Parquet and new-PachaTree data.
+B3's original resolution (these tables are documented and sanctioned) **was correct** — do not
+re-flag it. This file briefly marked it wrong; that was this session's mistake, not B3's.
+
+**The hybrid window is real, observable, and `--upgrade-poll-interval` does control its
+width** — confirmed by measurement, not assumption. `--upgrade-poll-interval` doesn't appear in
+`influxdb3 serve --help` or `--help-all` on 3.11.2, same as `--use-parquet` (below) — it's
+accepted but undocumented in the CLI's own help text, so absence from `--help-all` is not
+evidence a flag is fake. Two runs on the same 200,000-row / 16-file dataset:
+
+| `--upgrade-poll-interval` | `compactor` mode held at `upgrading` | Transitioned to `completed` |
+| -------------------------- | ------------------------------------- | ----------------------------- |
+| default (5s)                | ~09.19 → ~12.00 (≥3s)               | 12.43                          |
+| `15s`                       | ~23.4 → ~36.8 (~13s)                | 37.4                           |
+
+`ingest` mode reaches `completed` almost immediately in both runs (sub-second); it's the
+`compactor` mode's transition that the poll interval gates, and raising it widens the window
+close to linearly. **A scripted test can reliably catch the hybrid window** by setting
+`--upgrade-poll-interval` to something comfortably larger than one HTTP round-trip (a few
+seconds is enough) and polling `system.upgrade_parquet_node` against `_internal` until the
+`compactor` row (not just `ingest`) reads `completed`.
+
+**Data integrity, both runs:** row counts matched exactly through the migration (10,001 and
+200,000 rows respectively) — no loss, no duplication.
+
+**Fixture build notes (docs-tooling `docker-compose.yml`, added 2026-08-30):**
+
+- **3.11 clusters default to PachaTree, but there IS a real flag to force Parquet mode on a
+  fresh 3.11.2+ start: `--use-parquet` (env `INFLUXDB3_USE_PARQUET`).** It was added in 3.11.2
+  specifically for this kind of side-by-side upgrade testing (internal PR #5198) and, like
+  `--upgrade-poll-interval`, doesn't appear in `--help`/`--help-all` — undocumented-but-real,
+  not fake. This makes the two-phase fixture much simpler than first assumed: no need for a
+  pre-3.11 image. Phase 1 is `influxdb:3.11.2-enterprise ... --use-parquet`; phase 2 is the
+  same image, same volume, `--use-parquet` dropped and `--upgrade-pacha-tree` added.
+- **`--use-pacha-tree` is real too, just deprecated** — the release notes confirm it: "The
+  previous flag, `--use-pacha-tree`, still works but is deprecated." It's a no-op *effect*
+  (PachaTree is already the default it would select) but it is a real, accepted flag, not
+  invented. Don't infer "fake" from a flag's absence in `--help-all` — this build hides
+  deprecated and newer-undocumented options from both help outputs alike.
+- **New cluster identity needs its own license slot.** The multinode trial email is bound to
+  `verify-cluster1`; the original trial email is bound to `verify-single0`; requesting either
+  for a new `cluster-id` (`verify-upgrade0`) returns `TrialExpired`. `--license-type=home`
+  (`core_count=2`, single-node only, no email-verification wait) was the free slot — see
+  docs-tooling's `.agents/skills/influxdb-docker-testing/references/enterprise-licensing.md`.
+  It still needs `--license-email` even with `--license-type=home` — omitting it fails with
+  "No interactive TTY detected. Cannot prompt for email."
+- **Fresh writes sit in the WAL for ~10 minutes (`--gen1-duration` default) before landing as
+  Parquet files** — a genesis-only container that just writes and stops has nothing on disk to
+  migrate. Add `--wal-files-per-snapshot=1` (aliased `--wal-snapshot-size` on some builds) to
+  force a snapshot after each new WAL file. It only forces snapshots for WAL files written
+  *after* the flag is live — replaying old WAL on restart doesn't retroactively trigger one;
+  write one more small point post-restart to kick the first real snapshot if needed.
+- **Docker Desktop `-p PORT:PORT` silently no-ops without an explicit host IP** — `docker
+  inspect` showed `PortBindings: [{invalid IP 8483}]` and the container was unreachable from
+  the host despite serving fine internally. Fix: `-p 0.0.0.0:PORT:PORT`. Not specific to this
+  fixture, but it cost real time here — worth remembering for any future raw `docker run`
+  against these networks (compose's `ports:` mapping was unaffected, only failed on ad hoc
+  `docker run`). Simplest workaround: skip host-port publishing and query through a throwaway
+  container on the same Docker network instead.
+- **A container needs at least two of docs-tooling's Docker networks**: the isolated
+  `influxdata-test-v3-enterprise` network alone has no DNS/egress to reach the Enterprise
+  license server; add `influxdata-test` (compose's implicit default network) as well, e.g.
+  `docker network connect influxdata-test-v3-enterprise <container>` after starting it on
+  `influxdata-test`. Only came up on raw `docker run` — `docker compose up` attaches all
+  configured networks correctly already.
+
+**Working two-phase commands** (reuses the compose-created volume and secrets, same names as
+the `influxdb3-enterprise` service):
+
+```bash
+# Phase 1 — Parquet-mode genesis, write data, let it snapshot to disk
+docker run -d --name influxdb3-enterprise-verify-upgrade \
+  --network influxdata-test -u 0:0 \
+  -v docs-tooling_influxdb3-enterprise-upgrade-data:/var/lib/influxdb3/data \
+  -v ~/.influxdb3-enterprise-admin-token.json:/run/secrets/influxdb3-enterprise-admin-token:ro \
+  -v ~/.influxdb3-enterprise-permission-tokens.json:/run/secrets/influxdb3-enterprise-permission-tokens:ro \
+  influxdb:3.11.2-enterprise serve --node-id=node0 --cluster-id=verify-upgrade0 \
+  --object-store=file --data-dir=/var/lib/influxdb3/data \
+  --admin-token-file=/run/secrets/influxdb3-enterprise-admin-token \
+  --permission-tokens-file=/run/secrets/influxdb3-enterprise-permission-tokens \
+  --license-type=home --license-email=jstirnaman+docstooling@influxdata.com \
+  --use-parquet --wal-files-per-snapshot=1
+docker network connect influxdata-test-v3-enterprise influxdb3-enterprise-verify-upgrade
+
+# ... write data, confirm Parquet files on disk, then:
+docker rm -f influxdb3-enterprise-verify-upgrade
+
+# Phase 2 — same volume, trigger the upgrade, widen the window on purpose
+docker run -d --name influxdb3-enterprise-verify-upgrade \
+  --network influxdata-test-v3-enterprise -u 0:0 \
+  -v docs-tooling_influxdb3-enterprise-upgrade-data:/var/lib/influxdb3/data \
+  -v ~/.influxdb3-enterprise-admin-token.json:/run/secrets/influxdb3-enterprise-admin-token:ro \
+  -v ~/.influxdb3-enterprise-permission-tokens.json:/run/secrets/influxdb3-enterprise-permission-tokens:ro \
+  influxdb:3.11.2-enterprise serve --node-id=node0 --cluster-id=verify-upgrade0 \
+  --object-store=file --data-dir=/var/lib/influxdb3/data \
+  --admin-token-file=/run/secrets/influxdb3-enterprise-admin-token \
+  --permission-tokens-file=/run/secrets/influxdb3-enterprise-permission-tokens \
+  --license-type=home --license-email=jstirnaman+docstooling@influxdata.com \
+  --upgrade-pacha-tree --upgrade-poll-interval=15s
+```
 
 ---
 
-**P6 / the hybrid half of C3 and P1.** While the hybrid state is held open, re-run the §3 and
-§1 checks against it: `get_measurements` / `get_measurement_schema` (result structure, data
-types, error wording unchanged from Parquet — impact map 1.3), and one duplicate-tag-key
-write. **Record:** any difference from the fresh-PachaTree results.
+**P6 / the hybrid half of C3 and P1 — RESOLVED 2026-08-31.** Ran all four checks against the
+live fixture while `system.upgrade_parquet_node` (queried against `_internal`) still read
+`compactor: upgrading` (`--upgrade-poll-interval=25s`, caught within ~2s of trigger and held
+open through all four checks below):
+
+1. **`get_measurements` equivalent** — `SELECT DISTINCT table_name FROM
+   information_schema.columns WHERE table_schema = 'iox'` → `[{"table_name":"sensor"}]`. Same
+   as the fresh-PachaTree and Parquet-mode results (impact map 1.4 / C3).
+2. **`get_measurement_schema` equivalent** — `SELECT column_name, data_type FROM
+   information_schema.columns WHERE table_name = 'sensor' AND table_schema = 'iox'` → tag
+   columns as `Dictionary(Int32, Utf8)`, `time` as `Timestamp(ns)`, `value` as `Float64`.
+   Identical column set and types to the pre-upgrade Parquet-mode schema — no structural
+   drift observed mid-migration.
+3. **Duplicate-tag-key write, issued mid-migration** — response shape and wording match
+   `tests/fixtures/write-errors.ts`'s `CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA` exactly:
+   `data.error` = `"partial write of line protocol occurred"`, `data[].error_message` =
+   `"invalid line protocol - multiple instances of 'host' tag found"`. That fixture's own
+   comment already notes it was verified against Enterprise 3.11.0-0.rc.1 mid-`--upgrade-pacha-tree`
+   — this run reconfirms it on 3.11.2 with a cleaner-caught window. **No code change needed**
+   (impact map 1.3 confirmed a second way).
+4. **Cross-boundary query** — wrote one new point (`host=post-trigger`) while status was
+   `upgrading`, then (after the window closed — status flipped to `completed` between the write
+   and the query) queried `count(*)` filtered to that point plus a `host` value that only exists
+   in the original 200,000-row Parquet-origin dataset: returned `10,001` (10,000 pre-upgrade +
+   1 post-trigger), and an unfiltered `count(*)` returned `200,001` — exactly base + one, no
+   loss or duplication spanning the upgrade boundary.
+
+**Not run:** `--disable-hybrid-query=true`'s effect on what's visible mid-migration — the
+window in this run closed before a second cross-boundary query could be issued with that flag
+set. Left open for a future pass; low priority since data integrity across the boundary is
+already confirmed without it.
 
 ---
 
-**E3. Do Enterprise test containers need `--mode all,webui` and a session secret, or is plain
-`--mode all` sufficient?** _(Non-blocking — but it's the first thing that will bite when you
-start the container.)_
-
-Our tests don't exercise the UI. The notes are explicit that the Web UI is not in `--mode all`
-and that a session secret is mandatory once `webui` is added. Just start it with `--mode all`
-and see whether everything in §3–§5 works.
-
-**Record:** yes/no, plus the working container command, so it can go into a
-`docker-compose.enterprise.test.yml` alongside the existing Core one.
+**E3 — RESOLVED 2026-08-30.** Plain `--mode all` (in fact, no `--mode` flag at all — the
+default) was sufficient for every container run this session — phase 1 (`--use-parquet`
+genesis) and phase 2 (`--upgrade-pacha-tree`, both poll-interval variants). Server logs show
+`mode=[All]` throughout; health/write/query/upgrade all worked over plain Bearer-token auth, no
+session-secret error, no webui-related failure. The worry in the original question (webui
+requiring a session secret) never came up because no container here included `webui` in its
+mode list — confirms the working commands above are sufficient without it.
 
 ---
 
@@ -360,7 +489,7 @@ Kept as a record so nothing looks silently dropped.
 | ID                       | Resolution                                                                                                                                                                                                                                                                                                                                                              |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **A2**                   | Duplicate-tag-key response shape — resolved by live verification, recorded in `tests/fixtures/write-errors.ts` (on `main`). `data.error` is the generic `"partial write of line protocol occurred"`; the tag name is under `data.data[].error_message`. Identical on Core 3.11.0-nightly and Enterprise 3.11.0-0.rc.1. Drives P1's resolver design.                     |
-| **B3**                   | Hybrid-migration detection — `system.upgrade_parquet_node` (per-node status) and `system.upgrade_parquet` (per-file progress) are documented and sanctioned for exactly this. No inference from `pt_*` presence needed.                                                                                                                                                 |
+| **B3**                   | Hybrid-migration detection — `system.upgrade_parquet_node` (per-node status) and `system.upgrade_parquet` (per-file progress) are documented and sanctioned for exactly this. No inference from `pt_*` presence needed. **Confirmed live in §5 (E2), 2026-08-30** — query them against the `_internal` database, not the database being migrated; querying the wrong db returns `table ... not found` and looks identical to "the table doesn't exist," which is the mistake E2's first pass made before catching it.                       |
 | **C4**                   | Compaction-lag detection — `system.pt_compaction_ingest_nodes.compaction_lag` is a direct per-node column; `deferred_snapshot_count` plus `system.pt_compaction_deferred_snapshots.error_message` cover backlog. No heuristic needed.                                                                                                                                   |
 | **F1**                   | Version anchor — 1.4.0 published 2026-07-30 with PR #69's read-only capability folded in. Sequencing: 1.4.0 → 1.4.1 (this patch).                                                                                                                                                                                                                                       |
 | **F2**                   | Target release for `inspect_storage` — admitted on the 1.x line with sign-off, sequenced after 1.4.1 ships.                                                                                                                                                                                                                                                             |
@@ -377,4 +506,6 @@ Kept as a record so nothing looks silently dropped.
 | **D2**                   | `/ping` and `/health` accept both `Bearer` and `Token` on Core and Enterprise 3.11 GA; neither allows anonymous access (401 with no auth header). Confirms `createAuthHeader()`'s Bearer choice, and that Token still works too.                                                                                                                                        |
 | **D3**                   | Nothing in C1's live results contradicts the documented Enterprise token model. Closes as a side effect of C1.                                                                                                                                                                                                                                                          |
 | **A1**                   | Stopped-node write, tested on a real 3-node Enterprise cluster: writing directly to a stopped node's own port returns a plain TCP connection failure, not an HTTP 503 — confirmed no v3 503 change reaches this configuration (no proxy in front, no inter-node forwarding). Closes P3. The rest of the cluster (a live node) keeps serving writes normally throughout. |
+| **E2**                   | Built the Parquet→PachaTree hybrid fixture. `system.upgrade_parquet_node`/`system.upgrade_parquet` are real (confirms B3) — query them against `_internal`, not the migrated database. `--upgrade-poll-interval` is real and controls the window width (measured ~3s at default 5s, ~13s at `15s`). `--use-parquet` (3.11.2+) is the simple way to build a fresh Parquet-mode cluster — no pre-3.11 image needed. Row counts matched exactly across both migrations tested (10k, 200k rows). See §5 for full detail, the working commands, and note on this session's own first-pass mistake. |
+| **E3**                   | Plain `--mode all` (the default, no flag needed) was sufficient for every container this session — no session-secret or webui requirement encountered. See §5.                                                                                                                                                                                                                                                                                                                                                           |
 | **D1** (observable half) | `--user-auth-type basic` only adds a user-login path; it doesn't touch ordinary API-token (Bearer/Token) auth. On a throwaway single-node Enterprise 3.11.2 container, unauthenticated `/ping`/`/health` returned 401, and an admin token created normally still worked on `/ping`, `/health`, `/api/v3/write_lp`, and `/api/v3/query_sql`. No code change indicated. Caveat: single-node only, not tested against multi-node topology. |
