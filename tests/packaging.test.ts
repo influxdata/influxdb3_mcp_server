@@ -1,14 +1,13 @@
 /**
- * Packaging — `zod` is a misdeclared runtime dependency.
+ * Packaging — every runtime import must be a declared dependency.
  *
  * `zod` is imported at runtime by `src/tools/index.ts` and by every
- * `src/tools/categories/*.tools.ts`, but is declared in `devDependencies`. A
- * clean `npm i --omit=dev` — or any consumer installing the published package
- * — gets a server that cannot start.
+ * `src/tools/categories/*.tools.ts`. It used to be declared only in
+ * `devDependencies`, so a clean `npm i --omit=dev` — or any consumer
+ * installing the published package — got a server that couldn't start.
  *
  * The check is written as an invariant over every runtime import rather than
- * as a check on `zod` specifically, so it keeps working once `zod` moves to
- * `dependencies` and catches the next occurrence.
+ * as a check on `zod` specifically, so it catches the next occurrence too.
  */
 
 import { describe, it, expect } from "vitest";
@@ -69,34 +68,15 @@ describe("runtime imports are declared as dependencies", () => {
     expect([...imports.keys()]).toContain("zod");
   });
 
-  it("every runtime import except zod is declared in dependencies", () => {
-    // Current state. When zod moves to dependencies, this test fails and
-    // should be replaced by the assertion below.
-    const missing = [...imports.keys()].filter((n) => !declaredRuntime.has(n));
-
-    expect(missing).toEqual(["zod"]);
-  });
-
-  it("zod is imported at runtime but declared only in devDependencies", () => {
-    const zodImporters = imports.get("zod") ?? [];
-
-    expect(zodImporters.length).toBeGreaterThan(0);
-    expect(zodImporters).toContain("src/tools/index.ts");
-    expect(declaredDev.has("zod")).toBe(true);
-    expect(declaredRuntime.has("zod")).toBe(false);
-  });
-
-  it("the published package ships build/, so the import survives to consumers", () => {
+  it("the published package ships build/, so a missing dependency reaches consumers", () => {
     // Not a hypothetical: `files` includes `build`, and the compiled output
-    // keeps the bare `zod` specifier. The failure lands on the consumer.
+    // keeps every bare specifier. A misdeclared package lands on the consumer.
     expect(pkg.files).toContain("build");
     expect(pkg.main).toBe("./build/index.js");
   });
 });
 
-describe.skip("zod is a runtime dependency", () => {
-  // Un-skip when zod moves to dependencies, and delete the two
-  // characterization tests above that assert the opposite.
+describe("zod is a runtime dependency", () => {
   const imports = runtimeImports();
 
   it("no runtime import is missing from dependencies", () => {

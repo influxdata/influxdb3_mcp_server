@@ -7,6 +7,10 @@
 
 import { BaseConnectionService } from "./base-connection.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
+import {
+  normalizeError,
+  resolveErrorMessage,
+} from "./error-resolution.service.js";
 
 export type Precision = "nanosecond" | "microsecond" | "millisecond" | "second";
 
@@ -191,25 +195,27 @@ export class WriteService {
    * Centralized error handler for write methods
    */
   private handleWriteError(error: any, database: string): never {
-    if (error.response?.status === 400) {
-      throw new Error(
-        `Bad request: Invalid line protocol format or parameters`,
-      );
-    } else if (error.response?.status === 401) {
-      throw new Error("Unauthorized: Check your InfluxDB token permissions");
-    } else if (error.response?.status === 403) {
-      throw new Error(
-        "Access denied: Insufficient permissions for database operations",
-      );
-    } else if (error.response?.status === 413) {
-      throw new Error(
-        "Request entity too large: Reduce the size of your line protocol data",
-      );
-    } else if (error.response?.status === 422) {
-      throw new Error("Unprocessable entity: Invalid line protocol syntax");
+    const { status, body } = normalizeError(error);
+    const message = resolveErrorMessage(body, error.message);
+    switch (status) {
+      case 400:
+        throw new Error(`Bad request: ${message}`);
+      case 401:
+        throw new Error(`Unauthorized: ${message}`);
+      case 403:
+        throw new Error(`Access denied: ${message}`);
+      case 413:
+        throw new Error(`Request entity too large: ${message}`);
+      case 422:
+        throw new Error(`Unprocessable entity: ${message}`);
+      case 503:
+        throw new Error(
+          `Service temporarily unavailable, retry the write: ${message}`,
+        );
+      default:
+        throw new Error(
+          `Failed to write data to database '${database}': ${message}`,
+        );
     }
-    throw new Error(
-      `Failed to write data to database '${database}': ${error.response?.data || error.message}`,
-    );
   }
 }
