@@ -37,17 +37,19 @@ export function resolveErrorMessage(body: unknown, fallback: string): string {
   if (body && typeof body === "object") {
     const data = body as Record<string, unknown>;
 
-    if (Array.isArray(data.data)) {
-      const first = data.data[0] as Record<string, unknown> | undefined;
-      if (typeof first?.error_message === "string") return first.error_message;
-    } else if (data.data && typeof data.data === "object") {
-      const nested = data.data as Record<string, unknown>;
-      if (typeof nested.error_message === "string") return nested.error_message;
+    const partialData =
+      data.data && typeof data.data === "object"
+        ? (Array.isArray(data.data) ? data.data[0] : data.data) as
+            | Record<string, unknown>
+            | undefined
+        : undefined;
+    if (typeof partialData?.error_message === "string") {
+      return partialData.error_message;
     }
 
     if (typeof data.message === "string") return data.message;
     if (typeof data.error === "string") return data.error;
-    return fallback;
+    return Object.keys(data).length === 0 ? fallback : JSON.stringify(data);
   }
 
   if (typeof body === "string") return body;
