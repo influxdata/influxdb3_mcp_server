@@ -197,25 +197,23 @@ export class WriteService {
   private handleWriteError(error: any, database: string): never {
     const { status, body } = normalizeError(error);
     const message = resolveErrorMessage(body, error.message);
-    switch (status) {
-      case 400:
-        throw new Error(`Bad request: ${message}`);
-      case 401:
-        throw new Error(`Unauthorized: ${message}`);
-      case 403:
-        throw new Error(`Access denied: ${message}`);
-      case 413:
-        throw new Error(`Request entity too large: ${message}`);
-      case 422:
-        throw new Error(`Unprocessable entity: ${message}`);
-      case 503:
-        throw new Error(
-          `Service temporarily unavailable, retry the write: ${message}`,
-        );
-      default:
-        throw new Error(
-          `Failed to write data to database '${database}': ${message}`,
-        );
+    const prefixes: Record<number, string> = {
+      400: "Bad request",
+      401: "Unauthorized",
+      403: "Access denied",
+      413: "Request entity too large",
+      422: "Unprocessable entity",
+    };
+    if (status !== undefined && status in prefixes) {
+      throw new Error(`${prefixes[status]}: ${message}`);
     }
+    if (status === 503) {
+      throw new Error(
+        `Service temporarily unavailable, retry the write: ${message}`,
+      );
+    }
+    throw new Error(
+      `Failed to write data to database '${database}': ${message}`,
+    );
   }
 }
