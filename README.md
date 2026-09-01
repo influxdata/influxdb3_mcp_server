@@ -443,6 +443,34 @@ await mcp.update_database({
 - For connection issues, check your environment variables and InfluxDB instance status.
 - For advanced configuration, see the comments in the example `.env` and MCP config files.
 
+### Write errors
+
+`write_line_protocol` surfaces InfluxDB's own error text, not a generic
+message. If InfluxDB rejects a write — a duplicate tag key, an
+unauthenticated token, a payload over the size limit — the tool error
+includes the specific reason, for example:
+
+```
+Bad request: invalid line protocol - multiple instances of 'region' tag found
+```
+
+A `503` reaching this server is phrased as retryable
+(`Service temporarily unavailable, retry the write: ...`) — safe to retry
+the write. Any other status is not.
+
+### InfluxDB 3.11 compatibility
+
+Verified against InfluxDB 3.11.2 Core and Enterprise (including a
+multi-node Enterprise cluster). Core and Enterprise write through
+`POST /api/v3/write_lp`, which 3.11's write-availability changes for the
+legacy `/api/v2/write` endpoint do not affect; only `clustered` calls
+`/api/v2/write`. Query and schema-discovery tools behave the same whether
+the target database is on Parquet (Core, or Enterprise before an upgrade)
+or PachaTree (Enterprise 3.11+ by default, or after
+`--upgrade-pacha-tree`) — new `system.pt_*` tables are excluded from
+`get_measurements`/`get_measurement_schema` results by the same
+`table_schema = 'iox'` filter that already excludes other system tables.
+
 ---
 
 ## License
