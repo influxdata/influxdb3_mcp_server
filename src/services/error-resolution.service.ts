@@ -39,9 +39,9 @@ export function resolveErrorMessage(body: unknown, fallback: string): string {
 
     const partialData =
       data.data && typeof data.data === "object"
-        ? (Array.isArray(data.data) ? data.data[0] : data.data) as
+        ? ((Array.isArray(data.data) ? data.data[0] : data.data) as
             | Record<string, unknown>
-            | undefined
+            | undefined)
         : undefined;
     if (typeof partialData?.error_message === "string") {
       return partialData.error_message;
