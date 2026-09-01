@@ -5,6 +5,35 @@ All notable changes to the official InfluxDB MCP Server will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-09-01
+
+### Fixed
+
+- **Write-path errors now preserve InfluxDB's error body.**
+  `write_line_protocol` discarded InfluxDB's response body on 400/401/403/413/422 and threw a fixed generic string instead.
+  A duplicate-tag-key write (rejected by InfluxDB 3.11+ before it reaches storage) now returns an error naming the tag.
+  For example, `Bad request: invalid line protocol - multiple instances of 'region' tag found`, instead of `Bad request: Invalid line protocol format or parameters`.
+  Verified against live Core and Enterprise 3.11.2.
+- **Added a 503 arm to the write error handler**, phrased as retryable (`Service temporarily unavailable, retry the write: ...`), so callers can distinguish a transient failure from a bad request.
+  Previously any unhandled status, including 503, fell through to the generic fallback.
+- **The write error fallback now serializes a parsed JSON body** instead of interpolating it directly.
+  The unserialized version previously rendered as `Failed to write data to database 'x': [object Object]`.
+- **Cloud Dedicated/Serverless write errors now classify correctly.**
+  The InfluxDB SDK throws `HttpError` (`error.statusCode`, `error.json`/`error.body`), a different shape than the axios-based Core/Enterprise/Clustered path (`error.response.status`/`.data`).
+  Every status branch previously missed on the SDK shape, so cloud writes always fell through to the generic fallback even for a 400 or 401.
+  Both shapes now normalize to one internal form before branching.
+- **`zod` moved from `devDependencies` to `dependencies`.**
+  It's imported at runtime by `src/tools/index.ts` and every tool category module.
+  A clean `npm i --omit=dev` install, or any consumer installing the published package, previously got a server that failed to start.
+- **8 transitive dependency vulnerabilities resolved** via `npm audit fix` (2 moderate, 6 high), all transitive through `eslint`/`vitest`.
+  No direct runtime dependency was affected.
+
+### Added
+
+- `src/services/error-resolution.service.ts`: shared error normalization (`normalizeError`, `resolveErrorMessage`) extracted from the write-path fix.
+  It follows the same body-resolution order `handleQueryError` already used.
+  It's available for the query path and the other services with their own ad hoc body-preserving variants (`token-management.service.ts`, `database-management.service.ts`, `cloud-token-management.service.ts`) to adopt in a later pass.
+
 ## [1.4.1-test.1] - 2026-07-30
 
 ### Changed
