@@ -8,10 +8,12 @@
 - **Working branch:** `docs/mcp-3.11-patch-plan`, cut from `main` after the 1.4.0 publish. Supersedes
   `influxdb-3.11-compat-patch`, which was cut from `main` at `9460044` — before 1.4.0 published — and is
   now stale against the version-anchor and sequencing sections below.
-- **Updated:** 2026-08-06
-- **Status:** review — planning only, implementation not started. Twelve of the fifteen
-  verification sub-items now have live-tested answers; see
-  [`verification-questions.md`](verification-questions.md).
+- **Updated:** 2026-09-02
+- **Status:** 1.4.1 published 2026-09-01. `inspect_storage` implementation may start: C1 is
+  resolved and C2 is risk-accepted (build on the assumption `pt_*` is stable, with a required
+  fail-closed design as the compensating control). See
+  [`verification-questions.md`](verification-questions.md) and
+  [`inspect-storage-spec.md`](inspect-storage-spec.md#schema-drift-fail-closed-by-design).
 
 ## Goal
 
@@ -129,12 +131,14 @@ stopped node returns a plain connection failure, not an HTTP 503, when a client 
 directly on a 3-node cluster with no proxy in front — closes P3 as "no v3 503 change reaches
 this configuration."
 
-What remains is **six open sub-items**: three still need an Engineering consult (C2's
-stability commitment, B2's "is this the sanctioned probe", D1's OAuth design half — **C2 is
-the only one that can stop a deliverable**, unchanged: if the `pt_*` schemas are internal,
-`inspect_storage` does not get built); D1's observable half wasn't run this session (would mean
-restarting the shared Enterprise dev instance a second time); E2/E3 need a
-Parquet-mode-to-PachaTree-upgrade fixture that doesn't exist yet.
+**Update, 2026-09-02:** what remained has narrowed further. E2/E3 resolved 2026-08-30 (the
+Parquet→PachaTree hybrid window is real and catchable — see `verification-questions.md` §5).
+C2 is risk-accepted rather than answered: `inspect_storage` may be built on the assumption
+`pt_*` is stable, on condition it fails closed on schema drift (see
+[`inspect-storage-spec.md`](inspect-storage-spec.md#schema-drift-fail-closed-by-design)). What
+remains is **two open sub-items**, both still needing an Engineering consult and neither
+blocking implementation start: B2's "is this the sanctioned probe", and D1's OAuth design half
+(matters for the future protocol migration, not this plan).
 
 ## Documentation requirement (each implementation phase)
 

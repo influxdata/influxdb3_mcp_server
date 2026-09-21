@@ -1,6 +1,6 @@
 # Verification questions — what still has to be tested
 
-- **Updated:** 2026-08-31 (P6 resolved against the live hybrid window)
+- **Updated:** 2026-09-02 (C2 risk-accepted rather than left blocking; see Closed questions)
 - **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`); most items against
   InfluxDB `3.11.0` GA (Core revision `139bab4c54b54db01d67539b6dc9f1e1a81dd1b7`, Enterprise
   revision `e5242f505d23039a340d21693a994b1a053b0f15`); D1's observable half against `3.11.2`
@@ -8,16 +8,18 @@
   against `3.11.2` yet, but none of them are the kind of behavior a patch release typically
   changes)
 - **Status:** fifteen sub-items verified live: A1, E1, B1, C3, C5, A3, A4, C1, D2, D3, D1
-  (observable half), E2, E3, plus the observable halves of C2 and B2. Three sub-items remain
-  open — see below. E2's first pass wrongly concluded B3 was wrong (a query-scoping mistake,
-  since corrected); B3 stands as originally resolved.
+  (observable half), E2, E3, plus the observable halves of C2 and B2. C2's stability gate is
+  now risk-accepted (2026-09-02, not Engineering-confirmed — see Closed questions). Two
+  sub-items remain open — see below. E2's first pass wrongly concluded B3 was wrong (a
+  query-scoping mistake, since corrected); B3 stands as originally resolved.
 - **Replaces:** `open-questions-core-enterprise.md` (deleted). Question IDs are unchanged, so
   the cross-references in [`PLAN.md`](PLAN.md), [`patch-1.4.1-spec.md`](patch-1.4.1-spec.md),
   and [`inspect-storage-spec.md`](inspect-storage-spec.md) still resolve.
 
-Of the previous pass's 21 tracked sub-items, fifteen are now resolved (see
-[Closed questions](#closed-questions)), leaving three open, all Engineering-only: **C2**'s
-stability gate, **B2**'s sanctioned-probe half, and **D1**'s oauth half. **E2**/**E3** (the
+Of the previous pass's 21 tracked sub-items, sixteen are now resolved (see
+[Closed questions](#closed-questions) — fifteen live-verified, plus **C2** risk-accepted),
+leaving two open, both Engineering-only: **B2**'s sanctioned-probe half and **D1**'s oauth
+half. **E2**/**E3** (the
 Parquet→PachaTree hybrid fixture) are resolved — see §5 — and, unlike this session's first draft
 concluded, the hybrid window is both real and reliably catchable with `--upgrade-poll-interval`
 raised. The previous version of this list routed most items to the Core/Enterprise implementing
@@ -469,16 +471,17 @@ mode list — confirms the working commands above are sufficient without it.
 
 ## Needs Engineering (not testable locally)
 
-Three sub-items, down from the previous list's twenty questions. Each is a commitment or a
-design fact, not a behavior:
+Two sub-items remain — a design fact and a still-pending sanction question. C2 moved to
+[Closed questions](#closed-questions): risk-accepted rather than Engineering-confirmed, see
+below.
 
 | ID            | Question                                                                                                                                 | Why it can't be tested                                                                                                                                                                                                 |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **C2** (gate) | Are the `pt_*` column schemas **public and stable** for 3.11, or internal and subject to change?                                         | Observing today's schema (§3 — now including `pt_ingest_wal`/`pt_ingest_files`) doesn't tell us whether it may change in 3.12. A hard gate: if internal, `inspect_storage` cannot be built on them and the spec stops. |
 | **B2** (half) | Is querying `system.pt_*` the **sanctioned** engine probe, or is there an intended status/catalog endpoint?                              | §3 confirmed it's the only _working_ probe; only Engineering can say whether it's _supported_. Ship-blocking only if the working probe turns out to be one they'd rather we didn't depend on.                          |
 | **D1** (oauth half) | What does `--user-auth-type oauth` integrate with, does it expose OIDC discovery, and what authorizes DB operations post-authentication? | Design information. Matters for the protocol migration (MCP servers are OAuth 2.1 resource servers as of the 2026-07-28 spec), not for this patch.                                                                     |
 
-Send C2 first. It is the only one that can stop a deliverable.
+Send C2 to Engineering anyway — the risk-acceptance below isn't a substitute for the real
+answer, only a way to stop waiting on it before building.
 
 ---
 
@@ -488,6 +491,7 @@ Kept as a record so nothing looks silently dropped.
 
 | ID                       | Resolution                                                                                                                                                                                                                                                                                                                                                              |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **C2**                   | **Risk-accepted, 2026-09-02 — not Engineering-confirmed.** Decision: assume `pt_*` schemas are stable and build `inspect_storage` on them now rather than block the release on an unanswered Engineering question. The gate is downgraded from "stops the spec" to "the spec must survive being wrong." Compensating control: `inspect_storage` must fail closed on schema drift — see `inspect-storage-spec.md`'s "Schema drift: fail-closed by design" section, added as a required design element, not an optional hardening pass. Send C2 to Engineering regardless; if the answer comes back "internal, unstable," this decision gets revisited, not silently kept. |
 | **A2**                   | Duplicate-tag-key response shape — resolved by live verification, recorded in `tests/fixtures/write-errors.ts` (on `main`). `data.error` is the generic `"partial write of line protocol occurred"`; the tag name is under `data.data[].error_message`. Identical on Core 3.11.0-nightly and Enterprise 3.11.0-0.rc.1. Drives P1's resolver design.                     |
 | **B3**                   | Hybrid-migration detection — `system.upgrade_parquet_node` (per-node status) and `system.upgrade_parquet` (per-file progress) are documented and sanctioned for exactly this. No inference from `pt_*` presence needed. **Confirmed live in §5 (E2), 2026-08-30** — query them against the `_internal` database, not the database being migrated; querying the wrong db returns `table ... not found` and looks identical to "the table doesn't exist," which is the mistake E2's first pass made before catching it.                       |
 | **C4**                   | Compaction-lag detection — `system.pt_compaction_ingest_nodes.compaction_lag` is a direct per-node column; `deferred_snapshot_count` plus `system.pt_compaction_deferred_snapshots.error_message` cover backlog. No heuristic needed.                                                                                                                                   |

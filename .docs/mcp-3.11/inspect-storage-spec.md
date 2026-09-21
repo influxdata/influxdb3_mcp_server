@@ -3,16 +3,16 @@
 - **Repo:** `influxdata/influxdb3_mcp_server`
 - **Verified against:** `main` HEAD `249f612` (version `1.4.1-test.1`), InfluxDB `3.11.0` GA
   (was `3.11.0-0.rc.1`; see `verification-questions.md` E1)
-- **Updated:** 2026-08-06
-- **Status:** spec ready — **target: next 1.x release after 1.4.1, sign-off granted (F2/F3), see Governance**
+- **Updated:** 2026-09-02
+- **Status:** spec ready — **target: next 1.x release after 1.4.1, sign-off granted (F2/F3), see Governance. C2 risk-accepted 2026-09-02 — build proceeds on the assumption `pt_*` is stable; see "Schema drift: fail-closed by design."**
 - **Applies to:** InfluxDB 3 Enterprise on a PachaTree catalog (3.11+). Not Core.
 - **Open from live verification (2026-08-06, not yet folded into this spec's body):** the live
   schema dump found **12** `pt_*` tables, not the 10 below — `pt_ingest_wal` and
   `pt_ingest_files` exist and aren't in the aspect-to-table mapping yet. Token scope (C1) is
   narrower than assumed in the guardrail language below: a plain per-database read token was
   sufficient in testing, no `system:*:read`/admin/operator token required. Full detail in
-  `verification-questions.md` §3/§4 (C2, C1). The stability gate (C2, Needs Engineering) is
-  still open and is what determines whether the table list below can be trusted long-term.
+  `verification-questions.md` §3/§4 (C2, C1). The stability gate (C2) is risk-accepted, not
+  Engineering-confirmed — see Governance and "Schema drift: fail-closed by design" below.
 
 ## Why this capability, and why now
 
@@ -74,8 +74,11 @@ Rebuild it from the `information_schema` dump in
 finalizing the aspect-to-table mapping above.
 
 Schemas, stability guarantees, and required token scope are all unconfirmed; see questions
-**C1–C5**. **C2 is a gate:** if these tables are internal and subject to change, a supported
-capability cannot be built on them and this spec stops here.
+**C1–C5**. **C2 was a hard gate; it is now risk-accepted (2026-09-02).** The decision: assume
+`pt_*` is stable and build on it, rather than block the release on an unanswered Engineering
+question. That shifts the requirement from "don't build until confirmed" to "build so a wrong
+assumption fails safely" — see "Schema drift: fail-closed by design" below. C2 still goes to
+Engineering; a "no, internal" answer reopens this decision, it does not get silently kept.
 
 ## The prerequisite this forces: capability detection
 
@@ -113,6 +116,45 @@ Enterprise-shaped but incomplete, InfluxDB 3 Cloud support included (see F3).
 
 **Design constraint:** the probe must be cheap and must fail closed. A failed probe hides the
 tool; it must never block startup or degrade `health_check`.
+
+## Schema drift: fail-closed by design
+
+Added 2026-09-02, as the compensating control for risk-accepting C2 (above). The capability
+probe in the previous section catches **table-level** drift — `pt_shards` renamed or removed
+shows up as a failed probe, `inspect_storage` stays unadvertised. It does not catch
+**column-level** drift within a table the probe still finds — a renamed, retyped, or
+reinterpreted column inside a table that still exists and still answers the probe query. That
+is the case a stability *assumption* cannot rule out even if the assumption is right today.
+
+Three layers, all required, none optional:
+
+1. **Named columns, never `SELECT *`.** Every aspect query lists the columns it depends on
+   explicitly. A dropped or renamed column then surfaces as an ordinary SQL error at query
+   time — the same path C5 already characterizes (error vs. empty 200) — rather than as a
+   `KeyError` deep in response-formatting code, or worse, `undefined` silently rendered into the
+   digest.
+2. **Type/shape check on the result before interpreting it.** A renamed-then-reused column name
+   with a different type (e.g. `compaction_lag` going from an integer seconds count to a
+   duration string) passes an explicit `SELECT` but produces garbage if blindly formatted.
+   Validate each returned column's type against what the aspect expects before computing the
+   digest; a mismatch is treated the same as a missing column.
+3. **Sanity bounds on computed values.** `compaction_lag` must be non-negative; shard counts and
+   sizes must be non-negative; a checkpoint age must not be in the future. A value that violates
+   its own invariant is evidence the schema means something different now, not a number worth
+   reporting. Reject and fail closed rather than surface a nonsensical "compaction is -400
+   minutes behind."
+
+Any of the three failing takes **one** error path: `inspect_storage` returns a clear,
+model-facing error — "storage introspection data didn't match the expected shape for `<aspect>`;
+this usually means the InfluxDB schema changed" — never a partial or best-guess digest. Log the
+specific table/column/aspect that tripped it, so a maintainer chasing the next InfluxDB release
+has a starting point instead of a bug report that just says "wrong numbers."
+
+This is deliberately more conservative than the capability probe's "hide the tool" response
+(line ~114 above). Hiding the tool at startup is right for "this instance doesn't have
+PachaTree." Erroring per-call is right for "this instance has PachaTree but the columns
+`inspect_storage` was built against have moved" — the tool stays advertised (it worked
+yesterday), but a single call fails loudly instead of quietly lying.
 
 ## Behavior and guardrails
 
@@ -166,9 +208,11 @@ compatibility, and InfluxDB 3 Cloud support (its own future plan, see F3). Works
 guardrail names storage-engine introspection as post-migration backlog by default — this
 sign-off is the explicit exception to that, not a reinterpretation of it.
 
-**Still blocking before implementation can start:** C1 (minimum sufficient token scope) and C2
-(schema stability — a hard gate). Sequencing after 1.4.1 buys time for those to be answered
-without holding up the patch.
+**Blocking status, updated 2026-09-02:** C1 (minimum sufficient token scope) is resolved — a
+plain per-database read token is sufficient (`verification-questions.md` §4). C2 (schema
+stability) is risk-accepted rather than Engineering-confirmed: implementation may start on the
+assumption `pt_*` is stable, on the condition that "Schema drift: fail-closed by design" above
+is built as part of the capability, not deferred. Nothing further blocks implementation start.
 
 The capability-detection work is a different matter. It is needed by any target that is
 Enterprise-shaped but incomplete, and that need arrives on its own schedule regardless of when
@@ -181,7 +225,7 @@ Full list, with the exact checks to run, in
 
 | ID     | Question                                                                      | How it's answered                                                                                                                                      |
 | ------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **C2** | Are the `pt_*` schemas public and stable?                                     | **Hard gate, Engineering only.** Today's schemas are observable (§3) but a stability commitment is not. If internal, this spec stops here.             |
+| **C2** | Are the `pt_*` schemas public and stable?                                     | **Risk-accepted 2026-09-02, not Engineering-confirmed.** Build proceeds on the assumption of stability; compensating control is the fail-closed design above. Still sent to Engineering — a "no" reopens this decision.             |
 | **C1** | Minimum token scope that can read `pt_*`                                      | **Testable** (§4) — three scoped tokens against one `SELECT`. Decides whether the "query permission only, no operator token" guardrail above survives. |
 | **C3** | Do `pt_*` appear in `information_schema.columns`, under which `table_schema`? | **Testable** (§3). Also decides C5's fallback probe.                                                                                                   |
 | **C5** | Core's failure mode for a `pt_*` query — error or empty success?              | **Testable** (§3). An empty 200 breaks the probe's fail-closed design.                                                                                 |
