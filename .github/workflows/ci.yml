@@ -87,14 +87,14 @@ jobs:
       - run: npm run build
 
       - name: Print InfluxDB 3 Core version
-        run: docker run --rm influxdb:3-core influxdb3 --version
+        run: docker run --rm influxdb:3.11.5-core influxdb3 --version
 
       - name: Start InfluxDB 3 Core
         run: |
           docker run -d --name influxdb3-core \
             -p 8181:8181 \
             -v "${{ github.workspace }}/tests/fixtures/admin-token.json:/run/secrets/admin-token:ro" \
-            influxdb:3-core \
+            influxdb:3.11.5-core \
             serve --node-id=ci-test --object-store=memory --admin-token-file=/run/secrets/admin-token
 
       - name: Wait for InfluxDB to be ready

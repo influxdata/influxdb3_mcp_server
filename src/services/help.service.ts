@@ -81,21 +81,21 @@ Performance Tips:
 Token Types:
 1. Operator Token: Super admin with full system access (only one per instance)
 2. Named Admin Tokens: Administrative access, can manage resource tokens but not other admin tokens
-3. Resource Tokens: Limited to specific databases with read/write permissions
+3. Resource Tokens (Enterprise only): Limited to specific databases with read/write permissions
 
 Available Operations:
 - Create named admin tokens: create_admin_token tool
-- Create resource tokens: create_resource_token tool  
+- Create Enterprise resource tokens: create_resource_token tool
 - List admin tokens: list_admin_tokens tool (filter by name)
-- List resource tokens: list_resource_tokens tool (filter by name, database, order by various fields)
+- List Enterprise resource tokens: list_resource_tokens tool (filter by name, database, order by various fields)
 - Delete any token: delete_token tool (provide exact token name)
 - Regenerate operator token: regenerate_operator_token tool (⚠️ DANGEROUS - see admin tokens section)
 
 Security Best Practices:
-- Use resource tokens for applications (principle of least privilege)
+- Use Enterprise resource tokens for applications (principle of least privilege)
 - Named admin tokens for administrative tasks including resource token management
 - Operator token only for critical system operations and admin token management
-- Set expiration times when possible (resource tokens support expiry_secs)
+- Set expiration times when possible (named admin and resource tokens support expiry_secs)
 - Rotate tokens regularly
 - Store tokens securely (environment variables, not in code)
 
@@ -111,7 +111,7 @@ Admin Token Types:
 2. Named Admin Tokens: Administrative permissions, can manage resource tokens but not other admin tokens
 
 Named Admin Token Operations:
-- Create: Use create_admin_token tool (optionally provide name)
+- Create: Use create_admin_token tool (optionally provide name and expiry_secs)
 - List: Use list_admin_tokens tool (can filter by token name - partial match)
 - Delete: Use delete_token tool (provide exact token name)
 
@@ -140,7 +140,7 @@ The regenerate_operator_token tool will:
 - Cannot be undone (irreversible operation)
 Use only when absolutely necessary and ensure you can update the environment!
 
-=== RESOURCE TOKENS ===
+=== RESOURCE TOKENS (ENTERPRISE ONLY) ===
 
 Resource Token Operations:
 - Create: Use create_resource_token tool with specific databases and actions
