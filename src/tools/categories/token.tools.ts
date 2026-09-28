@@ -4,12 +4,13 @@
 
 import { z } from "zod";
 import { InfluxDBMasterService } from "../../services/influxdb-master.service.js";
+import { InfluxProductType } from "../../helpers/enums/influx-product-types.enum.js";
 import { McpTool } from "../index.js";
 
 export function createTokenTools(
   influxService: InfluxDBMasterService,
 ): McpTool[] {
-  return [
+  const tools: McpTool[] = [
     {
       name: "create_admin_token",
       description:
@@ -22,6 +23,12 @@ export function createTokenTools(
             description:
               'Optional name for the admin token (e.g., "backup-admin-token"). If not provided, a unique name will be generated.',
           },
+          expiry_secs: {
+            type: "number",
+            description:
+              "Optional expiration time in seconds. If omitted, the token doesn't expire.",
+            minimum: 1,
+          },
         },
         additionalProperties: false,
       },
@@ -30,11 +37,19 @@ export function createTokenTools(
           .string()
           .optional()
           .describe("Optional name for the admin token"),
+        expiry_secs: z
+          .number()
+          .min(1)
+          .optional()
+          .describe("Optional expiration time in seconds"),
       }),
       handler: async (args) => {
         try {
           const tokenService = influxService.getTokenManagementService();
-          const result = await tokenService.createAdminToken(args.name);
+          const result = await tokenService.createAdminToken(
+            args.name,
+            args.expiry_secs,
+          );
           return {
             content: [
               {
@@ -118,7 +133,7 @@ export function createTokenTools(
     {
       name: "list_resource_tokens",
       description:
-        "List all resource tokens with optional filtering by database name and/or token name, and ordering (Core/Enterprise only).",
+        "List all Enterprise resource tokens with optional filtering by database name and/or token name, and ordering.",
       inputSchema: {
         type: "object",
         properties: {
@@ -253,7 +268,7 @@ export function createTokenTools(
     {
       name: "create_resource_token",
       description:
-        'Create a new InfluxDB resource token with specific database permissions (Core/Enterprise only). Example: databases=["mydb", "testdb"], actions=["read", "write"]',
+        'Create a new InfluxDB Enterprise resource token with specific database permissions. Example: databases=["mydb", "testdb"], actions=["read", "write"]',
       inputSchema: {
         type: "object",
         properties: {
@@ -421,4 +436,14 @@ export function createTokenTools(
       },
     },
   ];
+
+  if (influxService.getConfig().influx.type === InfluxProductType.Core) {
+    return tools.filter(
+      (tool) =>
+        tool.name !== "list_resource_tokens" &&
+        tool.name !== "create_resource_token",
+    );
+  }
+
+  return tools;
 }

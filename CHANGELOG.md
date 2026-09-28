@@ -5,6 +5,30 @@ All notable changes to the official InfluxDB MCP Server will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-09-28
+
+### Fixed
+
+- Core connections no longer advertise `create_resource_token` or
+  `list_resource_tokens`.
+  InfluxDB 3 Core doesn't support resource tokens.
+- Resource-token service validation now accepts only InfluxDB 3 Enterprise.
+
+### Added
+
+- `create_admin_token` accepts an optional `expiry_secs` value for Core and
+  Enterprise named admin tokens.
+- Core integration CI now runs against the fixed `influxdb:3.11.5-core` image.
+
+### Verified
+
+- Core and Enterprise MCP behavior against InfluxDB 3.11.5, including a
+  three-node Enterprise cluster.
+- Named admin token creation, expiration, authorization, deletion, and
+  post-deletion rejection on Core and Enterprise 3.11.5.
+- Core and Enterprise writes continue to use `POST /api/v3/write_lp`.
+- Query and schema discovery continue to work on Core and Enterprise 3.11.5.
+
 ## [1.4.1] - 2026-09-01
 
 ### Fixed

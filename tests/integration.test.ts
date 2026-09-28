@@ -119,4 +119,28 @@ describe.skipIf(!RUN)("live InfluxDB integration", () => {
       });
     },
   );
+
+  it.skipIf(!RETENTION_SUPPORTED)(
+    "creates and deletes an expiring named admin token",
+    async () => {
+      const tokenName = `mcp_it_admin_${PRODUCT_TYPE}_${Date.now()}`;
+
+      try {
+        const created = await testClient.client.callTool({
+          name: "create_admin_token",
+          arguments: { name: tokenName, expiry_secs: 3600 },
+        });
+        const text = textContent(created);
+
+        expect((created as { isError?: boolean }).isError).not.toBe(true);
+        expect(text).toContain("Admin token created successfully");
+      } finally {
+        const deleted = await testClient.client.callTool({
+          name: "delete_token",
+          arguments: { token_name: tokenName },
+        });
+        expect((deleted as { isError?: boolean }).isError).not.toBe(true);
+      }
+    },
+  );
 });
