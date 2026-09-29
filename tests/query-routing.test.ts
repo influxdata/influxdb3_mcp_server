@@ -23,6 +23,52 @@ function emptyAsyncResult() {
 
 describe("query routing options", () => {
   it.each([
+    ["cloud-dedicated", InfluxProductType.CloudDedicated],
+    ["cloud-serverless", InfluxProductType.CloudServerless],
+    ["clustered", InfluxProductType.Clustered],
+  ])("%s rejects non-JSON SQL formats before dispatch", async (_name, type) => {
+    const base = stubBaseService(type);
+    const service = new QueryService(base);
+
+    for (const format of ["csv", "jsonl", "pretty", "parquet"] as const) {
+      await expect(
+        service.executeQuery(QUERY, DATABASE, { format }),
+      ).rejects.toThrow(
+        `Query format '${format}' is not supported for ${type} SQL queries; use 'json'`,
+      );
+    }
+
+    expect(base.getClient).not.toHaveBeenCalled();
+    expect(base.getInfluxHttpClient).not.toHaveBeenCalled();
+  });
+
+  it("returns a stable error code for an unsupported SQL format", async () => {
+    const base = stubBaseService(InfluxProductType.CloudServerless);
+
+    await expect(
+      new QueryService(base).executeQuery(QUERY, DATABASE, { format: "csv" }),
+    ).rejects.toMatchObject({ code: "unsupported_query_format" });
+  });
+
+  it("keeps forwarding CSV format for Core", async () => {
+    const base = stubBaseService(InfluxProductType.Core);
+    const httpClient = { post: vi.fn().mockResolvedValue("a\n1\n") };
+    vi.mocked(base.getInfluxHttpClient).mockReturnValue(httpClient as any);
+
+    await new QueryService(base).executeQuery(QUERY, DATABASE, {
+      format: "csv",
+    });
+
+    expect(httpClient.post).toHaveBeenCalledWith(
+      "/api/v3/query_sql",
+      { db: DATABASE, q: QUERY, format: "csv" },
+      expect.objectContaining({
+        headers: expect.objectContaining({ Accept: "text/csv" }),
+      }),
+    );
+  });
+
+  it.each([
     ["core", InfluxProductType.Core],
     ["enterprise", InfluxProductType.Enterprise],
   ])(
