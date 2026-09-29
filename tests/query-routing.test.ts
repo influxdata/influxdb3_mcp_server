@@ -34,7 +34,7 @@ describe("query routing options", () => {
       await expect(
         service.executeQuery(QUERY, DATABASE, { format }),
       ).rejects.toThrow(
-        `Query format '${format}' is not supported for ${type} SQL queries; use 'json'`,
+        `Query format '${format}' is not supported by this MCP SQL query path for ${type}; use 'json'`,
       );
     }
 

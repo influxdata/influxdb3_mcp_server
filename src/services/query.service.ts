@@ -148,7 +148,7 @@ export class QueryService {
     if (format === "json") return;
 
     const error = new Error(
-      `Query format '${format}' is not supported for ${productType} SQL queries; use 'json'`,
+      `Query format '${format}' is not supported by this MCP SQL query path for ${productType}; use 'json'`,
     );
     (error as any).code = "unsupported_query_format";
     throw error;
