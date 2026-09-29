@@ -10,6 +10,7 @@ const RUN =
 // types (for example the Cloud Serverless CI job, which manages buckets through
 // the v2 API and has no retention_period update path).
 const PRODUCT_TYPE = process.env.INFLUX_DB_PRODUCT_TYPE ?? "core";
+const TEST_DATABASE = process.env.INFLUX_TEST_DATABASE;
 const RETENTION_SUPPORTED =
   PRODUCT_TYPE === "core" || PRODUCT_TYPE === "enterprise";
 
@@ -57,7 +58,8 @@ describe.skipIf(!RUN)("live InfluxDB integration", () => {
   });
 
   it("execute_query runs a simple query", async () => {
-    // First get a database name from list_databases
+    // Use the configured test database when the credential has restricted
+    // write access. Fall back to discovery for local Core and Enterprise runs.
     const dbResult = await testClient.client.callTool({
       name: "list_databases",
       arguments: {},
@@ -65,11 +67,11 @@ describe.skipIf(!RUN)("live InfluxDB integration", () => {
     const dbBody = JSON.parse(textContent(dbResult));
 
     // If no databases exist, skip gracefully
-    if (dbBody.database_count === 0) {
+    if (!TEST_DATABASE && dbBody.database_count === 0) {
       return;
     }
 
-    const dbName = dbBody.databases[0]?.name;
+    const dbName = TEST_DATABASE ?? dbBody.databases[0]?.name;
     if (!dbName) {
       return;
     }
