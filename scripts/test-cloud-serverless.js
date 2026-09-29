@@ -39,10 +39,11 @@ if (invalidVariables.length > 0) {
 }
 
 const requestedTests = process.argv.slice(2);
+const defaultTests = ["integration", "tests/query-format-live.test.ts"];
 const testArguments = [
   fileURLToPath(new URL("../node_modules/vitest/vitest.mjs", import.meta.url)),
   "run",
-  ...(requestedTests.length > 0 ? requestedTests : ["integration"]),
+  ...(requestedTests.length > 0 ? requestedTests : defaultTests),
 ];
 
 const child = spawn(process.execPath, testArguments, {

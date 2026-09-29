@@ -119,10 +119,13 @@ export class QueryService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
+        this.assertSqlFormatSupported(connectionInfo.type, format);
         return this.executeCloudDedicatedQuery(query, database, options);
       case InfluxProductType.Clustered:
+        this.assertSqlFormatSupported(connectionInfo.type, format);
         return this.executeClusteredQuery(query, database, options);
       case InfluxProductType.CloudServerless:
+        this.assertSqlFormatSupported(connectionInfo.type, format);
         return this.executeCloudServerlessQuery(query, database, options);
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
@@ -136,6 +139,19 @@ export class QueryService {
           `Unsupported InfluxDB product type: ${connectionInfo.type}`,
         );
     }
+  }
+
+  private assertSqlFormatSupported(
+    productType: InfluxProductType,
+    format: QueryFormat,
+  ): void {
+    if (format === "json") return;
+
+    const error = new Error(
+      `Query format '${format}' is not supported for ${productType} SQL queries; use 'json'`,
+    );
+    (error as any).code = "unsupported_query_format";
+    throw error;
   }
 
   async querySqlReadOnly(
