@@ -39,12 +39,20 @@ describe.skipIf(!RUN)("live query format behavior", () => {
       ?.text;
 
     const explicitError = (result as { isError?: boolean }).isError === true;
-    if (!explicitError && text.includes("[object Object]")) {
+    if (explicitError) {
+      expect(text).toContain(
+        "not supported by this MCP SQL query path for cloud-serverless",
+      );
+      expect(text).toContain("use 'json'");
+      return;
+    }
+
+    if (text.includes("[object Object]")) {
       throw new Error(
         "Reproduced #107: the authenticated Cloud Serverless query returned [object Object] for CSV output",
       );
     }
 
-    expect(explicitError || !text.includes("[object Object]")).toBe(true);
+    expect(text).toContain("csv format");
   });
 });
