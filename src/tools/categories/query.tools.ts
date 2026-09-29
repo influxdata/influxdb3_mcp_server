@@ -68,7 +68,7 @@ export function createQueryTools(
     {
       name: "query_sql",
       description:
-        "Run one bounded, read-only SQL query against an InfluxDB 3 database. Defaults to JSON output and returns structured rows, warnings, and query metadata. In SQL, quoted identifiers are exact column names; if a quoted selector contains *, treat it as wildcard intent, call describe_table, expand matching fields explicitly, then retry one bounded query_sql. Use query_influxql regex only when the user explicitly asks for InfluxQL or regex field selection.",
+        "Run one bounded, read-only SQL query against an InfluxDB 3 database. Defaults to JSON output and returns structured rows, warnings, and query metadata. On Cloud Dedicated, Cloud Serverless, and Clustered, this tool supports only JSON output. In SQL, quoted identifiers are exact column names; if a quoted selector contains *, treat it as wildcard intent, call describe_table, expand matching fields explicitly, then retry one bounded query_sql. Use query_influxql regex only when the user explicitly asks for InfluxQL or regex field selection.",
       inputSchema: readOnlyQueryInputSchema("Read-only SQL query to run"),
       zodSchema: readOnlyQueryZodSchema,
       handler: async (args) => {
@@ -294,7 +294,7 @@ export function createQueryTools(
 
     {
       name: "execute_query",
-      description: `Execute a SQL query against an InfluxDB database (all versions). Returns results in the specified format (defaults to JSON).
+      description: `Execute a SQL query against an InfluxDB database (all versions). Returns results in the specified format (defaults to JSON). On Cloud Dedicated, Cloud Serverless, and Clustered, this tool supports only JSON output.
 
 Large Dataset Warning: InfluxDB might contain massive time-series data. Always use COUNT(*) first to check size, then LIMIT/OFFSET for large results (>1000 rows).
 
@@ -316,7 +316,8 @@ Cloud Dedicated/Clustered & Cloud Serverless (v3) Requirements:
           format: {
             type: "string",
             enum: ["json", "csv", "parquet", "jsonl", "pretty"],
-            description: "Output format for query results",
+            description:
+              "Output format for query results. On Cloud Dedicated, Cloud Serverless, and Clustered, this tool supports only JSON.",
             default: "json",
           },
         },
