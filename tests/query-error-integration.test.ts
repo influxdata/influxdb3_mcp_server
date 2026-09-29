@@ -12,6 +12,7 @@ const NOT_FOUND_PATTERN =
   process.env.INFLUX_DB_PRODUCT_TYPE === "cloud-serverless"
     ? /bucket .*not found/i
     : /database not found/i;
+const TEST_DATABASE = process.env.INFLUX_TEST_DATABASE;
 
 describe.skipIf(!RUN)("error path integration tests (live instance)", () => {
   let testClient: TestClient;
@@ -58,11 +59,11 @@ describe.skipIf(!RUN)("error path integration tests (live instance)", () => {
     });
     const dbBody = JSON.parse(textContent(dbResult));
 
-    if (dbBody.database_count === 0) {
+    if (!TEST_DATABASE && dbBody.database_count === 0) {
       return;
     }
 
-    const dbName = dbBody.databases[0]?.name;
+    const dbName = TEST_DATABASE ?? dbBody.databases[0]?.name;
     if (!dbName) {
       return;
     }

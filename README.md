@@ -401,6 +401,44 @@ Use `host.docker.internal` as the InfluxDB URL so the MCP server container can r
 - See the `env.example`, `env.cloud-dedicated.example`, `env.clustered.example`, and `env.cloud-serverless.example` files for environment variable templates.
 - See `AGENT_E2E_TESTS.md` for MCP harness tips, read-only profile runs, and telemetry correlation checks.
 
+### Run Cloud Serverless integration tests
+
+The Cloud Serverless test command accepts Claire's `INFLUXDB3_CLOUD_*` variables
+and maps them to the MCP server's runtime variables.
+The command sets `INFLUX_TEST_ENABLED=true` and `INFLUX_DB_PRODUCT_TYPE=cloud-serverless`.
+
+For local tests with 1Password, store only `op://` references in
+`~/.config/claire/cloud-serverless.env`:
+
+```env
+INFLUXDB3_CLOUD_URL=op://VAULT/ITEM/hostname
+INFLUXDB3_CLOUD_TOKEN=op://VAULT/ITEM/token
+INFLUXDB3_CLOUD_BUCKET=op://VAULT/ITEM/bucket
+INFLUXDB3_CLOUD_ORG=op://VAULT/ITEM/org
+```
+
+Run the live tests through 1Password so the token exists only in the test
+process environment:
+
+```bash
+op run --env-file ~/.config/claire/cloud-serverless.env -- \
+  npm run test:integration:cloud-serverless
+```
+
+You can instead copy `env.cloud-serverless.example` to the ignored
+`.env.cloud-serverless.local` file and set the MCP runtime variables there.
+Then run `npm run test:integration:cloud-serverless` directly.
+
+To use another plaintext credentials file, set `INFLUX_TEST_ENV_FILE`:
+
+```bash
+INFLUX_TEST_ENV_FILE=/path/to/serverless.env npm run test:integration:cloud-serverless
+```
+
+GitHub Actions runs the same command with the existing URL and token secrets
+from the `cloud-serverless` environment. The workflow selects the
+`mcp-ci-tests` bucket explicitly.
+
 ### Database Retention Policy Examples
 
 #### Core/Enterprise - Set 90-day Retention
