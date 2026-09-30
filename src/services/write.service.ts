@@ -8,9 +8,15 @@
 import { BaseConnectionService } from "./base-connection.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import {
+  classifiedError,
   normalizeError,
+  rejectedLineNumbers,
   resolveErrorMessage,
 } from "./error-resolution.service.js";
+
+/** Server wording for a write rejected by an explicit-schema database (3.12+). */
+const EXPLICIT_SCHEMA_REJECTION = /which uses explicit schemas/;
+const PARTIAL_WRITE = "partial write of line protocol occurred";
 
 export type Precision = "nanosecond" | "microsecond" | "millisecond" | "second";
 
@@ -197,23 +203,71 @@ export class WriteService {
   private handleWriteError(error: any, database: string): never {
     const { status, body } = normalizeError(error);
     const message = resolveErrorMessage(body, error.message);
+
+    if (status === 400) {
+      throw classifiedError(
+        `Bad request: ${message}${this.partialWriteNote(body)}${
+          EXPLICIT_SCHEMA_REJECTION.test(message)
+            ? "\nHint: this database uses explicit schema mode (InfluxDB 3 Enterprise 3.12+), so writes can't create tables or columns. " +
+              "Declare the missing table or column first (POST or PATCH /api/v3/configure/table, or the influxdb3 CLI), then resend the rejected lines. " +
+              "This MCP server has no tool for declaring schema; ask the user or an operator to do it."
+            : ""
+        }`,
+        EXPLICIT_SCHEMA_REJECTION.test(message)
+          ? "write_schema_not_declared"
+          : "write_bad_request",
+        false,
+      );
+    }
+    if (status === 403) {
+      throw classifiedError(
+        `Access denied: ${message}. The token doesn't have write permission for database '${database}' (for example, it's a read-only token). Do not retry with the same token.`,
+        "access_denied",
+        false,
+      );
+    }
+    if (status === 429) {
+      throw classifiedError(
+        `Too many requests, retry the write after a short backoff: ${message}`,
+        "write_backpressure",
+        true,
+      );
+    }
+    if (status === 503) {
+      throw classifiedError(
+        `Service temporarily unavailable, retry the write: ${message}`,
+        "write_unavailable",
+        true,
+      );
+    }
     const prefixes: Record<number, string> = {
-      400: "Bad request",
       401: "Unauthorized",
-      403: "Access denied",
       413: "Request entity too large",
       422: "Unprocessable entity",
     };
     if (status !== undefined && status in prefixes) {
       throw new Error(`${prefixes[status]}: ${message}`);
     }
-    if (status === 503) {
-      throw new Error(
-        `Service temporarily unavailable, retry the write: ${message}`,
-      );
-    }
     throw new Error(
       `Failed to write data to database '${database}': ${message}`,
     );
+  }
+
+  /**
+   * Whether other lines of a rejected batch were stored. InfluxDB reports
+   * `partial write of line protocol occurred` when accept_partial=true and
+   * `line protocol parsing error` when the whole request was rejected.
+   */
+  private partialWriteNote(body: unknown): string {
+    const lines = rejectedLineNumbers(body);
+    if (lines.length === 0) return "";
+    const listed = `rejected line numbers: ${lines.join(", ")}`;
+    const isPartial =
+      !!body &&
+      typeof body === "object" &&
+      (body as Record<string, unknown>).error === PARTIAL_WRITE;
+    return isPartial
+      ? `\nPartial write: any other lines in the batch were written; resend only the rejected lines (${listed}).`
+      : `\nNo lines from this request were written (${listed}).`;
   }
 }

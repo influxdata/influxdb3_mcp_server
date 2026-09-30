@@ -83,3 +83,44 @@ describe("ping – version reporting, current behavior", () => {
     expect(result).toEqual({ ok: true, version: undefined, build: undefined });
   });
 });
+
+describe("ping – authorization failures", () => {
+  // Observed on Enterprise 3.12.0-0.rc.2: a `db:<name>:read` token gets 403
+  // (empty body) from GET /ping and GET /health, while queries succeed.
+  it("403 says the server is reachable and the token is database-scoped", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+        headers: { get: () => null },
+      }),
+    );
+
+    const result = await new BaseConnectionService(
+      configFor(InfluxProductType.Enterprise),
+    ).ping();
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/^Ping failed with status 403/);
+    expect(result.message).toMatch(/reachable/);
+    expect(result.message).toMatch(/read-only/);
+  });
+
+  it("other statuses keep the plain message", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        headers: { get: () => null },
+      }),
+    );
+
+    const result = await new BaseConnectionService(
+      configFor(InfluxProductType.Core),
+    ).ping();
+
+    expect(result.message).toBe("Ping failed with status 500");
+  });
+});
