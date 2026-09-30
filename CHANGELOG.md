@@ -5,6 +5,26 @@ All notable changes to the official InfluxDB MCP Server will be documented in th
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Write and query errors are classified for InfluxDB 3.12.**
+  Verified against the 3.12.0-0.rc.2 testbench unless noted.
+  - Enterprise explicit schema mode: a write to an undeclared table or column keeps InfluxDB's message and adds a hint to declare it first (`POST`/`PATCH /api/v3/configure/table` or the CLI).
+    The MCP server has no schema-declaration tool, so the hint says to ask an operator.
+  - Partial writes now say which line numbers were rejected, and whether the other lines were written (`accept_partial=true`) or nothing was (`accept_partial=false`).
+  - A `429` on write (WAL buffer full, from `--wal-max-buffered-writes`) is reported as retryable backpressure.
+    This is from the RC-2 source; it wasn't reproduced live.
+  - A query that fails with `Resources exhausted` is reported as retryable after narrowing, whatever the status code.
+    At RC-2 the HTTP API returns 500 for it, not 429.
+    A query `429` is reported as retryable backpressure.
+  - A query `405` from a node without query mode tells the caller to point `INFLUX_DB_INSTANCE_URL` at a query node.
+  - A `403` on write or query (for example, from a read-only `db:<name>:read` token) explains the missing permission and says not to retry.
+- `query_sql` and `query_influxql` error payloads now set `retryable` from the classification, instead of always `false`.
+- `health_check` explains a `403` from `/ping`: database-scoped tokens, including read-only tokens, can't call `/ping` or `/health`, but their queries still work.
+- `write_line_protocol`'s description tells agents how to act on these errors.
+
 ## [1.4.1] - 2026-09-01
 
 ### Fixed

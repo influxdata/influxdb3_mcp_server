@@ -1,0 +1,34 @@
+schema_version: 1
+description: >-
+  InfluxDB 3.12.0-0.rc.2 testbench (Core 5cb9011c01, Enterprise 25bd899) for
+  branch mcp-influxdb3-3.12. No agent E2E cases were run: the container can't
+  reach the npm registry, so @modelcontextprotocol/sdk and
+  @influxdata/influxdb3-client couldn't be installed and build/index.js
+  couldn't be built. The results list is empty on purpose. Instead, the
+  changed WriteService, QueryService, and BaseConnectionService code ran
+  directly against the live Enterprise testbench (bundled with esbuild, real
+  axios HTTP client, real responses). See 2026-09-30/service-layer-live.txt.
+  Rerun w312-explicit-schema-reject, ro312-token-denial, and the existing
+  read-only cases with the Claude Code harness once dependencies install.
+service_layer_live:
+  date: '2026-09-30'
+  product: enterprise
+  version: 3.12.0-0.rc.2
+  base_sha: 228f0c5dc1254848d84860aad6ffcbe85ad81f4b
+  transcript: 2026-09-30/service-layer-live.txt
+  checks:
+    - case: explicit schema, undeclared table
+      observed: 'code=write_schema_not_declared retryable=false; server text plus declare-first hint'
+    - case: explicit schema, batch with undeclared field, accept_partial=true
+      observed: 'partial-write note names line 2; row count confirms line 1 was stored'
+    - case: explicit schema, batch with undeclared field, accept_partial=false
+      observed: '"No lines from this request were written"; row count confirms nothing was stored'
+    - case: read-only token, query granted database
+      observed: 'rows returned'
+    - case: read-only token, query another database
+      observed: 'code=access_denied retryable=false'
+    - case: read-only token, write granted database
+      observed: 'code=access_denied retryable=false'
+    - case: read-only token, ping
+      observed: 'ok=false with the 403 database-scoped token message'
+results: []
