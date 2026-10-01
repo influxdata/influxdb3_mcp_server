@@ -98,10 +98,10 @@ logging full query text by default.
 | `list_tables`                 | List tables, also called measurements, in a database                                                  | All versions              |
 | `describe_table`              | Describe table schema with conservative column categories                                             | All versions              |
 | `investigate_database`        | Run high-level read-only database discovery and sampling                                              | All versions              |
-| `create_admin_token`          | Create a new admin token (full permissions)                                                           | Core/Enterprise only      |
+| `create_admin_token`          | Create a named admin token with an optional expiration                                                | Core/Enterprise only      |
 | `list_admin_tokens`           | List all admin tokens (with optional filtering)                                                       | Core/Enterprise only      |
-| `create_resource_token`       | Create a resource token for specific DBs and permissions                                              | Core/Enterprise only      |
-| `list_resource_tokens`        | List all resource tokens (with filtering and ordering)                                                | Core/Enterprise only      |
+| `create_resource_token`       | Create a resource token for specific DBs and permissions                                              | Enterprise only           |
+| `list_resource_tokens`        | List all resource tokens (with filtering and ordering)                                                | Enterprise only           |
 | `delete_token`                | Delete a token by name                                                                                | Core/Enterprise only      |
 | `regenerate_operator_token`   | Regenerate the operator token (dangerous/irreversible)                                                | Core/Enterprise only      |
 | `cloud_list_database_tokens`  | List all database tokens for Cloud-Dedicated/Clustered cluster                                        | Cloud Dedicated/Clustered |
@@ -401,6 +401,44 @@ Use `host.docker.internal` as the InfluxDB URL so the MCP server container can r
 - See the `env.example`, `env.cloud-dedicated.example`, `env.clustered.example`, and `env.cloud-serverless.example` files for environment variable templates.
 - See `AGENT_E2E_TESTS.md` for MCP harness tips, read-only profile runs, and telemetry correlation checks.
 
+### Run Cloud Serverless integration tests
+
+The Cloud Serverless test command accepts Claire's `INFLUXDB3_CLOUD_*` variables
+and maps them to the MCP server's runtime variables.
+The command sets `INFLUX_TEST_ENABLED=true` and `INFLUX_DB_PRODUCT_TYPE=cloud-serverless`.
+
+For local tests with 1Password, store only `op://` references in
+`~/.config/claire/cloud-serverless.env`:
+
+```env
+INFLUXDB3_CLOUD_URL=op://VAULT/ITEM/hostname
+INFLUXDB3_CLOUD_TOKEN=op://VAULT/ITEM/token
+INFLUXDB3_CLOUD_BUCKET=op://VAULT/ITEM/bucket
+INFLUXDB3_CLOUD_ORG=op://VAULT/ITEM/org
+```
+
+Run the live tests through 1Password so the token exists only in the test
+process environment:
+
+```bash
+op run --env-file ~/.config/claire/cloud-serverless.env -- \
+  npm run test:integration:cloud-serverless
+```
+
+You can instead copy `env.cloud-serverless.example` to the ignored
+`.env.cloud-serverless.local` file and set the MCP runtime variables there.
+Then run `npm run test:integration:cloud-serverless` directly.
+
+To use another plaintext credentials file, set `INFLUX_TEST_ENV_FILE`:
+
+```bash
+INFLUX_TEST_ENV_FILE=/path/to/serverless.env npm run test:integration:cloud-serverless
+```
+
+GitHub Actions runs the same command with the existing URL and token secrets
+from the `cloud-serverless` environment. The workflow selects the
+`mcp-ci-tests` bucket explicitly.
+
 ### Database Retention Policy Examples
 
 #### Core/Enterprise - Set 90-day Retention
@@ -460,7 +498,7 @@ the write. Any other status is not.
 
 ### InfluxDB 3.11 compatibility
 
-Verified against InfluxDB 3.11.2 Core and Enterprise (including a
+Verified against InfluxDB 3.11.5 Core and Enterprise, including a
 multi-node Enterprise cluster). Core and Enterprise write through
 `POST /api/v3/write_lp`, which 3.11's write-availability changes for the
 legacy `/api/v2/write` endpoint do not affect; only `clustered` calls
@@ -470,6 +508,12 @@ or PachaTree (Enterprise 3.11+ by default, or after
 `--upgrade-pacha-tree`) — new `system.pt_*` tables are excluded from
 `get_measurements`/`get_measurement_schema` results by the same
 `table_schema = 'iox'` filter that already excludes other system tables.
+
+Core and Enterprise create named admin tokens through
+`POST /api/v3/configure/token/named_admin`.
+Named admin tokens accept an optional expiration in seconds.
+Only Enterprise supports resource tokens, so the MCP server doesn't advertise
+resource-token tools for Core connections.
 
 ---
 

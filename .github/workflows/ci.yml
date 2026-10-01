@@ -87,14 +87,14 @@ jobs:
       - run: npm run build
 
       - name: Print InfluxDB 3 Core version
-        run: docker run --rm influxdb:3-core influxdb3 --version
+        run: docker run --rm influxdb:3.11.5-core influxdb3 --version
 
       - name: Start InfluxDB 3 Core
         run: |
           docker run -d --name influxdb3-core \
             -p 8181:8181 \
             -v "${{ github.workspace }}/tests/fixtures/admin-token.json:/run/secrets/admin-token:ro" \
-            influxdb:3-core \
+            influxdb:3.11.5-core \
             serve --node-id=ci-test --object-store=memory --admin-token-file=/run/secrets/admin-token
 
       - name: Wait for InfluxDB to be ready
@@ -134,6 +134,7 @@ jobs:
       github.repository_owner == 'influxdata' &&
       github.actor != 'dependabot[bot]' &&
       (github.event_name == 'push' ||
+       github.event_name == 'workflow_dispatch' ||
        github.event_name == 'merge_group' ||
        github.event.pull_request.head.repo.full_name == github.repository)
     environment: cloud-serverless
@@ -151,12 +152,11 @@ jobs:
       - run: npm run build
 
       - name: Integration tests
-        run: npm run test:integration
+        run: npm run test:integration:cloud-serverless
         env:
-          INFLUX_TEST_ENABLED: "true"
-          INFLUX_DB_INSTANCE_URL: ${{ secrets.INFLUXDB_CLOUD_URL }}
-          INFLUX_DB_TOKEN: ${{ secrets.INFLUXDB_CLOUD_TOKEN }}
-          INFLUX_DB_PRODUCT_TYPE: "cloud-serverless"
+          INFLUXDB3_CLOUD_URL: ${{ secrets.INFLUXDB_CLOUD_URL }}
+          INFLUXDB3_CLOUD_TOKEN: ${{ secrets.INFLUXDB_CLOUD_TOKEN }}
+          INFLUXDB3_CLOUD_BUCKET: "mcp-ci-tests"
 
   # Future: test-integration-enterprise
   # Requires Enterprise Docker image and license key.

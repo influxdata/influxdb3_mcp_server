@@ -32,6 +32,7 @@ export interface CreateResourceTokenRequest {
 
 export interface CreateAdminTokenRequest {
   token_name?: string;
+  expiry_secs?: number;
 }
 
 export class TokenManagementService {
@@ -48,6 +49,7 @@ export class TokenManagementService {
    */
   async createAdminToken(
     token_name?: string,
+    expiry_secs?: number,
   ): Promise<{ token: string; id: string }> {
     this.baseService.validateOperationSupport("create_admin_token", [
       InfluxProductType.Core,
@@ -60,6 +62,9 @@ export class TokenManagementService {
         token_name ||
         `admin-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const requestBody: CreateAdminTokenRequest = { token_name: name };
+      if (expiry_secs !== undefined) {
+        requestBody.expiry_secs = expiry_secs;
+      }
 
       const response = await this.httpClient.post(
         "/api/v3/configure/token/named_admin",
@@ -155,7 +160,6 @@ export class TokenManagementService {
     };
   }): Promise<any> {
     this.baseService.validateOperationSupport("list_resource_tokens", [
-      InfluxProductType.Core,
       InfluxProductType.Enterprise,
     ]);
     this.baseService.validateManagementCapabilities();
@@ -250,7 +254,6 @@ export class TokenManagementService {
     expiry_secs?: number,
   ): Promise<{ token: string; id: string }> {
     this.baseService.validateOperationSupport("create_resource_token", [
-      InfluxProductType.Core,
       InfluxProductType.Enterprise,
     ]);
     this.baseService.validateManagementCapabilities();

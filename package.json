@@ -1,6 +1,6 @@
 {
   "name": "@influxdata/influxdb3-mcp-server",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Official InfluxDB MCP server for Model Context Protocol integration",
   "license": "(Apache-2.0 OR MIT)",
   "private": false,
@@ -28,6 +28,7 @@
     "pretest": "npm run build",
     "test": "vitest run",
     "test:integration": "INFLUX_TEST_ENABLED=true vitest run integration",
+    "test:integration:cloud-serverless": "node scripts/test-cloud-serverless.js",
     "test:watch": "vitest",
     "test:infra:up": "docker compose -f docker-compose.test.yml up -d --wait",
     "test:infra:down": "docker compose -f docker-compose.test.yml down",
