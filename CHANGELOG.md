@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the official InfluxDB MCP Server will be documented in this file.
+All notable changes to the official InfluxDB 3 MCP Server will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -19,6 +19,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `create_admin_token` accepts an optional `expiry_secs` value for Core and
   Enterprise named admin tokens.
 - Core integration CI now runs against the fixed `influxdb:3.11.5-core` image.
+- Stable releases register the npm package in the official MCP Registry as
+  `io.github.influxdata/influxdb3-mcp-server` after npm publishing succeeds.
+- CI validates registry metadata and checks package identity and version
+  consistency. The release job verifies the exact registered version.
+
+### Release verification
+
+Complete these checks before declaring `v1.4.2` fully published:
+
+- [ ] Before tagging, pass CI's metadata validation and version checks.
+- [ ] **npm:** Verify `@influxdata/influxdb3-mcp-server@1.4.2` is public and
+      includes `mcpName: io.github.influxdata/influxdb3-mcp-server` with
+      `npm view @influxdata/influxdb3-mcp-server@1.4.2 version mcpName`.
+- [ ] **Docker Hub:** Verify the `influxdata/influxdb3-mcp-server:1.4.2` image
+      is available with
+      `docker manifest inspect influxdata/influxdb3-mcp-server:1.4.2`.
+- [ ] **MCP Registry:** Confirm the release job's exact-version check passes.
+      The [registry version endpoint](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.influxdata%2Finfluxdb3-mcp-server/versions/1.4.2)
+      must return the expected server name and version `1.4.2`.
+- [ ] **Published-package smoke test:** With valid database configuration,
+      use MCP Inspector to initialize the published npm package and list its
+      tools. A local build or successful metadata validation does not verify
+      the published package's runtime behavior.
+
+If registry publishing fails after npm succeeds, rerun only the failed registry
+job. The npm version has already been published and cannot be republished.
 
 ### Verified
 

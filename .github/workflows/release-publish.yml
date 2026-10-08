@@ -21,15 +21,10 @@ jobs:
 
       - run: npm ci
 
-      - name: Verify tag matches package.json version
+      - name: Verify release tag and all package versions match
         env:
           TAG_NAME: ${{ github.event.release.tag_name }}
-        run: |
-          pkg_version="v$(node -p "require('./package.json').version")"
-          if [ "$TAG_NAME" != "$pkg_version" ]; then
-            echo "Release tag $TAG_NAME does not match package.json version $pkg_version"
-            exit 1
-          fi
+        run: node scripts/check-versions.js
 
       - name: npm publish
         env:
@@ -41,6 +36,44 @@ jobs:
           else
             npm publish
           fi
+
+  mcp-registry-publish:
+    name: Publish to MCP Registry
+    needs: npm-publish
+    if: >-
+      github.repository == 'influxdata/influxdb3_mcp_server' &&
+      !github.event.release.prerelease &&
+      !contains(github.event.release.tag_name, '-')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install mcp-publisher
+        run: bash scripts/install-mcp-publisher.sh "$RUNNER_TEMP/mcp-publisher"
+
+      - name: Validate MCP Registry metadata
+        run: '"$RUNNER_TEMP/mcp-publisher" validate'
+
+      - name: Authenticate to MCP Registry
+        run: '"$RUNNER_TEMP/mcp-publisher" login github-oidc'
+
+      - name: Publish to MCP Registry
+        run: '"$RUNNER_TEMP/mcp-publisher" publish'
+
+      - name: Verify published server version
+        run: |
+          version="$(jq -r '.version' server.json)"
+          curl --fail --silent --show-error --retry 5 --retry-delay 2 \
+            "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.influxdata%2Finfluxdb3-mcp-server/versions/$version" \
+            --output "$RUNNER_TEMP/mcp-registry-server.json"
+          jq --exit-status --arg version "$version" \
+            '.server.name == "io.github.influxdata/influxdb3-mcp-server" and .server.version == $version' \
+            "$RUNNER_TEMP/mcp-registry-server.json"
 
   docker-publish:
     name: Publish to Docker Hub

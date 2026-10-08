@@ -1,6 +1,6 @@
-# Contributing to InfluxDB MCP Server
+# Contributing to InfluxDB 3 MCP Server
 
-Thank you for your interest in contributing to the InfluxDB MCP Server!
+Thank you for your interest in contributing to the InfluxDB 3 MCP Server!
 This project provides official Model Context Protocol (MCP) integration
 for InfluxDB.
 
@@ -23,7 +23,7 @@ When we do, we will update this document with:
 
 ## Questions and Feedback
 
-If you have questions about the InfluxDB MCP Server or feedback on its
+If you have questions about the InfluxDB 3 MCP Server or feedback on its
 functionality, please check the [README.md](README.md) for usage instructions and examples
 
 ## License

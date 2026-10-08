@@ -1,4 +1,4 @@
-# InfluxDB MCP Server
+# InfluxDB 3 MCP Server
 
 [![CI](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/ci.yml/badge.svg)](https://github.com/influxdata/influxdb3_mcp_server/actions/workflows/ci.yml)
 
@@ -7,7 +7,7 @@
 
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/influxdata/influxdb3_mcp_server)](https://archestra.ai/mcp-catalog/influxdata__influxdb3_mcp_server)
 
-Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, resources, and prompts for interacting with InfluxDB v3 (Core/Enterprise/Cloud Dedicated/Clustered/Cloud Serverless) via MCP clients.
+Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, resources, and prompts for interacting with InfluxDB 3 Core and Enterprise, plus InfluxDB Cloud Dedicated, InfluxDB Clustered, and InfluxDB Cloud Serverless via MCP clients.
 
 ---
 
@@ -516,6 +516,67 @@ Only Enterprise supports resource tokens, so the MCP server doesn't advertise
 resource-token tools for Core connections.
 
 ---
+
+## Publishing to the MCP Registry
+
+Stable GitHub releases publish the npm package first, then register
+`io.github.influxdata/influxdb3-mcp-server` in the
+[official MCP Registry](https://modelcontextprotocol.io/registry/about).
+The registry stores metadata; clients install the server from npm.
+GitHub OIDC authenticates the release job using `id-token: write`, so no
+additional registry secret is needed. Releases marked as prereleases or with
+`-` in their tag skip registry publishing.
+
+Before tagging a release, update `package.json`, `src/config.ts`, the latest
+`CHANGELOG.md` entry, and both `version` fields in `server.json` together.
+Keep `package.json`'s `mcpName` equal to `server.json`'s `name`. Check locally:
+
+```sh
+node scripts/check-versions.js
+bash scripts/install-mcp-publisher.sh /tmp/mcp-publisher
+/tmp/mcp-publisher validate
+```
+
+The installer pins and verifies the Linux amd64 publisher used in CI. The
+`validate` command contacts the registry and checks metadata without publishing.
+CI runs these checks, and the npm release job also checks the versions and tag.
+The first registry release must use a freshly published npm version containing
+`mcpName`; an existing npm version cannot be updated to add it.
+
+After publishing, verify the release at each destination:
+
+- **npm:** The exact package version must exist and include the expected
+  `mcpName`.
+- **Docker Hub:** The image tagged with the release version must be available.
+- **MCP Registry:** The exact version endpoint must return the expected server
+  name and version. The registry release job automates this check.
+
+From the release checkout, verify npm and the registry manually:
+
+```sh
+version="$(node -p "require('./package.json').version")"
+npm view "@influxdata/influxdb3-mcp-server@$version" version mcpName
+docker manifest inspect "influxdata/influxdb3-mcp-server:$version"
+curl --fail --silent --show-error \
+  "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.influxdata%2Finfluxdb3-mcp-server/versions/$version" \
+  | jq --exit-status --arg version "$version" \
+    '.server.name == "io.github.influxdata/influxdb3-mcp-server" and .server.version == $version'
+```
+
+With valid database environment variables configured, also smoke-test the exact
+published npm version using [MCP Inspector](https://modelcontextprotocol.io/docs/tools/inspector):
+
+```sh
+npx @modelcontextprotocol/inspector --cli \
+  npx -y "@influxdata/influxdb3-mcp-server@$version" --method tools/list
+```
+
+Metadata validation checks the registry description; the smoke test checks that
+the published package initializes and advertises tools. Keep the release-note
+verification checklist unchecked until the corresponding checks pass.
+
+If registry publishing fails after npm succeeds, rerun only the failed registry
+job; rerunning the successful npm job would try to publish an existing version.
 
 ## License
 
