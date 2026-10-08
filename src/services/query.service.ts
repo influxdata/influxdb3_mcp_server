@@ -404,6 +404,7 @@ export class QueryService {
           options,
         );
       case InfluxProductType.CloudDedicated:
+      case InfluxProductType.CloudServerless:
       case InfluxProductType.Clustered:
         return this.executeClusteredQuery(query, database, options);
       default:
