@@ -63,7 +63,7 @@
   ],
   "dependencies": {
     "@influxdata/influxdb3-client": "1.4.0",
-    "@modelcontextprotocol/sdk": "1.30.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "axios": "1.20.0",
     "dotenv": "16.6.1",
     "zod": "3.25.76"
