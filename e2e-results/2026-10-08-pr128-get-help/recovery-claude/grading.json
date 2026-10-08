@@ -1,0 +1,74 @@
+{
+  "case": "recovery",
+  "product": "enterprise",
+  "sha": "ee8bc15003c911eb7acca1976205fa512501d029",
+  "auth": "configured Claude auth",
+  "start": "2026-10-08T13:23:46.206Z",
+  "end": "2026-10-08T13:24:06.928Z",
+  "exit_code": 0,
+  "model": "claude-opus-5-5",
+  "duration_ms": 19252,
+  "usage": {
+    "input_tokens": 10,
+    "cache_creation_input_tokens": 19136,
+    "cache_read_input_tokens": 80032,
+    "output_tokens": 1508,
+    "output_tokens_details": {
+      "thinking_tokens": 29
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 19136,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1149,
+        "cache_read_input_tokens": 21215,
+        "cache_creation_input_tokens": 762,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 762
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "tool_path": [
+    "mcp__influxdb3__get_help",
+    "mcp__influxdb3__query_influxql",
+    "mcp__influxdb3__describe_table",
+    "mcp__influxdb3__query_influxql"
+  ],
+  "tool_calls": 4,
+  "failed_calls": 0,
+  "shell_used": false,
+  "telemetry_lines": 4,
+  "result": "passed",
+  "criteria": {
+    "overall_help_heading": "passed",
+    "query_tool_mapping": "passed",
+    "flux_unsupported": "passed",
+    "no_mutation": "passed",
+    "schema_inspection": "passed",
+    "influxql_regex_recovery": "passed",
+    "returned_rows": 2,
+    "initial_literal_query": "passed: returned zero rows",
+    "get_help_first": "passed",
+    "query_metadata": "passed"
+  },
+  "influxdb_image": "influxdb:3.11.5-enterprise",
+  "influxdb_version": "3.11.5",
+  "influxdb_revision": "6b5b62a42f18feb2d3054a501eea417bf94a96b3",
+  "harness": "claude",
+  "artifacts": "2026-10-08-pr128-get-help/recovery-claude",
+  "grading_method": "Agent review of prompt, final answer, MCP call responses, and telemetry; no separate model judge."
+}

@@ -1,0 +1,87 @@
+[
+  {
+    "id": "item_1",
+    "type": "mcp_tool_call",
+    "server": "influxdb3",
+    "tool": "get_help",
+    "arguments": {},
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "\nINFLUXDB 3 MCP SERVER HELP\n\n=== LINE PROTOCOL WRITING ===\n\nLine Protocol Format:\nmeasurement,tag1=value1,tag2=value2 field1=value1,field2=value2 timestamp\n\nExamples:\n- temperature,location=office value=23.5 1640995200000000000\n- sensor_data,device=sensor1,location=room1 temperature=22.5,humidity=45.2,status=\"ok\"\n- cpu_usage,host=server1,region=us-east cpu_percent=85.2,memory_percent=67.1 1640995200000000000\n\nRules:\n- Tags are indexed metadata (strings only), fields contain actual data\n- Tag values cannot contain spaces, use quotes for field string values\n- Timestamp is optional (nanoseconds since Unix epoch)\n- Escape special characters in tag values: spaces, commas, equals signs\n- Multiple measurements can be written in one call (separate by newlines)\n\nCommon Errors:\n- Missing field (at least one field required)\n- Invalid timestamp format\n- Unescaped special characters in tag values\n- Retention period violations (Cloud instances): Writing data outside retention window\n\n=== QUERYING DATA ===\n\nSupported Query Languages:\n- InfluxDB 3 supports both SQL and InfluxQL. Flux is not supported.\n- Use the MCP tool query_sql for SQL and query_influxql for InfluxQL across supported products. The server selects the appropriate transport and endpoint for the configured product.\n- InfluxDB 3 Core, Enterprise, and InfluxDB 3 Cloud use /api/v3/query_influxql for InfluxQL.\n- InfluxDB Cloud Serverless, InfluxDB Cloud Dedicated, and InfluxDB Clustered use the v1 /query endpoint for InfluxQL.\n\nSQL Syntax for InfluxDB 3:\nSELECT field1, field2 FROM measurement WHERE time >= 'timestamp' AND tag1 = 'value'\n\nTime Filtering:\n- WHERE time >= '2024-01-01T00:00:00Z'\n- WHERE time >= now() - interval '1 hour'\n- WHERE time BETWEEN '2024-01-01' AND '2024-01-02'\n\nCommon Queries:\n- List measurements: SELECT DISTINCT table_name FROM information_schema.measurements\n- Get schema: DESCRIBE measurement_name\n- Recent data: SELECT * FROM measurement ORDER BY time DESC LIMIT 10\n- Aggregates: SELECT AVG(field1), MAX(field2) FROM measurement WHERE time >= now() - interval '1 day'\n\nCloud Dedicated & Cloud Serverless Additional Requirements:\n- CAST aggregations: Use CAST(COUNT(*) AS DOUBLE), CAST(AVG(field) AS DOUBLE), etc.\n- GROUP BY compliance: Include all grouped columns in SELECT clause\n- Information schema: Use SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'iox'\n- Schema queries: SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'measurement' AND table_schema = 'iox'\n- Required for: COUNT, SUM, AVG, MIN, MAX aggregation functions\n- Without CAST: Aggregations may return empty results or be missing from response\n\nCloud Examples with CAST:\n- Count records: SELECT building, CAST(COUNT(*) AS DOUBLE) AS count FROM sensors GROUP BY building\n- Averages: SELECT region, CAST(AVG(cpu_usage) AS DOUBLE) AS avg_cpu FROM metrics GROUP BY region\n- Mixed aggregations: SELECT service, CAST(SUM(requests) AS DOUBLE) AS total_requests, CAST(AVG(response_time) AS DOUBLE) AS avg_response FROM app_metrics GROUP BY service\n\nPerformance Tips:\n- Always include time filters for better performance\n- Use specific field names instead of SELECT *\n- Index on tags for filtering, not fields\n- Use LIMIT for large datasets to avoid memory issues\n- Test with COUNT(*) first to check data size before complex queries\n\n=== TOKEN MANAGEMENT ===\n\nToken Types:\n1. Operator Token: Super admin with full system access (only one per instance)\n2. Named Admin Tokens: Administrative access, can manage resource tokens but not other admin tokens\n3. Resource Tokens (Enterprise only): Limited to specific databases with read/write permissions\n\nAvailable Operations:\n- Create named admin tokens: create_admin_token tool\n- Create Enterprise resource tokens: create_resource_token tool\n- List admin tokens: list_admin_tokens tool (filter by name)\n- List Enterprise resource tokens: list_resource_tokens tool (filter by name, database, order by various fields)\n- Delete any token: delete_token tool (provide exact token name)\n- Regenerate operator token: regenerate_operator_token tool (\u26a0\ufe0f DANGEROUS - see admin tokens section)\n\nSecurity Best Practices:\n- Use Enterprise resource tokens for applications (principle of least privilege)\n- Named admin tokens for administrative tasks including resource token management\n- Operator token only for critical system operations and admin token management\n- Set expiration times when possible (named admin and resource tokens support expiry_secs)\n- Rotate tokens regularly\n- Store tokens securely (environment variables, not in code)\n\nToken Permissions Format:\n- Operator: \"*:*:*\" (all permissions including admin token management)\n- Named Admin: \"*:*:*\" (all permissions except managing other admin tokens)\n- Resource: \"database1:read,write\" or \"database1:read\" etc.\n\n=== ADMIN TOKENS ===\n\nAdmin Token Types:\n1. Operator Token: Super admin with full permissions including admin token management\n2. Named Admin Tokens: Administrative permissions, can manage resource tokens but not other admin tokens\n\nNamed Admin Token Operations:\n- Create: Use create_admin_token tool (optionally provide name and expiry_secs)\n- List: Use list_admin_tokens tool (can filter by token name - partial match)\n- Delete: Use delete_token tool (provide exact token name)\n\nOperator Token Operations:\n- Regenerate: Use regenerate_operator_token tool (\u26a0\ufe0f USE WITH EXTREME CAUTION)\n\nKey Differences:\n- Operator token: Can create/delete/manage ALL tokens (admin and resource tokens)\n- Named admin tokens: Full database and system access, can manage resource tokens but cannot manage other admin tokens\n- Both have \"*:*:*\" permissions but operator has additional admin token management capabilities\n\nUse Cases for Named Admin Tokens:\n- Database management\n- User administration\n- Resource token management (create, list, delete resource tokens)\n- System configuration\n- Backup operations\n- Dedicated token management role (create a named admin specifically for managing resource tokens)\n\n\u26a0\ufe0f OPERATOR TOKEN REGENERATION WARNING:\nThe regenerate_operator_token tool will:\n- Invalidate the current operator token immediately\n- Generate a new operator token  \n- Require updating INFLUX_TOKEN environment variable\n- Require restarting the MCP server\n- Cannot be undone (irreversible operation)\nUse only when absolutely necessary and ensure you can update the environment!\n\n=== RESOURCE TOKENS (ENTERPRISE ONLY) ===\n\nResource Token Operations:\n- Create: Use create_resource_token tool with specific databases and actions\n- List: Use list_resource_tokens tool with filtering options:\n  * Filter by database name (partial match)\n  * Filter by token name (partial match)  \n  * Order by: created_at, token_id, or name\n  * Order direction: ASC or DESC (default ASC)\n- Delete: Use delete_token tool (provide exact token name)\n\nScope to specific databases with limited permissions.\n\nPermission Examples:\n- Read-only: databases=[\"mydb\"], actions=[\"read\"]\n- Write-only: databases=[\"mydb\"], actions=[\"write\"]  \n- Full access: databases=[\"mydb\"], actions=[\"read\", \"write\"]\n- Multi-database: databases=[\"db1\", \"db2\"], actions=[\"read\", \"write\"]\n\nBest Practices:\n- Use separate tokens for different applications\n- Grant minimal required permissions\n- Set expiration times for temporary access (expiry_secs parameter)\n- Use descriptive names for token identification\n\n=== DATABASE MANAGEMENT ===\n\nDatabase Operations:\n- Create: Use create_database tool (provide database name, optional configuration parameters)\n- Update: Use update_database tool (Cloud Dedicated and Cloud Serverless only - see parameters below)\n- List: Use list_databases tool (no parameters - shows all databases)\n- Delete: Use delete_database tool (provide exact database name - PERMANENT, no recovery)\n\nCloud Dedicated Parameters (create_database and update_database):\n- maxTables: Maximum number of tables (default: 500)\n- maxColumnsPerTable: Maximum columns per table (default: 200)\n- retentionPeriod: Retention period in nanoseconds (default: 0 = no expiration)\n\nCloud Serverless Parameters (create_database and update_database):\n- description: Bucket description for documentation\n- retentionPeriod: Retention period in nanoseconds (default: 30 days)\n- newName: New bucket name (update_database only - for renaming buckets)\n\nNaming Rules:\n- Alphanumeric characters, dashes (-), underscores (_), forward slashes (/)\n- Must start with letter or number\n- Maximum 64 characters\n- Case sensitive\n\nDatabase Structure:\n- Contains measurements (tables)\n- Each measurement has tags (indexed) and fields (data)\n- Schema evolves dynamically with data (all InfluxDB versions)\n\nBest Practices:\n- Use descriptive database names\n- Separate different data types into different databases\n- Consider retention policies for large datasets\n- Regular backups before deletion operations\n\nNote: The list_databases tool returns all available databases with their details.\nNo filtering or querying parameters are supported - it shows the complete list.\n\n=== TROUBLESHOOTING ===\n\nConnection Issues:\n1. Use health_check tool for comprehensive instance status (flexible assessment based on available endpoints)\n2. Verify INFLUX_URL environment variable\n3. Confirm INFLUX_TOKEN has proper permissions\n4. Test network connectivity to InfluxDB server\n\nHealth Check Notes:\n- Different InfluxDB product types support different endpoints\n- Cloud Dedicated does not have /health endpoint available\n- Different tokens may have not access to certain endpoints\n- If ANY check passes (connection, /health, /ping), instance is considered operational\n\nAuthentication Errors:\n- Token expired or invalid\n- Insufficient permissions for operation\n- Token not properly configured for target database\n\nQuery Errors:\n- Invalid syntax for the selected query language (SQL or InfluxQL); Flux is not supported\n- Missing time filters causing performance issues\n- Incorrect measurement or field names\n- Wrong database specified\n\nWrite Errors:\n- Invalid line protocol format\n- Missing required fields\n- Tag value formatting issues\n- Database doesn't exist\n- Retention period violations (Cloud instances): Data timestamp outside allowed retention window\n\nPerformance Issues:\n- Add time range filters to queries\n- Use appropriate aggregation functions\n- Index usage (tags vs fields)\n- Consider data retention policies\n"
+        }
+      ],
+      "structured_content": null
+    },
+    "error": null,
+    "status": "completed"
+  },
+  {
+    "id": "item_3",
+    "type": "mcp_tool_call",
+    "server": "influxdb3",
+    "tool": "query_influxql",
+    "arguments": {
+      "db": "host_system",
+      "q": "SELECT \"cpu::usage*\" FROM metrics LIMIT 2",
+      "format": "json",
+      "maxRows": 2
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\n  \"ok\": true,\n  \"db\": \"host_system\",\n  \"q\": \"SELECT \\\"cpu::usage*\\\" FROM metrics LIMIT 2\",\n  \"format\": \"json\",\n  \"rows\": [],\n  \"metadata\": {\n    \"request_id\": \"b7da37d8-8916-4cbd-90f8-3dc503ec614f\",\n    \"query_id\": \"f6a57ce5-d8bc-46c9-be63-b136806b893f\",\n    \"query_id_source\": \"system.queries.id\",\n    \"phase\": \"success\",\n    \"query_type\": \"influxql\",\n    \"success\": true,\n    \"duration_ms\": 693,\n    \"row_count\": 0,\n    \"truncated\": false,\n    \"running\": false,\n    \"cancelled\": false,\n    \"plan_duration\": \"PT0.217730627S\",\n    \"permit_duration\": \"PT0.000045914S\",\n    \"execute_duration\": \"PT0.000289614S\",\n    \"end2end_duration\": \"PT0.218067696S\",\n    \"compute_duration\": \"P0D\",\n    \"max_memory\": 0\n  },\n  \"warnings\": [\n    {\n      \"code\": \"missing_time_predicate\",\n      \"message\": \"Query has no obvious time predicate.\"\n    }\n  ]\n}"
+        }
+      ],
+      "structured_content": null
+    },
+    "error": null,
+    "status": "completed"
+  },
+  {
+    "id": "item_5",
+    "type": "mcp_tool_call",
+    "server": "influxdb3",
+    "tool": "describe_table",
+    "arguments": {
+      "db": "host_system",
+      "table": "metrics"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\n  \"ok\": true,\n  \"db\": \"host_system\",\n  \"table\": \"metrics\",\n  \"columns\": [\n    {\n      \"name\": \"cpu::usage_idle\",\n      \"type\": \"Float64\",\n      \"category\": \"unknown\",\n      \"categoryConfidence\": \"low\",\n      \"warnings\": [\n        \"Tag versus field role is not available from metadata.\"\n      ]\n    },\n    {\n      \"name\": \"cpu::usage_system\",\n      \"type\": \"Float64\",\n      \"category\": \"unknown\",\n      \"categoryConfidence\": \"low\",\n      \"warnings\": [\n        \"Tag versus field role is not available from metadata.\"\n      ]\n    },\n    {\n      \"name\": \"cpu::usage_user\",\n      \"type\": \"Float64\",\n      \"category\": \"unknown\",\n      \"categoryConfidence\": \"low\",\n      \"warnings\": [\n        \"Tag versus field role is not available from metadata.\"\n      ]\n    },\n    {\n      \"name\": \"host\",\n      \"type\": \"Dictionary(Int32, Utf8)\",\n      \"category\": \"unknown\",\n      \"categoryConfidence\": \"low\",\n      \"warnings\": [\n        \"Tag versus field role is not available from metadata.\"\n      ]\n    },\n    {\n      \"name\": \"time\",\n      \"type\": \"Timestamp(ns)\",\n      \"category\": \"time\",\n      \"categoryConfidence\": \"high\"\n    }\n  ],\n  \"warnings\": [\n    {\n      \"code\": \"unknown_column_category\",\n      \"message\": \"Column 'cpu::usage_idle' has unknown tag/field category.\"\n    },\n    {\n      \"code\": \"unknown_column_category\",\n      \"message\": \"Column 'cpu::usage_system' has unknown tag/field category.\"\n    },\n    {\n      \"code\": \"unknown_column_category\",\n      \"message\": \"Column 'cpu::usage_user' has unknown tag/field category.\"\n    },\n    {\n      \"code\": \"unknown_column_category\",\n      \"message\": \"Column 'host' has unknown tag/field category.\"\n    }\n  ]\n}"
+        }
+      ],
+      "structured_content": null
+    },
+    "error": null,
+    "status": "completed"
+  },
+  {
+    "id": "item_6",
+    "type": "mcp_tool_call",
+    "server": "influxdb3",
+    "tool": "query_influxql",
+    "arguments": {
+      "db": "host_system",
+      "q": "SELECT /cpu::usage.*/ FROM metrics LIMIT 2",
+      "format": "json",
+      "maxRows": 2
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\n  \"ok\": true,\n  \"db\": \"host_system\",\n  \"q\": \"SELECT /cpu::usage.*/ FROM metrics LIMIT 2\",\n  \"format\": \"json\",\n  \"rows\": [\n    {\n      \"iox::measurement\": \"metrics\",\n      \"time\": \"2026-01-01T00:00:00\",\n      \"cpu::usage_idle\": 84.3,\n      \"cpu::usage_system\": 3.2,\n      \"cpu::usage_user\": 12.5\n    },\n    {\n      \"iox::measurement\": \"metrics\",\n      \"time\": \"2026-01-01T00:00:00\",\n      \"cpu::usage_idle\": 45.2,\n      \"cpu::usage_system\": 9.7,\n      \"cpu::usage_user\": 45.1\n    }\n  ],\n  \"metadata\": {\n    \"request_id\": \"c49608d5-1d64-4762-9aa4-3698b888a028\",\n    \"query_id\": \"1230c678-8e20-4504-a502-1dc31f05f09d\",\n    \"query_id_source\": \"system.queries.id\",\n    \"phase\": \"success\",\n    \"query_type\": \"influxql\",\n    \"success\": true,\n    \"duration_ms\": 29,\n    \"row_count\": 2,\n    \"truncated\": false,\n    \"running\": false,\n    \"cancelled\": false,\n    \"plan_duration\": \"PT0.019135383S\",\n    \"permit_duration\": \"PT0.000067122S\",\n    \"execute_duration\": \"PT0.001132996S\",\n    \"end2end_duration\": \"PT0.020453204S\",\n    \"compute_duration\": \"PT0.000000007S\",\n    \"max_memory\": 0\n  },\n  \"warnings\": [\n    {\n      \"code\": \"missing_time_predicate\",\n      \"message\": \"Query has no obvious time predicate.\"\n    }\n  ]\n}"
+        }
+      ],
+      "structured_content": null
+    },
+    "error": null,
+    "status": "completed"
+  }
+]
