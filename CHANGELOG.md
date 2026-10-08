@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `list_resource_tokens`.
   InfluxDB 3 Core doesn't support resource tokens.
 - Resource-token service validation now accepts only InfluxDB 3 Enterprise.
+- `get_help` now states that InfluxDB 3 supports SQL and InfluxQL.
+  Flux is not supported.
+- `get_help` distinguishes MCP query tool names from HTTP endpoint paths.
+  The server selects the transport and endpoint for the configured product.
+- InfluxQL endpoint guidance now identifies `/api/v3/query_influxql` for
+  Core, Enterprise, and InfluxDB 3 Cloud, and the v1 `/query` endpoint for
+  Cloud Serverless, Cloud Dedicated, and Clustered.
 
 ### Added
 
@@ -54,6 +61,12 @@ job. The npm version has already been published and cannot be republished.
   post-deletion rejection on Core and Enterprise 3.11.5.
 - Core and Enterprise writes continue to use `POST /api/v3/write_lp`.
 - Query and schema discovery continue to work on Core and Enterprise 3.11.5.
+- Claude and Codex live InfluxQL recovery evals pass after calling `get_help`.
+- All six Cloud Serverless, Cloud Dedicated, and Clustered help-interpretation
+  evals pass routing and query-language checks.
+  They fail the check requiring the overall help heading.
+  The agents report a section heading instead.
+  See the [targeted eval results](e2e-results/2026-10-08-pr128-get-help/GRADING.md).
 
 ## [1.4.1] - 2026-09-01
 
