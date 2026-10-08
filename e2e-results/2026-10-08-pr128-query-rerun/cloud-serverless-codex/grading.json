@@ -1,0 +1,38 @@
+{
+  "case": "cloud-serverless",
+  "product": "cloud-serverless",
+  "sha": "626ff257f1d91594d1475dbfb80a71f7bd63f80c",
+  "model": "gpt-5.6-sol",
+  "reasoning": "low",
+  "auth": "ChatGPT sign-in",
+  "start": "2026-10-08T13:54:17.542Z",
+  "end": "2026-10-08T13:54:30.101Z",
+  "exit_code": 0,
+  "usage": {
+    "input_tokens": 53051,
+    "cached_input_tokens": 42752,
+    "output_tokens": 384,
+    "reasoning_output_tokens": 164
+  },
+  "duration_ms": 12559,
+  "harness": "codex",
+  "tool_path": [
+    "get_help"
+  ],
+  "tool_calls": 1,
+  "failed_calls": 0,
+  "shell_used": false,
+  "telemetry_lines": 1,
+  "artifacts": "2026-10-08-pr128-query-rerun/cloud-serverless-codex",
+  "grading_method": "Agent review of exact prompt, final answer, tool responses, and telemetry; no separate model judge.",
+  "result": "failed",
+  "criteria": {
+    "query_tool_mapping": "passed",
+    "tool_vs_endpoint": "passed",
+    "server_routes": "passed",
+    "influxql_endpoint": "passed",
+    "flux_unsupported": "passed",
+    "only_get_help": "passed",
+    "overall_help_heading": "failed: reported query-section heading"
+  }
+}

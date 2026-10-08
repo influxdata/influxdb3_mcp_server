@@ -1,0 +1,1 @@
+Chooses `query_influxql`, uses a regex-style field query where appropriate, and returns JSON output and query metadata.
