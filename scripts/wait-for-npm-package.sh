@@ -9,7 +9,7 @@ encoded_package="$(jq -rn --arg package "$package" '$package | @uri')"
 metadata="$(mktemp)"
 trap 'rm -f "$metadata"' EXIT
 
-for attempt in $(seq 1 40); do
+for attempt in $(seq 1 20); do
   status="$(curl --silent --show-error --connect-timeout 5 --max-time 10 \
     --output "$metadata" --write-out '%{http_code}' \
     "https://registry.npmjs.org/$encoded_package/$version")" || status=000
@@ -25,10 +25,10 @@ for attempt in $(seq 1 40); do
   fi
 
   case "$status" in
-    000|404|429|5??) echo "Waiting for $package@$version (attempt $attempt/40; HTTP $status)" ;;
+    000|404|429|5??) echo "Waiting for $package@$version (attempt $attempt/20; HTTP $status)" ;;
     *) echo "Unexpected npm registry response: HTTP $status" >&2; exit 1 ;;
   esac
-  if [[ "$attempt" -lt 40 ]]; then sleep 30; fi
+  if [[ "$attempt" -lt 20 ]]; then sleep 60; fi
 done
 
 echo "npm version is not publicly available yet; retry only the MCP Registry job after npm validation completes" >&2
