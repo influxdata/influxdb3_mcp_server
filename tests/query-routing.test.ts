@@ -159,20 +159,32 @@ describe("query routing options", () => {
     );
   });
 
-  it("preserves the Clustered InfluxQL timeout", async () => {
-    const base = stubBaseService(InfluxProductType.Clustered);
-    const httpClient = { get: vi.fn().mockResolvedValue({}) };
-    vi.mocked(base.getInfluxHttpClient).mockReturnValue(httpClient as any);
+  // These products use the v1-compatible HTTP API for InfluxQL, including
+  // Serverless, whose SQL queries use Flight instead.
+  it.each([
+    ["cloud-dedicated", InfluxProductType.CloudDedicated],
+    ["cloud-serverless", InfluxProductType.CloudServerless],
+    ["clustered", InfluxProductType.Clustered],
+  ])(
+    "%s routes InfluxQL to the v1 API with params and timeout",
+    async (_name, type) => {
+      const base = stubBaseService(type);
+      const response = { results: [{ statement_id: 0 }] };
+      const httpClient = { get: vi.fn().mockResolvedValue(response) };
+      vi.mocked(base.getInfluxHttpClient).mockReturnValue(httpClient as any);
 
-    await new QueryService(base).executeInfluxqlQuery(
-      "SELECT * FROM cpu",
-      DATABASE,
-      { timeoutMs: TIMEOUT_MS },
-    );
+      await expect(
+        new QueryService(base).executeInfluxqlQuery(QUERY, DATABASE, {
+          params: PARAMS,
+          timeoutMs: TIMEOUT_MS,
+        }),
+      ).resolves.toEqual(response);
 
-    expect(httpClient.get).toHaveBeenCalledWith(
-      "/query",
-      expect.objectContaining({ timeout: TIMEOUT_MS }),
-    );
-  });
+      expect(httpClient.get).toHaveBeenCalledWith("/query", {
+        params: { db: DATABASE, q: QUERY, params: PARAMS },
+        timeout: TIMEOUT_MS,
+      });
+      expect(base.getClient).not.toHaveBeenCalled();
+    },
+  );
 });
