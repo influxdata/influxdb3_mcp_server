@@ -39,6 +39,7 @@ jobs:
 
   mcp-registry-publish:
     name: Publish to MCP Registry
+    timeout-minutes: 30
     needs: npm-publish
     if: >-
       github.repository == 'influxdata/influxdb3_mcp_server' &&
@@ -58,6 +59,9 @@ jobs:
 
       - name: Validate MCP Registry metadata
         run: '"$RUNNER_TEMP/mcp-publisher" validate'
+
+      - name: Wait for the npm version to become public
+        run: bash scripts/wait-for-npm-package.sh
 
       - name: Authenticate to MCP Registry
         run: '"$RUNNER_TEMP/mcp-publisher" login github-oidc'
