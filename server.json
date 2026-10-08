@@ -1,0 +1,70 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.influxdata/influxdb3-mcp-server",
+  "title": "InfluxDB 3",
+  "description": "Official InfluxDB 3 MCP server: query, write and manage Core, Enterprise and Cloud databases.",
+  "repository": {
+    "url": "https://github.com/influxdata/influxdb3_mcp_server",
+    "source": "github"
+  },
+  "version": "1.4.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@influxdata/influxdb3-mcp-server",
+      "version": "1.4.2",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "INFLUX_DB_PRODUCT_TYPE",
+          "description": "InfluxDB edition or service; use its runtime configuration value.",
+          "isRequired": true,
+          "format": "string",
+          "choices": [
+            "core",
+            "enterprise",
+            "cloud-serverless",
+            "cloud-dedicated",
+            "clustered"
+          ]
+        },
+        {
+          "name": "INFLUX_DB_TOKEN",
+          "description": "Operator, admin, resource or database token. Required for Core, Enterprise and Cloud Serverless; needed for query/write on Cloud Dedicated and Clustered.",
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "INFLUX_DB_INSTANCE_URL",
+          "description": "InfluxDB URL. Required for Core, Enterprise, Cloud Serverless and Clustered; e.g. http://localhost:8181/ for Core or Enterprise.",
+          "format": "string"
+        },
+        {
+          "name": "INFLUX_DB_MANAGEMENT_TOKEN",
+          "description": "Management API token for Cloud Dedicated or Clustered. Provide this or INFLUX_DB_TOKEN, or both for full functionality.",
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "INFLUX_DB_ACCOUNT_ID",
+          "description": "Account ID required when using a management token with Cloud Dedicated.",
+          "format": "string"
+        },
+        {
+          "name": "INFLUX_DB_CLUSTER_ID",
+          "description": "Cluster ID required for Cloud Dedicated.",
+          "format": "string"
+        },
+        {
+          "name": "INFLUX_MCP_TOOL_PROFILE",
+          "description": "Tools to expose. readonly exposes read-only tools; readwrite also allows writes; operator exposes all tools.",
+          "format": "string",
+          "default": "operator",
+          "choices": ["readonly", "readwrite", "operator"]
+        }
+      ]
+    }
+  ]
+}
