@@ -1,0 +1,1 @@
+Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. In host_system, select "cpu::usage*" from metrics.

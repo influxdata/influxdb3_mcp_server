@@ -1,0 +1,46 @@
+{
+  "case": "ro-wildcard-field-low",
+  "product": "enterprise",
+  "sha": "626ff257f1d91594d1475dbfb80a71f7bd63f80c",
+  "model": "gpt-5.6-sol",
+  "reasoning": "low",
+  "auth": "ChatGPT sign-in",
+  "start": "2026-10-08T13:55:17.775Z",
+  "end": "2026-10-08T13:55:38.019Z",
+  "exit_code": 0,
+  "usage": {
+    "input_tokens": 183465,
+    "cached_input_tokens": 166528,
+    "output_tokens": 515,
+    "reasoning_output_tokens": 89
+  },
+  "duration_ms": 20244,
+  "harness": "codex",
+  "tool_path": [
+    "load_database_context",
+    "list_databases",
+    "describe_table",
+    "query_sql"
+  ],
+  "tool_calls": 4,
+  "failed_calls": 0,
+  "shell_used": false,
+  "telemetry_lines": 4,
+  "artifacts": "2026-10-08-pr128-query-rerun/ro-wildcard-field-low-codex",
+  "grading_method": "Agent review of exact prompt, final answer, tool responses, and telemetry; no separate model judge.",
+  "influxdb_image": "influxdb:3.11.5-enterprise",
+  "influxdb_version": "3.11.5",
+  "influxdb_revision": "6b5b62a42f18feb2d3054a501eea417bf94a96b3",
+  "result": "passed",
+  "criteria": {
+    "schema_grounded_expansion": "passed",
+    "explicit_sql_fields": "passed",
+    "bounded_query": "passed",
+    "no_influxql_call": "passed",
+    "returned_cpu_rows": "passed",
+    "no_mutation": "passed"
+  },
+  "notes": [
+    "Agent passed maxRows=1000; the server appended LIMIT 1000 before executing the SQL query. It also loaded database context and listed databases."
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "case": "ro-influxql-regex",
+  "product": "enterprise",
+  "sha": "626ff257f1d91594d1475dbfb80a71f7bd63f80c",
+  "model": "gpt-5.6-sol",
+  "reasoning": "low",
+  "auth": "ChatGPT sign-in",
+  "start": "2026-10-08T13:55:38.109Z",
+  "end": "2026-10-08T13:55:49.092Z",
+  "exit_code": 0,
+  "usage": {
+    "input_tokens": 60382,
+    "cached_input_tokens": 48512,
+    "output_tokens": 411,
+    "reasoning_output_tokens": 123
+  },
+  "duration_ms": 10983,
+  "harness": "codex",
+  "tool_path": [
+    "query_influxql"
+  ],
+  "tool_calls": 1,
+  "failed_calls": 0,
+  "shell_used": false,
+  "telemetry_lines": 1,
+  "artifacts": "2026-10-08-pr128-query-rerun/ro-influxql-regex-codex",
+  "grading_method": "Agent review of exact prompt, final answer, tool responses, and telemetry; no separate model judge.",
+  "influxdb_image": "influxdb:3.11.5-enterprise",
+  "influxdb_version": "3.11.5",
+  "influxdb_revision": "6b5b62a42f18feb2d3054a501eea417bf94a96b3",
+  "result": "failed",
+  "criteria": {
+    "influxql_selected": "passed",
+    "regex_fields": "passed",
+    "bounded_query": "passed: server appended LIMIT 1000",
+    "returned_cpu_rows": "passed",
+    "json_output": "passed",
+    "query_metadata": "failed: omitted request/query IDs and query_id_source from the final answer",
+    "no_mutation": "passed"
+  },
+  "notes": [
+    "Final answer includes database, row count, and truncation, but does not provide the query metadata returned by the tool. The runbook expects JSON and query metadata; its table prompt does not explicitly request those details."
+  ]
+}

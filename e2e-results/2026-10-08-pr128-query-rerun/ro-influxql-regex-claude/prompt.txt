@@ -1,0 +1,1 @@
+Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Use InfluxQL through MCP. In host_system, select all cpu::usage fields from metrics.

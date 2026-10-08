@@ -1,0 +1,1 @@
+Treats the quoted `*` as wildcard intent, uses `describe_table`, expands matching fields explicitly, and runs one bounded `query_sql`. Avoids InfluxQL unless SQL recovery fails.
