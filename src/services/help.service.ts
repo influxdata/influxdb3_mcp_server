@@ -44,7 +44,7 @@ Common Errors:
 
 Supported Query Languages:
 - InfluxDB 3 supports both SQL and InfluxQL. Flux is not supported.
-- Use query_sql for SQL and query_influxql for InfluxQL.
+- Use the MCP tool query_sql for SQL and query_influxql for InfluxQL across supported products. The server selects the appropriate transport and endpoint for the configured product.
 - InfluxDB 3 Core, Enterprise, and InfluxDB 3 Cloud use /api/v3/query_influxql for InfluxQL.
 - InfluxDB Cloud Serverless, InfluxDB Cloud Dedicated, and InfluxDB Clustered use the v1 /query endpoint for InfluxQL.
 
