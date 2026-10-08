@@ -1,0 +1,4 @@
+{"tool_name":"get_help","request_id":"9983b450-7175-4431-bf33-932145b64854","timestamp_ms":1791466060065,"duration_ms":1,"success":true}
+{"tool_name":"query_influxql","request_id":"b7da37d8-8916-4cbd-90f8-3dc503ec614f","query_id":"f6a57ce5-d8bc-46c9-be63-b136806b893f","timestamp_ms":1791466063023,"duration_ms":774,"db":"host_system","row_count":0,"truncated":false,"success":true}
+{"tool_name":"describe_table","request_id":"8735938d-0b67-43cd-b089-f22e99cea424","timestamp_ms":1791466066578,"duration_ms":15,"db":"host_system","success":true}
+{"tool_name":"query_influxql","request_id":"c49608d5-1d64-4762-9aa4-3698b888a028","query_id":"1230c678-8e20-4504-a502-1dc31f05f09d","timestamp_ms":1791466070503,"duration_ms":34,"db":"host_system","row_count":2,"truncated":false,"success":true}
