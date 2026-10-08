@@ -42,7 +42,13 @@ Common Errors:
 
 === QUERYING DATA ===
 
-SQL Syntax for InfluxDB v3:
+Supported Query Languages:
+- InfluxDB 3 supports both SQL and InfluxQL. Flux is not supported.
+- Use query_sql for SQL and query_influxql for InfluxQL.
+- InfluxDB 3 Core, Enterprise, and InfluxDB 3 Cloud use /api/v3/query_influxql for InfluxQL.
+- InfluxDB Cloud Serverless, InfluxDB Cloud Dedicated, and InfluxDB Clustered use the v1 /query endpoint for InfluxQL.
+
+SQL Syntax for InfluxDB 3:
 SELECT field1, field2 FROM measurement WHERE time >= 'timestamp' AND tag1 = 'value'
 
 Time Filtering:
@@ -223,7 +229,7 @@ Authentication Errors:
 - Token not properly configured for target database
 
 Query Errors:
-- Invalid SQL syntax (InfluxDB uses SQL, not InfluxQL)
+- Invalid syntax for the selected query language (SQL or InfluxQL); Flux is not supported
 - Missing time filters causing performance issues
 - Incorrect measurement or field names
 - Wrong database specified
