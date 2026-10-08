@@ -17,9 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Flux is not supported.
 - `get_help` distinguishes MCP query tool names from HTTP endpoint paths.
   The server selects the transport and endpoint for the configured product.
-- InfluxQL endpoint guidance now identifies `/api/v3/query_influxql` for
-  Core, Enterprise, and InfluxDB 3 Cloud, and the v1 `/query` endpoint for
-  Cloud Serverless, Cloud Dedicated, and Clustered.
+- InfluxQL endpoint guidance now identifies both `/api/v3/query_influxql`
+  and the v1-compatible `/query` endpoint for Core, Enterprise, and InfluxDB 3 Cloud.
+  Cloud Serverless, Cloud Dedicated, and Clustered use the v1 `/query` endpoint.
 
 ### Added
 
