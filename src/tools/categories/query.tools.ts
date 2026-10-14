@@ -29,7 +29,11 @@ function readOnlyQueryInputSchema(queryDescription: string) {
       },
       q: {
         type: "string",
-        description: queryDescription,
+        description: `${queryDescription}. Required unless \`query\` is given.`,
+      },
+      query: {
+        type: "string",
+        description: "Alias for `q`. Use one of `q` or `query`.",
       },
       params: {
         description: "Optional query parameters to pass through",
@@ -47,19 +51,46 @@ function readOnlyQueryInputSchema(queryDescription: string) {
         minimum: 1,
       },
     },
-    required: ["db", "q"],
+    required: ["db"],
     additionalProperties: false,
   };
 }
 
-const readOnlyQueryZodSchema = z.object({
-  db: z.string().describe("Database name to query"),
-  q: z.string().describe("Read-only query to run"),
-  params: z.union([z.record(z.unknown()), z.array(z.unknown())]).optional(),
-  format: queryFormatSchema,
-  maxRows: z.number().int().min(1).max(5000).optional(),
-  timeoutMs: z.number().int().min(1).optional(),
-});
+const readOnlyQueryZodSchema = z
+  .object({
+    db: z.string().describe("Database name to query"),
+    q: z.string().optional().describe("Read-only query to run"),
+    query: z.string().optional().describe("Alias for q"),
+    params: z.union([z.record(z.unknown()), z.array(z.unknown())]).optional(),
+    format: queryFormatSchema,
+    maxRows: z.number().int().min(1).max(5000).optional(),
+    timeoutMs: z.number().int().min(1).optional(),
+  })
+  .superRefine((args, ctx) => {
+    if (
+      args.q !== undefined &&
+      args.query !== undefined &&
+      args.q !== args.query
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["query"],
+        message: "`q` and `query` differ; provide only one",
+      });
+    } else if (args.q === undefined && args.query === undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.invalid_type,
+        expected: "string",
+        received: "undefined",
+        path: ["q"],
+        message: "Required",
+      });
+    }
+  })
+  .transform(({ query, ...rest }) => ({
+    ...rest,
+    q: (rest.q ?? query) as string,
+  }));
 
 export function createQueryTools(
   influxService: InfluxDBMasterService,
