@@ -82,6 +82,25 @@ Performance Tips:
 - Use LIMIT for large datasets to avoid memory issues
 - Test with COUNT(*) first to check data size before complex queries
 
+=== READING QUERY RESULTS ===
+
+query_sql and query_influxql return rows, warnings, and metadata. Carry these
+into your answer:
+- metadata.completeness: "complete", "capped", or "interrupted". Say when a
+  result is capped or interrupted; never present it as the whole data set.
+- metadata.cap and metadata.cap_source when capped: the row bound, and
+  whether it came from the server's bound (raise maxRows or narrow the query)
+  or the query's own LIMIT (raise the LIMIT).
+- metadata.row_count: the rows the answer is based on.
+- warnings: for example limit_added, limit_reached (more rows may exist),
+  missing_time_predicate, format_mismatch.
+- Errors: say the query failed and why. A failure is never "no data", and an
+  empty successful result means no rows matched.
+- An interrupted result returns ok: false with the rows received. Use them
+  only as partial results, and say so.
+Leave out request and query IDs and timings unless asked. Answer
+conversationally; return raw JSON, with its metadata intact, only when asked.
+
 === TOKEN MANAGEMENT ===
 
 Token Types:

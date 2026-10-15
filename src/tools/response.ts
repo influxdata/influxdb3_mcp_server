@@ -17,6 +17,8 @@ export function errorResponse(error: unknown, code = "tool_error") {
   const message = error instanceof Error ? error.message : String(error);
   const details = error as {
     fix?: string;
+    supported_formats?: string[];
+    rows?: unknown[];
     metadata?: Record<string, unknown>;
   };
   return {
@@ -30,7 +32,11 @@ export function errorResponse(error: unknown, code = "tool_error") {
             message,
             retryable: false,
             ...(details.fix && { fix: details.fix }),
+            ...(details.supported_formats && {
+              supported_formats: details.supported_formats,
+            }),
           },
+          ...(details.rows && { rows: details.rows }),
           ...(details.metadata && { metadata: details.metadata }),
         }),
       },

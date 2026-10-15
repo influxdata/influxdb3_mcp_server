@@ -21,7 +21,7 @@ function stubBaseService(type: InfluxProductType): BaseConnectionService {
 }
 
 function httpClientThrowing(error: AxiosErrorShape) {
-  return { post: vi.fn().mockRejectedValue(error) };
+  return { postText: vi.fn().mockRejectedValue(error) };
 }
 
 function sdkClientThrowing(error: SdkErrorShape) {

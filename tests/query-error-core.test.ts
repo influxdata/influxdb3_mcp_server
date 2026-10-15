@@ -19,7 +19,7 @@ function stubBaseService(): BaseConnectionService {
 }
 
 function httpClientThrowing(error: AxiosErrorShape) {
-  return { post: vi.fn().mockRejectedValue(error) };
+  return { postText: vi.fn().mockRejectedValue(error) };
 }
 
 describe("handleQueryError – Core (axios) error path", () => {

@@ -10,7 +10,16 @@ export interface QuerySafetyResult {
   code?: string;
   message?: string;
   fix?: string;
+  /** The query as reported back to the caller, bounded at `maxRows`. */
   normalizedQuery?: string;
+  /**
+   * The query sent to the server. Where the safety layer sets the bound, it
+   * asks for `maxRows + 1` rows; the extra row is the evidence that the
+   * result was capped.
+   */
+  executedQuery?: string;
+  /** The caller's own top-level LIMIT, when it is at or below `maxRows`. */
+  queryLimit?: number;
   warnings: QueryWarning[];
 }
 
@@ -55,7 +64,11 @@ export class QuerySafetyService {
       return this.reject("empty_query", "Query cannot be empty.");
     }
 
-    if (this.hasMultipleStatements(trimmed)) {
+    // Comments, string literals and quoted identifiers are never statement
+    // structure or keywords, so the structural checks run without them.
+    const structure = this.stripQuotedAndComments(trimmed);
+
+    if (this.hasMultipleStatements(structure)) {
       return this.reject(
         "multiple_statements",
         "Read-only query tools only accept one statement.",
@@ -64,7 +77,7 @@ export class QuerySafetyService {
     }
 
     const commentless = this.stripComments(trimmed);
-    const firstKeyword = this.firstKeyword(commentless);
+    const firstKeyword = this.firstKeyword(structure);
     const allowed = language === "sql" ? SQL_ALLOWED : INFLUXQL_ALLOWED;
 
     if (!firstKeyword || !allowed.has(firstKeyword)) {
@@ -78,7 +91,7 @@ export class QuerySafetyService {
     }
 
     const rejected = language === "sql" ? SQL_REJECTED : INFLUXQL_REJECTED;
-    const upper = commentless.toUpperCase();
+    const upper = structure.toUpperCase();
     const rejectedKeyword = rejected.find((keyword) =>
       new RegExp(`\\b${keyword}\\b`, "u").test(upper),
     );
@@ -97,21 +110,30 @@ export class QuerySafetyService {
       );
     }
 
-    let normalizedQuery = trimmed.replace(/;+$/u, "");
-    const limit = this.topLevelLimit(normalizedQuery);
+    const statement = trimmed.replace(/;+$/u, "");
+    let normalizedQuery = statement;
+    let executedQuery = statement;
+    let queryLimit: number | undefined;
+    const limit = this.topLevelLimit(statement);
     if (this.shouldEnforceLimit(firstKeyword)) {
       if (limit === undefined) {
-        normalizedQuery = this.appendLimit(normalizedQuery, maxRows);
+        normalizedQuery = this.appendLimit(statement, maxRows);
+        executedQuery = this.appendLimit(statement, maxRows + 1);
         warnings.push({
           code: "limit_added",
           message: `Added LIMIT ${maxRows} to enforce a bounded result set.`,
         });
       } else if (limit.value > maxRows) {
-        normalizedQuery = `${normalizedQuery.slice(0, limit.valueStart)}${maxRows}${normalizedQuery.slice(limit.valueEnd)}`;
+        const replaceLimit = (value: number) =>
+          `${statement.slice(0, limit.valueStart)}${value}${statement.slice(limit.valueEnd)}`;
+        normalizedQuery = replaceLimit(maxRows);
+        executedQuery = replaceLimit(maxRows + 1);
         warnings.push({
           code: "limit_reduced",
           message: `Reduced LIMIT ${limit.value} to ${maxRows}.`,
         });
+      } else {
+        queryLimit = limit.value;
       }
     }
 
@@ -129,6 +151,8 @@ export class QuerySafetyService {
     return {
       ok: true,
       normalizedQuery,
+      executedQuery,
+      ...(queryLimit !== undefined && { queryLimit }),
       warnings,
     };
   }
@@ -157,6 +181,36 @@ export class QuerySafetyService {
   private hasMultipleStatements(query: string): boolean {
     const withoutTrailing = query.trim().replace(/;+$/u, "");
     return withoutTrailing.includes(";");
+  }
+
+  /**
+   * Replace each comment, string literal and quoted identifier with a space.
+   * One pass, so a comment marker inside a literal stays inside it and a
+   * quote inside a comment opens nothing.
+   */
+  private stripQuotedAndComments(query: string): string {
+    let result = "";
+    for (let index = 0; index < query.length; ) {
+      const character = query[index];
+      const next = query[index + 1];
+
+      if (character === "'" || character === '"' || character === "`") {
+        index = this.skipQuoted(query, index, character);
+        result += " ";
+      } else if (character === "-" && next === "-") {
+        const end = query.indexOf("\n", index + 2);
+        index = end === -1 ? query.length : end;
+        result += " ";
+      } else if (character === "/" && next === "*") {
+        const end = query.indexOf("*/", index + 2);
+        index = end === -1 ? query.length : end + 2;
+        result += " ";
+      } else {
+        result += character;
+        index += 1;
+      }
+    }
+    return result.trim();
   }
 
   private stripComments(query: string): string {
