@@ -118,6 +118,21 @@ describe("MCP protocol compliance", () => {
       );
     });
 
+    it("describes aliases, output, and formats the same way on both query tools", async () => {
+      const result = await testClient.client.listTools();
+      for (const name of ["query_sql", "query_influxql"]) {
+        const description =
+          result.tools.find((tool) => tool.name === name)?.description ?? "";
+        for (const sentence of [
+          "Accepts database as an alias for db and query as an alias for q; differing pairs are rejected.",
+          "Defaults to JSON output and returns structured rows, warnings, and query metadata.",
+          "Core and Enterprise also return jsonl or csv; Cloud Dedicated, Cloud Serverless, and Clustered return only JSON.",
+        ]) {
+          expect(description, name).toContain(sentence);
+        }
+      }
+    });
+
     it("shows the InfluxQL regex field form the parser accepts", async () => {
       const result = await testClient.client.listTools();
       const description =
