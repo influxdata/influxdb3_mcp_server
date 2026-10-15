@@ -5,6 +5,41 @@ All notable changes to the official InfluxDB 3 MCP Server will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `query_sql` and `query_influxql` report `metadata.completeness` as
+  `complete`, `capped`, or `interrupted`. A capped result also carries `cap`
+  and `cap_source` (`server_bound` or `query_limit`). `truncated` remains and
+  equals `completeness !== "complete"`.
+- A result cut by `maxRows` is now reported as capped. The server asks for
+  one row more than `maxRows` to detect it. Before, a capped result always
+  read as complete.
+- A JSON response that stops after rows have arrived now returns `ok: false`
+  with the rows received and the `query_interrupted` code. Before, a
+  response cut off mid-row could return `ok: true` with no rows.
+- The `format` field reports the format the server returned. A
+  `format_mismatch` warning says when it differs from the one requested.
+- The read-only query tools return `json`, `jsonl`, or `csv` on Core and
+  Enterprise, and `json` elsewhere. Other formats are refused before the
+  query runs with `unsupported_query_format` and a `supported_formats` list.
+  CSV and JSONL results are bounded and counted by record.
+- `query_influxql` on Cloud Serverless, Cloud Dedicated, and Clustered
+  refuses non-JSON formats instead of returning JSON labeled with the
+  requested format (#84).
+- `timeoutMs` on Flight SQL queries, and Flight parameters the client can't
+  send, are refused with `unsupported_query_option`.
+- `get_help` gains a "READING QUERY RESULTS" section, and the query tool
+  descriptions point to it (#131).
+
+### Fixed
+
+- The read-only safety check no longer refuses queries whose string literals
+  or quoted identifiers contain a write keyword or a semicolon, for example
+  `SELECT 'DROP TABLE metrics' AS note`. A `--` inside a string literal no
+  longer hides the rest of the line from the check.
+
 ## [1.4.2] - 2026-09-28
 
 ### Fixed

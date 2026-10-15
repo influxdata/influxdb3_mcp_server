@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/influxdata/influxdb3_mcp_server/schemas/read-only-response.schema.json",
+  "title": "Read-only query tool response",
+  "description": "The JSON envelope query_sql and query_influxql return in their text content. Every read-only tool returns the toolError shape on failure. Changes are additive: new fields may be added, and existing required fields stay required.",
+  "oneOf": [
+    { "$ref": "#/definitions/querySuccess" },
+    { "$ref": "#/definitions/toolError" }
+  ],
+  "definitions": {
+    "warning": {
+      "type": "object",
+      "required": ["code", "message"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" }
+      }
+    },
+    "completeness": {
+      "description": "complete: every row the query selects was returned. capped: a row bound cut the result; cap and cap_source say which. interrupted: the server failed after rows began to arrive; rows holds those received.",
+      "enum": ["complete", "capped", "interrupted"]
+    },
+    "querySuccess": {
+      "type": "object",
+      "required": ["ok", "db", "q", "format", "rows", "metadata", "warnings"],
+      "properties": {
+        "ok": { "const": true },
+        "db": { "type": "string" },
+        "q": {
+          "type": "string",
+          "description": "The query as run, with the row bound the caller sees."
+        },
+        "format": {
+          "description": "The format of the payload the server returned, which can differ from the one requested; a format_mismatch warning says so.",
+          "enum": ["json", "jsonl", "csv"]
+        },
+        "rows": {
+          "type": "array",
+          "description": "JSON rows, or for csv and jsonl one item whose value is the text payload."
+        },
+        "metadata": {
+          "type": "object",
+          "required": [
+            "request_id",
+            "query_id",
+            "query_id_source",
+            "query_type",
+            "success",
+            "duration_ms",
+            "row_count",
+            "truncated",
+            "completeness"
+          ],
+          "properties": {
+            "request_id": { "type": "string" },
+            "query_id": { "type": "string" },
+            "query_id_source": { "enum": ["local", "system.queries.id"] },
+            "query_type": { "enum": ["sql", "influxql"] },
+            "success": { "type": "boolean" },
+            "duration_ms": { "type": "number" },
+            "row_count": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Rows returned, or records in a csv or jsonl payload."
+            },
+            "truncated": {
+              "type": "boolean",
+              "description": "Kept for compatibility: true when completeness is not complete."
+            },
+            "completeness": { "$ref": "#/definitions/completeness" },
+            "cap": { "type": "integer", "minimum": 0 },
+            "cap_source": { "enum": ["server_bound", "query_limit"] }
+          },
+          "if": { "properties": { "completeness": { "const": "complete" } } },
+          "then": {
+            "properties": { "truncated": { "const": false } },
+            "not": {
+              "anyOf": [{ "required": ["cap"] }, { "required": ["cap_source"] }]
+            }
+          },
+          "else": {
+            "required": ["cap", "cap_source"],
+            "properties": {
+              "truncated": { "const": true },
+              "completeness": { "const": "capped" }
+            }
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/warning" }
+        }
+      }
+    },
+    "toolError": {
+      "type": "object",
+      "required": ["ok", "error"],
+      "properties": {
+        "ok": { "const": false },
+        "error": {
+          "type": "object",
+          "required": ["code", "message", "retryable"],
+          "properties": {
+            "code": { "type": "string" },
+            "message": { "type": "string" },
+            "retryable": { "type": "boolean" },
+            "fix": { "type": "string" },
+            "supported_formats": {
+              "type": "array",
+              "items": { "enum": ["json", "jsonl", "csv", "pretty", "parquet"] }
+            }
+          }
+        },
+        "rows": {
+          "type": "array",
+          "description": "Rows received before an interrupted result failed."
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "row_count": { "type": "integer", "minimum": 0 },
+            "truncated": { "type": "boolean" },
+            "completeness": { "const": "interrupted" }
+          }
+        }
+      },
+      "if": { "required": ["rows"] },
+      "then": {
+        "required": ["metadata"],
+        "properties": {
+          "metadata": {
+            "required": ["completeness", "row_count", "truncated"],
+            "properties": { "truncated": { "const": true } }
+          }
+        }
+      }
+    }
+  }
+}

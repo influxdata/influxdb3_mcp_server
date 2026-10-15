@@ -118,6 +118,23 @@ describe("MCP protocol compliance", () => {
       );
     });
 
+    it("points query tools at the output contract in get_help (#131)", async () => {
+      const result = await testClient.client.listTools();
+      for (const name of ["query_sql", "query_influxql"]) {
+        const description =
+          result.tools.find((tool) => tool.name === name)?.description ?? "";
+        expect(description).toContain("metadata.completeness");
+        expect(description).toContain("READING QUERY RESULTS in get_help");
+      }
+
+      const help = await testClient.client.callTool({
+        name: "get_help",
+        arguments: {},
+      });
+      const text = (help.content as Array<{ text: string }>)[0]?.text;
+      expect(text).toContain("=== READING QUERY RESULTS ===");
+    });
+
     it("advertises only read-only tools in readonly profile", async () => {
       const readonlyClient = await createTestClient({
         INFLUX_MCP_TOOL_PROFILE: "readonly",

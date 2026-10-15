@@ -1,0 +1,230 @@
+/**
+ * Scripted InfluxDB HTTP responses for the fake server in
+ * `tests/helpers/fake-influxdb.ts`.
+ *
+ * Each scenario records which product and version it stands for and where
+ * its response came from. A `source-inspection` scenario is a guess until a
+ * live run confirms it. When a live run disagrees, update the scenario from
+ * the observed response and change its provenance to that run.
+ */
+
+export interface ScenarioProvenance {
+  product: "core" | "enterprise";
+  version: string;
+  source: "live" | "claim" | "source-inspection";
+  /** Live: date, version and testbench target. Claim: the claim ID. Source inspection: what was read. */
+  detail: string;
+  /**
+   * Why the scenario departs from the product's published OpenAPI spec, when
+   * it does: an undocumented status, a body the spec's schema rejects, or a
+   * body cut short. The scenario contract test reports it instead of failing.
+   */
+  outside_spec?: string;
+}
+
+export interface ScenarioRequest {
+  method: "GET" | "POST";
+  path: string;
+  /** Match only requests for this database. */
+  db?: string;
+  /** Match only queries that match this pattern. */
+  q?: RegExp;
+}
+
+/** A fixed status, headers and body. */
+export interface ScriptedBody {
+  status: number;
+  headers?: Record<string, string>;
+  body: string | object;
+  /** Wait this long before responding. */
+  delayMs?: number;
+}
+
+/**
+ * A table of rows. The fake encodes them in the requested `format` and
+ * applies a trailing `LIMIT n` in the query, as the server would, so a test
+ * observes how many rows the MCP server asked for without asserting on SQL.
+ */
+export interface ScriptedTable {
+  table: Array<Record<string, unknown>>;
+  /**
+   * Fail after sending `afterRows` rows and part of the next one.
+   * `truncate` ends the response cleanly; `abort` destroys the connection.
+   */
+  interrupt?: { afterRows: number; mode: "truncate" | "abort" };
+}
+
+export interface Scenario {
+  name: string;
+  provenance: ScenarioProvenance;
+  request: ScenarioRequest;
+  response: ScriptedBody | ScriptedTable;
+}
+
+/** The testbench run list asks the operator to confirm the live shape. */
+const ROWS_ARRAY_OUTSIDE_SPEC =
+  "The spec documents a JSON object with `results`; this scenario returns a top-level array of rows, the shape the MCP server parses. Unconfirmed against a live 3.12 run.";
+
+/** Database the protocol tests seed and query on a live testbench. */
+export const TRUST_DB = "mcp_test_trust";
+
+/**
+ * Five `cpu` rows at fixed timestamps. Live runs seed the same points with
+ * `CPU_LINE_PROTOCOL`, so re-seeding overwrites rather than appends.
+ */
+export const CPU_ROWS: Array<Record<string, unknown>> = [
+  { host: "a", time: "2024-03-09T16:00:00", usage: 10.5 },
+  { host: "a", time: "2024-03-09T16:01:00", usage: 11.5 },
+  { host: "a", time: "2024-03-09T16:02:00", usage: 12.5 },
+  { host: "a", time: "2024-03-09T16:03:00", usage: 13.5 },
+  { host: "a", time: "2024-03-09T16:04:00", usage: 14.5 },
+];
+
+export const CPU_LINE_PROTOCOL = [
+  "cpu,host=a usage=10.5 1710000000",
+  "cpu,host=a usage=11.5 1710000060",
+  "cpu,host=a usage=12.5 1710000120",
+  "cpu,host=a usage=13.5 1710000180",
+  "cpu,host=a usage=14.5 1710000240",
+].join("\n");
+
+export const CORE_SQL_CPU_TABLE: Scenario = {
+  name: "core-sql-cpu-table",
+  provenance: {
+    product: "core",
+    version: "3.11.5",
+    source: "source-inspection",
+    detail:
+      "POST /api/v3/query_sql with format=json returns a JSON array of row objects (query.service.ts normalizeRows). Unconfirmed against a live run.",
+    outside_spec: ROWS_ARRAY_OUTSIDE_SPEC,
+  },
+  request: {
+    method: "POST",
+    path: "/api/v3/query_sql",
+    db: TRUST_DB,
+    q: /\bFROM\s+"?cpu"?(?!\w)/iu,
+  },
+  response: { table: CPU_ROWS },
+};
+
+/** Planning fails before any row is sent: an error status and body. */
+export const CORE_SQL_UNKNOWN_TABLE: Scenario = {
+  name: "core-sql-unknown-table",
+  provenance: {
+    product: "core",
+    version: "3.11.5",
+    source: "source-inspection",
+    detail:
+      "Body shape copied from CORE_500_INVALID_SQL in error-responses.ts; the table-not-found wording is unconfirmed.",
+    outside_spec:
+      "The spec documents no 500 for query_sql. CORE_500_INVALID_SQL in error-responses.ts records a 500 from Core for a planning error.",
+  },
+  request: {
+    method: "POST",
+    path: "/api/v3/query_sql",
+    db: TRUST_DB,
+    q: /\bFROM\s+"?no_such_table"?(?!\w)/iu,
+  },
+  response: {
+    status: 500,
+    body: "query error: error while planning query: Error during planning: table 'public.iox.no_such_table' not found",
+  },
+};
+
+/**
+ * The stream fails after two rows. How InfluxDB 3 ends a response that fails
+ * after streaming begins is unobserved; this scripts both plausible endings.
+ */
+export function coreSqlInterrupted(mode: "truncate" | "abort"): Scenario {
+  return {
+    name: `core-sql-interrupted-${mode}`,
+    provenance: {
+      product: "core",
+      version: "3.12.1",
+      source: "source-inspection",
+      detail:
+        "Unobserved. A 200 JSON response that stops after two rows; needs a 3.12.1 run that exhausts memory mid-stream to confirm.",
+      outside_spec:
+        "A response cut short is outside every documented response.",
+    },
+    request: {
+      method: "POST",
+      path: "/api/v3/query_sql",
+      db: TRUST_DB,
+      q: /\bFROM\s+"?cpu_stream_fail"?(?!\w)/iu,
+    },
+    response: { table: CPU_ROWS, interrupt: { afterRows: 2, mode } },
+  };
+}
+
+export const CORE_INFLUXQL_CPU_TABLE: Scenario = {
+  name: "core-influxql-cpu-table",
+  provenance: {
+    product: "core",
+    version: "3.11.5",
+    source: "source-inspection",
+    detail:
+      "POST /api/v3/query_influxql returns rows with an iox::measurement column. Unconfirmed against a live run.",
+    outside_spec: ROWS_ARRAY_OUTSIDE_SPEC,
+  },
+  request: {
+    method: "POST",
+    path: "/api/v3/query_influxql",
+    db: TRUST_DB,
+    q: /\bFROM\s+"?cpu"?(?!\w)/iu,
+  },
+  response: {
+    table: CPU_ROWS.map((row) => ({ "iox::measurement": "cpu", ...row })),
+  },
+};
+
+/** #84's shape: JSON rows returned for a CSV request. */
+export const CORE_SQL_CSV_RETURNS_JSON: Scenario = {
+  name: "core-sql-csv-returns-json",
+  provenance: {
+    product: "core",
+    version: "unknown",
+    source: "source-inspection",
+    detail:
+      "Not observed on Core or Enterprise. Mirrors the Cloud Dedicated report in #84, where JSON rows came back for a CSV request.",
+    outside_spec: ROWS_ARRAY_OUTSIDE_SPEC,
+  },
+  request: {
+    method: "POST",
+    path: "/api/v3/query_sql",
+    db: TRUST_DB,
+    q: /\bFROM\s+"?cpu_json_only"?(?!\w)/iu,
+  },
+  response: { status: 200, body: CPU_ROWS.slice(0, 2) },
+};
+
+/** A query that takes longer than any small client timeout. */
+export const CORE_SQL_SLOW: Scenario = {
+  name: "core-sql-slow",
+  provenance: {
+    product: "core",
+    version: "3.11.5",
+    source: "source-inspection",
+    detail:
+      "Answers after 2 s so a client-side timeoutMs fires first. The server's own timeout response is unobserved.",
+    outside_spec: ROWS_ARRAY_OUTSIDE_SPEC,
+  },
+  request: {
+    method: "POST",
+    path: "/api/v3/query_sql",
+    db: TRUST_DB,
+    q: /\bFROM\s+"?cpu_slow"?(?!\w)/iu,
+  },
+  response: { status: 200, body: CPU_ROWS, delayMs: 2_000 },
+};
+
+/** Every scenario, for the scenario contract test. Add new ones here. */
+export const ALL_SCENARIOS: Scenario[] = [
+  CORE_SQL_CPU_TABLE,
+  CORE_SQL_UNKNOWN_TABLE,
+  coreSqlInterrupted("truncate"),
+  coreSqlInterrupted("abort"),
+  CORE_INFLUXQL_CPU_TABLE,
+  CORE_SQL_CSV_RETURNS_JSON,
+  CORE_SQL_SLOW,
+];

@@ -5,10 +5,17 @@
  */
 
 import { BaseConnectionService } from "./base-connection.service.js";
+import type { HttpClientService } from "./http-client.service.js";
 import type { QParamType } from "@influxdata/influxdb3-client";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import { QueryLanguage, QuerySafetyService } from "./query-safety.service.js";
 import { createRequestId } from "./telemetry.service.js";
+import { decodePayload, QueryFormat } from "./query-payload.js";
+import {
+  assertQuerySupported,
+  READ_ONLY_FORMATS,
+  unsupportedOption,
+} from "./query-capabilities.js";
 
 export interface QueryResult {
   results?: any[];
@@ -30,7 +37,7 @@ export interface SchemaInfo {
   }>;
 }
 
-export type QueryFormat = "json" | "csv" | "parquet" | "jsonl" | "pretty";
+export type { QueryFormat };
 
 export interface ReadOnlyQueryOptions {
   format?: QueryFormat;
@@ -62,10 +69,17 @@ export interface StructuredQueryResponse {
     max_memory?: number;
     duration_ms: number;
     row_count: number;
+    /** Kept for compatibility: `completeness !== "complete"`. */
     truncated: boolean;
+    completeness: Completeness;
+    /** The effective row bound, present when capped. */
+    cap?: number;
+    cap_source?: "server_bound" | "query_limit";
   };
   warnings: Array<{ code: string; message: string }>;
 }
+
+export type Completeness = "complete" | "capped" | "interrupted";
 
 interface QueryHistoryMetadata {
   id: string;
@@ -117,15 +131,13 @@ export class QueryService {
 
     const format = options.format ?? "json";
     const connectionInfo = this.baseService.getConnectionInfo();
+    assertQuerySupported(connectionInfo.type, "sql", options);
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
-        this.assertSqlFormatSupported(connectionInfo.type, format);
         return this.executeCloudDedicatedQuery(query, database, options);
       case InfluxProductType.Clustered:
-        this.assertSqlFormatSupported(connectionInfo.type, format);
         return this.executeClusteredQuery(query, database, options);
       case InfluxProductType.CloudServerless:
-        this.assertSqlFormatSupported(connectionInfo.type, format);
         return this.executeCloudServerlessQuery(query, database, options);
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
@@ -139,19 +151,6 @@ export class QueryService {
           `Unsupported InfluxDB product type: ${connectionInfo.type}`,
         );
     }
-  }
-
-  private assertSqlFormatSupported(
-    productType: InfluxProductType,
-    format: QueryFormat,
-  ): void {
-    if (format === "json") return;
-
-    const error = new Error(
-      `Query format '${format}' is not supported by this MCP SQL query path for ${productType}; use 'json'`,
-    );
-    (error as any).code = "unsupported_query_format";
-    throw error;
   }
 
   async querySqlReadOnly(
@@ -183,7 +182,7 @@ export class QueryService {
     const format = options.format ?? "json";
     const safety = this.safetyService.validate(query, language, maxRows);
 
-    if (!safety.ok || !safety.normalizedQuery) {
+    if (!safety.ok || !safety.normalizedQuery || !safety.executedQuery) {
       const duration = Date.now() - started;
       const error = new Error(safety.message || "Query rejected");
       (error as any).code = safety.code;
@@ -202,9 +201,15 @@ export class QueryService {
     }
 
     try {
+      assertQuerySupported(
+        this.baseService.getConnectionInfo().type,
+        language,
+        { format, timeoutMs: options.timeoutMs },
+        READ_ONLY_FORMATS,
+      );
       const raw = await this.executeReadOnlyQuery(
         language,
-        safety.normalizedQuery,
+        safety.executedQuery,
         database,
         {
           format,
@@ -212,12 +217,38 @@ export class QueryService {
           timeoutMs: options.timeoutMs,
         },
       );
-      const rows = this.normalizeRows(raw, format);
-      const truncated = rows.length > maxRows;
-      const outputRows = truncated ? rows.slice(0, maxRows) : rows;
+      const payload = decodePayload(raw, format);
+      const serverCapped = payload.records.length > maxRows;
+      const kept = serverCapped
+        ? payload.records.slice(0, maxRows)
+        : payload.records;
+      // Filling the caller's own LIMIT does not prove more rows exist, so it
+      // is reported as capped with a "may" warning rather than asserted.
+      const limitReached =
+        !serverCapped &&
+        safety.queryLimit !== undefined &&
+        kept.length >= safety.queryLimit;
+      const bound = serverCapped
+        ? { cap: maxRows, cap_source: "server_bound" as const }
+        : limitReached
+          ? { cap: safety.queryLimit, cap_source: "query_limit" as const }
+          : undefined;
+      const warnings = [...safety.warnings];
+      if (limitReached) {
+        warnings.push({
+          code: "limit_reached",
+          message: `Returned ${kept.length} rows, the query's own LIMIT ${safety.queryLimit}; more rows may exist.`,
+        });
+      }
+      if (payload.format !== format) {
+        warnings.push({
+          code: "format_mismatch",
+          message: `Requested ${format} but the server returned ${payload.format}.`,
+        });
+      }
       const duration = Date.now() - started;
       const history = await this.findQueryHistoryMetadata(
-        safety.normalizedQuery,
+        safety.executedQuery,
         language,
       );
 
@@ -225,8 +256,8 @@ export class QueryService {
         ok: true,
         db: database,
         q: safety.normalizedQuery,
-        format,
-        rows: outputRows,
+        format: payload.format,
+        rows: payload.render(kept),
         metadata: {
           request_id: requestId,
           query_id: history?.id || queryId,
@@ -235,8 +266,10 @@ export class QueryService {
           query_type: language,
           success: history?.success ?? true,
           duration_ms: duration,
-          row_count: outputRows.length,
-          truncated,
+          row_count: kept.length,
+          truncated: bound !== undefined,
+          completeness: bound ? "capped" : "complete",
+          ...bound,
           ...(history?.running !== undefined && { running: history.running }),
           ...(history?.cancelled !== undefined && {
             cancelled: history.cancelled,
@@ -260,10 +293,24 @@ export class QueryService {
             max_memory: history.max_memory,
           }),
         },
-        warnings: safety.warnings,
+        warnings,
       };
     } catch (error: any) {
       const duration = Date.now() - started;
+      if (error.code === "query_interrupted") {
+        error.rows = error.rows.slice(0, maxRows);
+        error.metadata = {
+          request_id: requestId,
+          query_id: queryId,
+          query_id_source: "local",
+          query_type: language,
+          success: false,
+          duration_ms: duration,
+          row_count: error.rows.length,
+          truncated: true,
+          completeness: "interrupted",
+        };
+      }
       if (!error.metadata) {
         error.metadata = {
           request_id: requestId,
@@ -376,8 +423,9 @@ export class QueryService {
           format: "json",
         },
       );
-      const rows = this.normalizeRows(result, "json");
-      return rows[0];
+      return decodePayload(result, "json").records[0] as
+        | QueryHistoryMetadata
+        | undefined;
     } catch {
       return undefined;
     }
@@ -395,6 +443,7 @@ export class QueryService {
     this.baseService.validateDataCapabilities();
 
     const connectionInfo = this.baseService.getConnectionInfo();
+    assertQuerySupported(connectionInfo.type, "influxql", options);
     switch (connectionInfo.type) {
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
@@ -426,26 +475,7 @@ export class QueryService {
       timeoutMs?: number;
     },
   ): Promise<any> {
-    try {
-      const httpClient = this.baseService.getInfluxHttpClient();
-      const format = options.format;
-      const payload = {
-        db: database,
-        q: query,
-        format,
-        ...(options.params !== undefined && { params: options.params }),
-      };
-      const response = await httpClient.post("/api/v3/query_sql", payload, {
-        headers: {
-          "Content-Type": "application/json",
-          Accept: this.acceptHeader(format),
-        },
-        ...(options.timeoutMs !== undefined && { timeout: options.timeoutMs }),
-      });
-      return response;
-    } catch (error: any) {
-      this.handleQueryError(error);
-    }
+    return this.postV3Query("/api/v3/query_sql", query, database, options);
   }
 
   private async executeCoreEnterpriseInfluxqlQuery(
@@ -457,8 +487,25 @@ export class QueryService {
       timeoutMs?: number;
     },
   ): Promise<any> {
+    return this.postV3Query("/api/v3/query_influxql", query, database, {
+      ...options,
+      format: options.format ?? "json",
+    });
+  }
+
+  private async postV3Query(
+    path: "/api/v3/query_sql" | "/api/v3/query_influxql",
+    query: string,
+    database: string,
+    options: {
+      format: QueryFormat;
+      params?: Record<string, unknown> | unknown[];
+      timeoutMs?: number;
+    },
+  ): Promise<any> {
+    const format = options.format;
+    let response: Awaited<ReturnType<HttpClientService["postText"]>>;
     try {
-      const format = options.format ?? "json";
       const httpClient = this.baseService.getInfluxHttpClient();
       const payload = {
         db: database,
@@ -466,23 +513,49 @@ export class QueryService {
         format,
         ...(options.params !== undefined && { params: options.params }),
       };
-      const response = await httpClient.post(
-        "/api/v3/query_influxql",
-        payload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Accept: this.acceptHeader(format),
-          },
-          ...(options.timeoutMs !== undefined && {
-            timeout: options.timeoutMs,
-          }),
+      response = await httpClient.postText(path, payload, {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: this.acceptHeader(format),
         },
-      );
-      return response;
+        ...(options.timeoutMs !== undefined && { timeout: options.timeoutMs }),
+      });
     } catch (error: any) {
       this.handleQueryError(error);
     }
+
+    if (format !== "json") {
+      if (response.interruption) {
+        throw this.interruptedError([], response.interruption.message);
+      }
+      return response.text;
+    }
+
+    // A JSON body that does not parse, or a stream that failed, means the
+    // server began a result it did not finish. Keep the rows that arrived
+    // whole; never report the partial result as a successful one.
+    if (!response.interruption) {
+      if (response.text.trim() === "") return [];
+      try {
+        return JSON.parse(response.text);
+      } catch {
+        // Fall through to the interrupted result.
+      }
+    }
+    throw this.interruptedError(
+      completeArrayElements(response.text),
+      response.interruption?.message ??
+        "the response ended before the result was complete",
+    );
+  }
+
+  private interruptedError(rows: any[], reason: string): Error {
+    const error = new Error(
+      `Query interrupted after ${rows.length} rows: ${reason}`,
+    );
+    (error as any).code = "query_interrupted";
+    (error as any).rows = rows;
+    return error;
   }
 
   private acceptHeader(format: string): string {
@@ -494,30 +567,6 @@ export class QueryService {
       default:
         return "application/json";
     }
-  }
-
-  private normalizeRows(raw: any, format: QueryFormat): any[] {
-    if (format !== "json" && format !== "pretty") {
-      return Array.isArray(raw) ? raw : [{ value: raw }];
-    }
-
-    if (Array.isArray(raw)) {
-      return raw;
-    }
-
-    if (Array.isArray(raw?.rows)) {
-      return raw.rows;
-    }
-
-    if (Array.isArray(raw?.data)) {
-      return raw.data;
-    }
-
-    if (raw && typeof raw === "object") {
-      return [raw];
-    }
-
-    return [];
   }
 
   /**
@@ -609,16 +658,9 @@ export class QueryService {
 
   private flightParams(options: {
     params?: Record<string, unknown> | unknown[];
-    timeoutMs?: number;
   }): Record<string, QParamType> | undefined {
-    if (options.timeoutMs !== undefined) {
-      throw new Error(
-        "timeoutMs is not supported for Flight queries; configure the client query timeout instead",
-      );
-    }
-
     if (Array.isArray(options.params)) {
-      throw new Error(
+      throw unsupportedOption(
         "Array query params are not supported for Flight queries; use a named parameter object instead",
       );
     }
@@ -632,7 +674,7 @@ export class QueryService {
           typeof value !== "boolean",
       )
     ) {
-      throw new Error(
+      throw unsupportedOption(
         "Flight query params must be strings, numbers, or booleans",
       );
     }
@@ -1121,5 +1163,39 @@ export class QueryService {
         `Failed to get schema for measurement '${measurement}': ${error.message}`,
       );
     }
+  }
+}
+
+/**
+ * Return the elements of a JSON array that arrived whole, from a body that
+ * may stop partway through an element.
+ */
+function completeArrayElements(text: string): any[] {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let lastElementEnd = -1;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') inString = false;
+    } else if (character === '"') {
+      inString = true;
+    } else if (character === "{" || character === "[") {
+      depth += 1;
+    } else if (character === "}" || character === "]") {
+      depth -= 1;
+      if (depth === 1) lastElementEnd = index;
+    }
+  }
+
+  if (lastElementEnd === -1) return [];
+  try {
+    return JSON.parse(`${text.slice(0, lastElementEnd + 1)}]`);
+  } catch {
+    return [];
   }
 }
