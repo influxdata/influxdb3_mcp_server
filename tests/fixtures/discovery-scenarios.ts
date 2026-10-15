@@ -205,41 +205,43 @@ export const INGEST_NODE_QUERY: Scenario = {
   },
 };
 
-const OBSERVED_RECOVERY: Record<number, [ScenarioProvenance, string]> = {
-  429: [
-    live(
+const UNDOCUMENTED_STATUS = "The public query spec omits this status.";
+
+/** A sort that ran out of the Enterprise query memory pool. */
+export const ENTERPRISE_SQL_MEMORY_EXHAUSTED: Scenario = {
+  name: "enterprise memory exhausted",
+  provenance: {
+    ...live(
       ["enterprise"],
       "a sort that ran out of the query memory pool. No Retry-After header.",
     ),
-    "Not enough memory to continue external sort. Consider increasing the memory limit, or decreasing sort_spill_reservation_bytes\ncaused by\nResources exhausted: Additional allocation failed for ExternalSorter[0] with top memory consumers (across reservations) as:",
-  ],
+    outside_spec: UNDOCUMENTED_STATUS,
+  },
+  request: { method: "POST", path: "/api/v3/query_sql" },
+  response: {
+    status: 429,
+    body: "Not enough memory to continue external sort. Consider increasing the memory limit, or decreasing sort_spill_reservation_bytes\ncaused by\nResources exhausted: Additional allocation failed for ExternalSorter[0] with top memory consumers (across reservations) as:",
+  },
 };
 
-const UNDOCUMENTED_STATUS = "The public query spec omits this status.";
-
-/**
- * Failures with no recovery classification yet, with and without
- * Retry-After. The observed 429 carries no Retry-After; the other cases are
- * synthetic.
- */
+/** Failures with no recovery classification, with and without Retry-After. */
 export const RECOVERY_SCENARIOS: Scenario[] = [405, 429, 503, 504].flatMap(
   (status) =>
-    [undefined, "2"].map((wait): Scenario => {
-      const observed = wait ? undefined : OBSERVED_RECOVERY[status];
-      const outside_spec = status === 405 ? undefined : UNDOCUMENTED_STATUS;
-      return {
+    [undefined, "2"].map(
+      (wait): Scenario => ({
         name: `${status}-${wait ? "retry-after" : "no-wait"}`,
-        provenance: observed
-          ? { ...observed[0], ...(outside_spec && { outside_spec }) }
-          : assumed("Synthetic server failure.", outside_spec),
+        provenance: assumed(
+          "Synthetic server failure.",
+          status === 405 ? undefined : UNDOCUMENTED_STATUS,
+        ),
         request: { method: "POST", path: "/api/v3/query_sql" },
         response: {
           status,
-          body: observed?.[1] ?? { error: "unverified server failure" },
+          body: { error: "unverified server failure" },
           ...(wait && { headers: { "retry-after": wait } }),
         },
-      };
-    }),
+      }),
+    ),
 );
 
 /**

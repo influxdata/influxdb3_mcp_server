@@ -8,12 +8,14 @@ import {
   ACCESS_OUTCOMES,
   accessScenariosFor,
   DISCOVERY_SCENARIOS,
+  ENTERPRISE_SQL_MEMORY_EXHAUSTED,
   INGEST_NODE_QUERY,
   RECOVERY_SCENARIOS,
   SAMPLES_DENIED_OR_EMPTY,
   TOKEN_ECHO,
 } from "./fixtures/discovery-scenarios.js";
 import {
+  CORE_SQL_POOL_EXHAUSTED_STATUS,
   CORE_SQL_SLOW,
   Scenario,
   TRUST_DB,
@@ -97,6 +99,8 @@ describe.skipIf(live)(
             recovery: scenario.recovery,
             retryable: false,
           });
+          // An empty error body must not leave an empty message.
+          expect(result.error.message).toMatch(/: \S/u);
         }
       });
     }
@@ -278,6 +282,30 @@ describe.skipIf(live)(
       });
       expect(result.error.message).toContain("send this query to a query node");
     });
+    it.for([
+      ["Core 500", CORE_SQL_POOL_EXHAUSTED_STATUS, "cpu_pool_exhausted_status"],
+      ["Enterprise 429", ENTERPRISE_SQL_MEMORY_EXHAUSTED, "cpu"],
+    ] as const)(
+      "asks the caller to narrow a query that ran out of memory (%s)",
+      async ([, scenario, table]) => {
+        const client = await connect([scenario]);
+        const result = payload(
+          await client.callTool({
+            name: "query_sql",
+            arguments: {
+              db: TRUST_DB,
+              q: `SELECT host FROM ${table} WHERE time > now() - interval '1 hour'`,
+            },
+          }),
+        );
+        expect(result.error).toMatchObject({
+          recovery: "narrow",
+          retryable: false,
+        });
+        expect(result.error.message).toContain("Narrow the query");
+        expect(result.error.message).toContain("Resources exhausted");
+      },
+    );
     it("does not let a denied database poison successful discovery", async () => {
       const client = await connect();
       const databases = payload(
