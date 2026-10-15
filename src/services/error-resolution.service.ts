@@ -52,7 +52,8 @@ export function resolveErrorMessage(body: unknown, fallback: string): string {
     return Object.keys(data).length === 0 ? fallback : JSON.stringify(data);
   }
 
-  if (typeof body === "string") return body;
+  // A 403 from Core or Enterprise 3.12.1 has an empty body.
+  if (typeof body === "string") return body || fallback;
   return fallback;
 }
 
@@ -117,19 +118,28 @@ const ACCESS_FAILURES: Partial<
   404: { code: "not_found", recovery: "none" },
 };
 
-/** Server messages that name their own recovery. */
+/** Server messages that identify their own recovery. */
 const RECOVERY_SIGNATURES: Array<{
-  status: number;
+  statuses: number[];
   pattern: RegExp;
   recovery: Recovery;
+  /** Replaces the status prefix of the message. */
+  hint?: string;
 }> = [
   // Recorded Core unknown-field error.
-  { status: 500, pattern: /No field named/u, recovery: "fix_reference" },
+  { statuses: [500], pattern: /No field named/u, recovery: "fix_reference" },
   // Enterprise 3.12.1 ingest-only node.
   {
-    status: 405,
+    statuses: [405],
     pattern: /send this query to a query node/u,
     recovery: "change_endpoint",
+  },
+  // The query memory pool ran out: 500 on Core 3.12.1, 429 on Enterprise.
+  {
+    statuses: [500, 429],
+    pattern: /Resources exhausted/u,
+    recovery: "narrow",
+    hint: "Query ran out of server memory. Narrow the query (a shorter time range, fewer columns, or an aggregate) before running it again",
   },
 ];
 
@@ -170,14 +180,14 @@ export function resolveOperationError(
     "code" in error &&
     (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT");
   const code = access?.code ?? (clientTimeout ? "client_timeout" : fallback);
-  // Exhaustion, backpressure and timeout signatures need live evidence.
-  const recovery: Recovery =
-    access?.recovery ??
-    RECOVERY_SIGNATURES.find(
-      (signature) =>
-        signature.status === status && signature.pattern.test(message),
-    )?.recovery ??
-    "none";
+  // Backpressure and timeout signatures need live evidence.
+  const signature = RECOVERY_SIGNATURES.find(
+    (candidate) =>
+      status !== undefined &&
+      candidate.statuses.includes(status) &&
+      candidate.pattern.test(message),
+  );
+  const recovery: Recovery = access?.recovery ?? signature?.recovery ?? "none";
   let retryAfter: unknown;
   if (error && typeof error === "object" && "response" in error) {
     const response = error.response;
@@ -198,8 +208,11 @@ export function resolveOperationError(
       : Number.isFinite(date)
         ? Math.max(0, date - Date.now())
         : undefined;
+  const label =
+    signature?.hint ??
+    (status ? prefix[status] || "Query failed" : "Query failed");
   return new OperationError(
-    `${status ? prefix[status] || "Query failed" : "Query failed"}: ${message}`,
+    `${label}: ${message}`,
     code,
     recovery,
     status,
