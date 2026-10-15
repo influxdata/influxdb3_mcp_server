@@ -132,6 +132,16 @@ function sendTable(
     limit === undefined ? response.table : response.table.slice(0, limit);
   const format = request.format ?? "json";
 
+  const contentType = CONTENT_TYPES[format];
+  if (!contentType) {
+    sendBody(res, {
+      status: 500,
+      body: `fake influxdb: table scenarios do not encode format '${format}'`,
+    });
+    return;
+  }
+
+  res.writeHead(200, { "content-type": contentType });
   if (response.interrupt) {
     sendInterrupted(res, rows, response.interrupt);
     return;
@@ -139,40 +149,44 @@ function sendTable(
 
   switch (format) {
     case "json":
-      res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(rows));
       return;
     case "jsonl":
-      res.writeHead(200, { "content-type": "application/jsonl" });
       res.end(rows.map((row) => `${JSON.stringify(row)}\n`).join(""));
       return;
     case "csv":
-      res.writeHead(200, { "content-type": "text/csv; charset=utf-8" });
       res.end(toCsv(rows));
-      return;
-    default:
-      sendBody(res, {
-        status: 500,
-        body: `fake influxdb: table scenarios do not encode format '${format}'`,
-      });
   }
 }
 
-/** Send a JSON array that stops partway through the row after `afterRows`. */
+const CONTENT_TYPES: Record<string, string> = {
+  json: "application/json",
+  jsonl: "application/jsonl",
+  csv: "text/csv; charset=utf-8",
+};
+
+/**
+ * After the headers, send the first `afterRows` rows of a JSON array and part
+ * of the next row, then stop. With `afterRows: 0` nothing follows the
+ * headers, whatever the format.
+ */
 function sendInterrupted(
   res: ServerResponse,
   rows: Array<Record<string, unknown>>,
   interrupt: NonNullable<ScriptedTable["interrupt"]>,
 ): void {
-  const sent = rows
-    .slice(0, interrupt.afterRows)
-    .map((row) => JSON.stringify(row));
-  const partialNext = JSON.stringify(rows[interrupt.afterRows] ?? {}).slice(
-    0,
-    8,
-  );
-  res.writeHead(200, { "content-type": "application/json" });
-  res.write(`[${sent.join(",")},${partialNext}`);
+  if (interrupt.afterRows === 0) {
+    res.flushHeaders();
+  } else {
+    const sent = rows
+      .slice(0, interrupt.afterRows)
+      .map((row) => JSON.stringify(row));
+    const partialNext = JSON.stringify(rows[interrupt.afterRows] ?? {}).slice(
+      0,
+      8,
+    );
+    res.write(`[${sent.join(",")},${partialNext}`);
+  }
   if (interrupt.mode === "truncate") {
     res.end();
   } else {
