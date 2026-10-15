@@ -17,6 +17,18 @@ export class HelpService {
 const INFLUXDB_HELP_CONTENT = `
 INFLUXDB 3 MCP SERVER HELP
 
+Capability evidence: supported routes below describe configured product behavior,
+not the current credential's permissions. Query and metadata permissions are
+unknown until the corresponding call succeeds. A health or ping denial does not
+mean that permitted database reads are unavailable.
+
+Recovery: inspect error.code and error.recovery. Renew invalid credentials;
+use describe_table or list_tables for schema reference failures. Retry the same
+call only when retryable is true. Unverified server error signatures retain
+recovery=none. EXPLAIN inspects a SQL plan; EXPLAIN ANALYZE executes the query
+with the normal bounds. query_sql and query_influxql accept database/db and
+query/q aliases; differing values are invalid_arguments.
+
 === LINE PROTOCOL WRITING ===
 
 Line Protocol Format:
@@ -240,7 +252,7 @@ Health Check Notes:
 - Different InfluxDB product types support different endpoints
 - Cloud Dedicated does not have /health endpoint available
 - Different tokens may have not access to certain endpoints
-- If ANY check passes (connection, /health, /ping), instance is considered operational
+- If /health or /ping passes, the instance is considered operational. SDK initialization is configured evidence only. A credential denied both checks leaves health unknown.
 
 Authentication Errors:
 - Token expired or invalid
