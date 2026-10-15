@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   send, are refused with `unsupported_query_option`.
 - `get_help` gains a "READING QUERY RESULTS" section, and the query tool
   descriptions point to it (#131).
+- The `query_influxql` description shows the regex field form the parser
+  accepts, `SELECT /pattern/ FROM m`. A type suffix such as
+  `/pattern/::field` fails to parse on 3.11.7 and 3.12.1.
 - Query and discovery errors retain structured access and recovery outcomes.
   A `403` reports `not_found_or_denied`, because a token without access gets
   `403` whether or not the database exists. A `404` reports `not_found`. A
