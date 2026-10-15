@@ -7,19 +7,32 @@ Run `npm run build` first — tests spawn the compiled `build/index.js`.
 | `npm test`                 | Everything; live-instance tests self-skip                          |
 | `npm run test:integration` | Every file matching `integration`, with `INFLUX_TEST_ENABLED=true` |
 
+## Basic testing requirements
+
+Install dependencies with `npm ci` and build the candidate before running tests.
+Unit and protocol tests, including scripted fake HTTP scenarios, require no
+model access or live database. Live tests require the intended product version,
+credentials, and fixtures; select tests appropriate to the credential's scope.
+
+For agent evals, complete the
+[prerequisites and preflight](../AGENT_E2E_TESTS.md#prerequisites-and-preflight):
+verify model access, MCP runner configuration, fixtures and grading criteria,
+and evidence capture. The runbook also distinguishes direct CLI execution from
+the shared container testbench. Build or protocol-test success alone does not
+establish agent-eval success.
+
 ## Conventions
 
 Three kinds of test live here, distinguished by how they are marked.
 
 **Active** — asserts what the code does today and must keep doing. Green.
 
-**`describe.skip("[P<n>] …")`** — acceptance criteria for a planned change that
-has not landed. Skipped so CI stays green, but each one fails against current
-code, so un-skipping is all that is needed to drive the work. Where an
-acceptance test has a paired active test asserting the opposite, the pair is
-deliberate: the active test goes red when the fix lands, which forces the stale
-characterization to be deleted rather than left behind. Two acceptance tests are
-no-regression guards that pass both before and after, and say so in a comment.
+**`describe.skip("[P<n>] …")`** — acceptance criteria awaiting implementation or
+an unavailable fixture or observation. Read the named blocker before enabling
+one. Some are executable regression tests; others are placeholders whose
+assertions still need to be written. An enabled placeholder with no assertions
+does not verify the criterion. Replace stale characterizations when behavior
+changes and record unavailable live checks as unverified.
 
 **`it.todo(…)`** — a test that cannot be written yet because the answer it would
 assert against is unknown. Each names the question ID and what unblocks it.

@@ -47,9 +47,20 @@ The count also appears in the server's stderr init message:
 
 ### Integration tests gated by env var
 
-`describe.skipIf(!process.env.INFLUX_TEST_ENABLED)` ensures integration tests
-never run accidentally. The vitest file is always compiled (catching type
-errors) but executes 0 tests unless the gate is set.
+Live test files check `INFLUX_TEST_ENABLED` before executing their live cases.
+Some tests also require a specific credential mode or fixture. Inspect each
+file's gate before selecting a live run. Vitest transforms test files but does
+not type-check them; skipped cases do not establish runtime correctness.
+`npm run build` checks the TypeScript files included by `tsconfig.json`.
+
+### Agent evals add model and evidence requirements
+
+Before running a real agent harness, complete the
+[prerequisites and preflight](../../../../AGENT_E2E_TESTS.md#prerequisites-and-preflight).
+The runbook defines model access checks, MCP runner configuration, fixture and
+grading requirements, and evidence capture. Protocol-test success establishes
+the tested MCP behavior; agent-eval success also requires a reviewed tool-use
+and final-answer verdict.
 
 ## Test File Responsibilities
 
