@@ -31,7 +31,7 @@ describe("handleQueryError – Core (axios) error path", () => {
     const svc = new QueryService(base);
 
     await expect(svc.executeQuery("SELECT 1", "nonexistent")).rejects.toThrow(
-      /^Database not found: query error: database not found: nonexistent$/,
+      /^Not found or access denied: query error: database not found: nonexistent$/,
     );
   });
 
@@ -43,7 +43,7 @@ describe("handleQueryError – Core (axios) error path", () => {
     const svc = new QueryService(base);
 
     await expect(svc.executeQuery("SELECT 1", "mydb")).rejects.toThrow(
-      /^Bad request: partial write of line protocol occurred$/,
+      /^Bad request: No fields were provided$/,
     );
   });
 

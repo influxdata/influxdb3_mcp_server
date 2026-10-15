@@ -64,6 +64,24 @@ export class QuerySafetyService {
     }
 
     const commentless = this.stripComments(trimmed);
+    if (language === "sql" && /^EXPLAIN\s+ANALYZE\b/iu.test(commentless)) {
+      const inner = commentless.replace(/^EXPLAIN\s+ANALYZE\s+/iu, "");
+      const execution = this.validate(inner, language, maxRows);
+      return execution.ok
+        ? {
+            ...execution,
+            normalizedQuery: `EXPLAIN ANALYZE ${execution.normalizedQuery}`,
+            warnings: [
+              ...execution.warnings,
+              {
+                code: "diagnostic_execution",
+                message:
+                  "EXPLAIN ANALYZE executes the bounded query; it is not a plan-only inspection.",
+              },
+            ],
+          }
+        : execution;
+    }
     const firstKeyword = this.firstKeyword(commentless);
     const allowed = language === "sql" ? SQL_ALLOWED : INFLUXQL_ALLOWED;
 

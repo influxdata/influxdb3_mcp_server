@@ -24,9 +24,31 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 
 Set `INFLUX_MCP_TOOL_PROFILE=readonly` when you want an MCP client to explore
 and query InfluxDB 3 data without exposing write, admin, token-management, or
-host-level tools. In Enterprise deployments that use preview user auth, the
-same read-only flow works when the configured bearer credential is a JWT instead
-of an `apiv3_` token.
+host-level tools. API tokens and Enterprise JWTs use the same opaque bearer
+credential path. Verify JWT access against your deployment's user authentication
+configuration; API-token results do not establish JWT compatibility.
+
+Query tools accept `database` as an alias for `db` and `query` as an alias for
+`q`. Supplying different values for a canonical argument and its alias returns
+`invalid_arguments`. Validation failures are structured tool errors and appear in
+tool-call telemetry.
+
+Discovery distinguishes denied access, invalid credentials, unavailable metadata,
+and ambiguous absence. Database-list visibility is `unknown` unless established
+by the server. `health_check` returns JSON with separate health and ping outcomes.
+A denied health check does not prevent permitted database reads.
+
+`investigate_database` preserves per-table findings, reports visible-table totals
+and truncation, and returns samples ordered by time within a reported window.
+The default window is 24 hours; set `sampleWindowHours` to change it. An empty
+window does not establish an empty table. Schema mode and deletion status remain
+unknown without authoritative metadata. A possible tombstone name produces a
+warning and remains listed. Cardinality estimation is currently refused.
+
+Read `error.code`, `error.recovery`, and `error.retryable` when a call fails.
+Unverified server signatures retain `recovery: "none"`; a 404 remains
+`not_found_or_denied`. `EXPLAIN ANALYZE` executes a bounded query and reports a
+`diagnostic_execution` warning.
 
 ### Analyst explores an unfamiliar database
 

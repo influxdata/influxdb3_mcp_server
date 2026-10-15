@@ -8,6 +8,7 @@ import { BaseConnectionService } from "./base-connection.service.js";
 import type { QParamType } from "@influxdata/influxdb3-client";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import { QueryLanguage, QuerySafetyService } from "./query-safety.service.js";
+import { resolveOperationError } from "./error-resolution.service.js";
 import { createRequestId } from "./telemetry.service.js";
 
 export interface QueryResult {
@@ -24,6 +25,7 @@ export interface SchemaInfo {
     name: string;
     type: string;
     category: "time" | "tag" | "field" | "unknown";
+    source?: "server" | "inferred" | "unknown";
     categoryConfidence?: "high" | "low";
     nullable?: boolean;
     warnings?: string[];
@@ -41,6 +43,7 @@ export interface ReadOnlyQueryOptions {
 
 export interface StructuredQueryResponse {
   ok: true;
+  access_outcome: "data" | "empty";
   db: string;
   q: string;
   format: QueryFormat;
@@ -223,6 +226,7 @@ export class QueryService {
 
       return {
         ok: true,
+        access_outcome: outputRows.length ? "data" : "empty",
         db: database,
         q: safety.normalizedQuery,
         format,
@@ -644,30 +648,7 @@ export class QueryService {
    * Centralized error handler for query methods
    */
   private handleQueryError(error: any): never {
-    const errorMessage =
-      error.response?.data?.message ||
-      error.response?.data?.error ||
-      (typeof error.response?.data === "string" ? error.response.data : null) ||
-      error.response?.statusText ||
-      error.message;
-    const statusCode = error.response?.status;
-    console.error(`Status: ${statusCode} \n Message: ${errorMessage}`);
-    switch (statusCode) {
-      case 400:
-        throw new Error(`Bad request: ${errorMessage}`);
-      case 401:
-        throw new Error(`Unauthorized: ${errorMessage}`);
-      case 403:
-        throw new Error(`Access denied: ${errorMessage}`);
-      case 404:
-        throw new Error(`Database not found: ${errorMessage}`);
-      case 405:
-        throw new Error(`Method not allowed: ${errorMessage}`);
-      case 422:
-        throw new Error(`Unprocessable entity: ${errorMessage}`);
-      default:
-        throw new Error(`Query failed: ${errorMessage}`);
-    }
+    throw resolveOperationError(error);
   }
 
   /**
@@ -723,7 +704,7 @@ export class QueryService {
 
       return [];
     } catch (error: any) {
-      throw new Error(`Failed to get measurements: ${error.message}`);
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -755,7 +736,7 @@ export class QueryService {
 
       return [];
     } catch (error: any) {
-      throw new Error(`Failed to get measurements: ${error.message}`);
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -777,7 +758,7 @@ export class QueryService {
       }
       return result;
     } catch (error: any) {
-      throw new Error(`Failed to get measurements: ${error.message}`);
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -806,7 +787,7 @@ export class QueryService {
       }
       return [];
     } catch (error: any) {
-      throw new Error(`Failed to get measurements: ${error.message}`);
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -851,14 +832,14 @@ export class QueryService {
       const fieldKeysResponse = await httpClient.get("/query", {
         params: {
           db: database,
-          q: `SHOW FIELD KEYS FROM ${measurement}`,
+          q: `SHOW FIELD KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
         },
       });
 
       const tagKeysResponse = await httpClient.get("/query", {
         params: {
           db: database,
-          q: `SHOW TAG KEYS FROM ${measurement}`,
+          q: `SHOW TAG KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
         },
       });
       const columns: {
@@ -913,17 +894,7 @@ export class QueryService {
 
       return { columns };
     } catch (error: any) {
-      if (
-        error.response?.status === 404 ||
-        error.message.includes("not found")
-      ) {
-        throw new Error(
-          `Measurement '${measurement}' does not exist in database '${database}'`,
-        );
-      }
-      throw new Error(
-        `Failed to get schema for measurement '${measurement}': ${error.message}`,
-      );
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -940,14 +911,14 @@ export class QueryService {
       const fieldKeysResponse = await httpClient.get("/query", {
         params: {
           db: database,
-          q: `SHOW FIELD KEYS FROM ${measurement}`,
+          q: `SHOW FIELD KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
         },
       });
 
       const tagKeysResponse = await httpClient.get("/query", {
         params: {
           db: database,
-          q: `SHOW TAG KEYS FROM ${measurement}`,
+          q: `SHOW TAG KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
         },
       });
       const columns: {
@@ -1002,17 +973,7 @@ export class QueryService {
 
       return { columns };
     } catch (error: any) {
-      if (
-        error.response?.status === 404 ||
-        error.message.includes("not found")
-      ) {
-        throw new Error(
-          `Measurement '${measurement}' does not exist in database '${database}'`,
-        );
-      }
-      throw new Error(
-        `Failed to get schema for measurement '${measurement}': ${error.message}`,
-      );
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -1024,7 +985,7 @@ export class QueryService {
     database: string,
   ): Promise<SchemaInfo> {
     try {
-      const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${measurement}' AND table_schema = 'iox'`;
+      const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${measurement.replace(/'/gu, "''")}' AND table_schema = 'iox'`;
       const result = await this.executeQuery(query, database, {
         format: "json",
       });
@@ -1054,14 +1015,7 @@ export class QueryService {
       }
       return result;
     } catch (error: any) {
-      if (error.message.includes("not found")) {
-        throw new Error(
-          `Table '${measurement}' does not exist in database '${database}'`,
-        );
-      }
-      throw new Error(
-        `Failed to get schema for measurement '${measurement}': ${error.message}`,
-      );
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -1074,14 +1028,14 @@ export class QueryService {
     database: string,
   ): Promise<SchemaInfo> {
     try {
-      const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${measurement}' AND table_schema = 'iox'`;
+      const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${measurement.replace(/'/gu, "''")}' AND table_schema = 'iox'`;
       const result = await this.executeQuery(query, database, {
         format: "json",
       });
 
       if (Array.isArray(result)) {
         const columns = result
-          .map((row: any) => {
+          .map((row: any): SchemaInfo["columns"][number] => {
             const columnName = row._fields?.column_name?.[1];
             const dataType = row._fields?.data_type?.[1];
 
@@ -1100,6 +1054,7 @@ export class QueryService {
               name: columnName,
               type: dataType,
               category,
+              source: category === "unknown" ? "unknown" : "inferred",
               categoryConfidence,
               warnings:
                 category === "unknown"
@@ -1112,14 +1067,7 @@ export class QueryService {
       }
       return { columns: [] };
     } catch (error: any) {
-      if (error.message.includes("not found")) {
-        throw new Error(
-          `Table '${measurement}' does not exist in database '${database}'`,
-        );
-      }
-      throw new Error(
-        `Failed to get schema for measurement '${measurement}': ${error.message}`,
-      );
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 }

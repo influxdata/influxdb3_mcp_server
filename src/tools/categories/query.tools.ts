@@ -2,6 +2,11 @@
  * Query and Schema Tools
  */
 
+import {
+  investigateDatabase,
+  tableMetadata,
+  schemaMetadata,
+} from "../../services/investigation.service.js";
 import { z } from "zod";
 import { InfluxDBMasterService } from "../../services/influxdb-master.service.js";
 import { McpTool } from "../index.js";
@@ -25,41 +30,84 @@ function readOnlyQueryInputSchema(queryDescription: string) {
     properties: {
       db: {
         type: "string",
-        description: "Database name to query",
+        description:
+          "Database name to query. Canonical name; database is an alias.",
       },
       q: {
         type: "string",
         description: queryDescription,
       },
+      database: {
+        type: "string",
+        description: "Alias for db; provide one or equal values.",
+      },
+      query: {
+        type: "string",
+        description: "Alias for q; provide one or equal values.",
+      },
       params: {
+        anyOf: [{ type: "object" }, { type: "array" }],
         description: "Optional query parameters to pass through",
       },
       format: queryFormatInputSchema,
       maxRows: {
-        type: "number",
+        type: "integer",
         description: "Maximum rows to return. Default 1000; hard max 5000.",
         minimum: 1,
         maximum: 5000,
       },
       timeoutMs: {
-        type: "number",
+        type: "integer",
         description: "Optional query timeout in milliseconds",
         minimum: 1,
       },
     },
-    required: ["db", "q"],
+    required: [],
     additionalProperties: false,
   };
 }
 
-const readOnlyQueryZodSchema = z.object({
-  db: z.string().describe("Database name to query"),
-  q: z.string().describe("Read-only query to run"),
-  params: z.union([z.record(z.unknown()), z.array(z.unknown())]).optional(),
-  format: queryFormatSchema,
-  maxRows: z.number().int().min(1).max(5000).optional(),
-  timeoutMs: z.number().int().min(1).optional(),
-});
+const readOnlyQueryZodSchema = z
+  .object({
+    db: z.string().optional(),
+    database: z.string().optional(),
+    q: z.string().optional(),
+    query: z.string().optional(),
+    params: z.union([z.record(z.unknown()), z.array(z.unknown())]).optional(),
+    format: queryFormatSchema,
+    maxRows: z.number().int().min(1).max(5000).optional(),
+    timeoutMs: z.number().int().min(1).optional(),
+  })
+  .strict()
+  .superRefine((args, ctx) => {
+    for (const [canonical, alias] of [
+      ["db", "database"],
+      ["q", "query"],
+    ] as const) {
+      if (args[canonical] === undefined && args[alias] === undefined) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [canonical],
+          message: `Provide ${canonical} or ${alias}.`,
+        });
+      } else if (
+        args[canonical] !== undefined &&
+        args[alias] !== undefined &&
+        args[canonical] !== args[alias]
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [canonical],
+          message: `${canonical} and ${alias} must agree.`,
+        });
+      }
+    }
+  })
+  .transform((args) => ({
+    ...args,
+    db: args.db ?? args.database,
+    q: args.q ?? args.query,
+  }));
 
 export function createQueryTools(
   influxService: InfluxDBMasterService,
@@ -68,7 +116,7 @@ export function createQueryTools(
     {
       name: "query_sql",
       description:
-        "Run one bounded, read-only SQL query against an InfluxDB 3 database. Defaults to JSON output and returns structured rows, warnings, and query metadata. On Cloud Dedicated, Cloud Serverless, and Clustered, this tool supports only JSON output. In SQL, quoted identifiers are exact column names; if a quoted selector contains *, treat it as wildcard intent, call describe_table, expand matching fields explicitly, then retry one bounded query_sql. Use query_influxql regex only when the user explicitly asks for InfluxQL or regex field selection.",
+        "Run one bounded, read-only SQL query against an InfluxDB 3 database. Accepts database as an alias for db and query as an alias for q; differing pairs are rejected. Defaults to JSON output and returns structured rows, warnings, and query metadata. On Cloud Dedicated, Cloud Serverless, and Clustered, this tool supports only JSON output. In SQL, quoted identifiers are exact column names; if a quoted selector contains *, treat it as wildcard intent, call describe_table, expand matching fields explicitly, then retry one bounded query_sql. Use query_influxql regex only when the user explicitly asks for InfluxQL or regex field selection.",
       inputSchema: readOnlyQueryInputSchema("Read-only SQL query to run"),
       zodSchema: readOnlyQueryZodSchema,
       handler: async (args) => {
@@ -93,7 +141,7 @@ export function createQueryTools(
     {
       name: "query_influxql",
       description:
-        "Run one bounded, read-only InfluxQL query against an InfluxDB 3 database. Rejects SELECT INTO and destructive statements. Prefer query_sql for SQL prompts; use InfluxQL regex field selection only when the user explicitly asks for InfluxQL or regex field matching.",
+        "Run one bounded, read-only InfluxQL query against an InfluxDB 3 database. Accepts database/db and query/q aliases; differing pairs are rejected. Rejects SELECT INTO and destructive statements. Prefer query_sql for SQL prompts; use InfluxQL regex field selection only when the user explicitly asks for InfluxQL or regex field matching.",
       inputSchema: readOnlyQueryInputSchema("Read-only InfluxQL query to run"),
       zodSchema: readOnlyQueryZodSchema,
       handler: async (args) => {
@@ -139,9 +187,15 @@ export function createQueryTools(
           return okResponse({
             ok: true,
             db: args.db,
-            tables,
+            access_outcome: tables.length ? "data" : "empty",
+            tables: tables.map((table) => ({
+              ...table,
+              ...tableMetadata(table.name),
+            })),
             table_count: tables.length,
-            warnings: [],
+            warnings: tables.flatMap(
+              (table) => tableMetadata(table.name).warnings,
+            ),
           });
         } catch (error: any) {
           return errorResponse(error, "list_tables_failed");
@@ -182,13 +236,10 @@ export function createQueryTools(
             ok: true,
             db: args.db,
             table: args.table,
-            ...schema,
-            warnings: schema.columns
-              .filter((column) => column.category === "unknown")
-              .map((column) => ({
-                code: "unknown_column_category",
-                message: `Column '${column.name}' has unknown tag/field category.`,
-              })),
+            access_outcome: schema.columns.length
+              ? "data"
+              : "metadata_unavailable",
+            ...schemaMetadata(schema, args.table),
           });
         } catch (error: any) {
           return errorResponse(error, "describe_table_failed");
@@ -213,13 +264,20 @@ export function createQueryTools(
             default: false,
           },
           maxTables: {
-            type: "number",
+            type: "integer",
             minimum: 1,
             maximum: 100,
             default: 20,
           },
+          sampleWindowHours: {
+            type: "integer",
+            minimum: 1,
+            maximum: 8760,
+            default: 24,
+            description: "Look back this many hours from investigation start.",
+          },
           sampleRowsPerTable: {
-            type: "number",
+            type: "integer",
             minimum: 1,
             maximum: 20,
             default: 3,
@@ -232,6 +290,13 @@ export function createQueryTools(
         db: z.string().describe("Database name to investigate"),
         includeSamples: z.boolean().optional().default(false),
         includeCardinality: z.boolean().optional().default(false),
+        sampleWindowHours: z
+          .number()
+          .int()
+          .min(1)
+          .max(8760)
+          .optional()
+          .default(24),
         maxTables: z.number().int().min(1).max(100).optional().default(20),
         sampleRowsPerTable: z
           .number()
@@ -243,49 +308,9 @@ export function createQueryTools(
       }),
       handler: async (args) => {
         try {
-          const tables = (
-            await influxService.query.getMeasurements(args.db)
-          ).slice(0, args.maxTables);
-          const tableDetails = [];
-
-          for (const table of tables) {
-            const schema = await influxService.query.getMeasurementSchema(
-              table.name,
-              args.db,
-            );
-            let samples: any[] | undefined;
-            if (args.includeSamples) {
-              const sample = await influxService.query.querySqlReadOnly(
-                `SELECT * FROM "${table.name}"`,
-                args.db,
-                {
-                  maxRows: args.sampleRowsPerTable,
-                },
-              );
-              samples = sample.rows;
-            }
-
-            tableDetails.push({
-              name: table.name,
-              schema,
-              ...(samples !== undefined && { samples }),
-            });
-          }
-
-          return okResponse({
-            ok: true,
-            db: args.db,
-            table_count: tableDetails.length,
-            tables: tableDetails,
-            warnings: tableDetails.flatMap((detail) =>
-              detail.schema.columns
-                .filter((column) => column.category === "unknown")
-                .map((column) => ({
-                  code: "unknown_column_category",
-                  message: `Table '${detail.name}' column '${column.name}' has unknown tag/field category.`,
-                })),
-            ),
-          });
+          return okResponse(
+            await investigateDatabase(influxService.query, args),
+          );
         } catch (error: any) {
           return errorResponse(error, "investigate_database_failed");
         }
