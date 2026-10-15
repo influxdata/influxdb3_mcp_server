@@ -60,7 +60,8 @@ function logMcpToolResult(
     duration_ms: Date.now() - startedAt,
     db: payload?.db,
     row_count: metadata.row_count,
-    truncated: metadata.truncated,
+    completeness: metadata.completeness,
+    cap_source: metadata.cap_source,
     success,
     error_code: success ? undefined : payload?.error?.code || "tool_error",
   });

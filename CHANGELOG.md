@@ -48,6 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   aggregate. Health checks return JSON and distinguish
   credential denial from endpoint failure. SDK initialization alone no
   longer establishes server health.
+- Telemetry events log `completeness` and `cap_source` in place of
+  `truncated`, so a result that filled its own `LIMIT` no longer reads as
+  cut off.
 - Investigation preserves per-table failures, reports table truncation and a
   request budget, and samples the newest rows within a configurable time window.
   Unknown metadata remains explicit; possible tombstones stay visible with a
