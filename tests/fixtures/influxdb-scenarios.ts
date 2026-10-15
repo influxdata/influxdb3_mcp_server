@@ -63,7 +63,7 @@ export interface Scenario {
 }
 
 const ROWS_ARRAY_OUTSIDE_SPEC =
-  "The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 return a top-level array of rows, which the MCP server parses.";
+  "The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.";
 
 /** Database the protocol tests seed and query on a live testbench. */
 export const TRUST_DB = "mcp_test_trust";
@@ -92,10 +92,10 @@ export const CORE_SQL_CPU_TABLE: Scenario = {
   name: "core-sql-cpu-table",
   provenance: {
     product: "core",
-    version: "3.11.7",
+    version: "3.12.1",
     source: "live",
     detail:
-      "Testbench run 2026-10-15, Core and Enterprise 3.11.7: format=json returns a top-level array of row objects, and an empty result is `[]`. jsonl returns one object per line; csv returns a header row, then one row per line.",
+      "Testbench run 2026-10-15, Core and Enterprise 3.11.7 and 3.12.1: format=json returns a top-level array of row objects, and an empty result is `[]`. jsonl returns one object per line; csv returns a header row, then one row per line.",
     outside_spec: ROWS_ARRAY_OUTSIDE_SPEC,
   },
   request: {
@@ -112,10 +112,10 @@ export const CORE_SQL_UNKNOWN_TABLE: Scenario = {
   name: "core-sql-unknown-table",
   provenance: {
     product: "core",
-    version: "3.11.7",
+    version: "3.12.1",
     source: "live",
     detail:
-      "Testbench run 2026-10-15, Core and Enterprise 3.11.7: 400 with a plain-text body and no content-type.",
+      "Testbench run 2026-10-15, Core and Enterprise 3.11.7 and 3.12.1: 400 with a plain-text body and no content-type.",
   },
   request: {
     method: "POST",
@@ -131,8 +131,8 @@ export const CORE_SQL_UNKNOWN_TABLE: Scenario = {
 
 /**
  * The stream fails after two rows. No live run has caused this: on Core and
- * Enterprise 3.11.7, every memory failure came before the first row (see
- * CORE_SQL_POOL_EXHAUSTED). This scripts both plausible endings.
+ * Enterprise 3.11.7 and 3.12.1, every memory failure came before the first
+ * row. This scripts both plausible endings.
  */
 export function coreSqlInterrupted(mode: "truncate" | "abort"): Scenario {
   return {
@@ -142,7 +142,7 @@ export function coreSqlInterrupted(mode: "truncate" | "abort"): Scenario {
       version: "3.11.7",
       source: "source-inspection",
       detail:
-        "Unobserved. A 200 JSON response that stops after two rows. Testbench run 2026-10-15 tried small memory pools on Core and Enterprise 3.11.7, and no query failed after its first row.",
+        "Unobserved. A 200 JSON response that stops after two rows. Testbench run 2026-10-15 tried small memory pools on Core and Enterprise 3.11.7 and 3.12.1, and no query failed after its first row.",
       outside_spec:
         "A response cut short is outside every documented response.",
     },
@@ -158,10 +158,11 @@ export function coreSqlInterrupted(mode: "truncate" | "abort"): Scenario {
 
 /**
  * The query runs out of memory before its first row. Core and Enterprise
- * send the 200 headers, then drop the connection with no body.
+ * 3.11.7 send the 200 headers, then drop the connection with no body.
+ * 3.12.1 returns an error status instead (CORE_SQL_POOL_EXHAUSTED_STATUS).
  */
-export const CORE_SQL_POOL_EXHAUSTED: Scenario = {
-  name: "core-sql-pool-exhausted",
+export const CORE_SQL_POOL_EXHAUSTED_DROP: Scenario = {
+  name: "core-sql-pool-exhausted-drop",
   provenance: {
     product: "core",
     version: "3.11.7",
@@ -181,6 +182,32 @@ export const CORE_SQL_POOL_EXHAUSTED: Scenario = {
 };
 
 /**
+ * The query runs out of memory before its first row, on Core 3.12.1: a 500
+ * with a plain-text body, in every format.
+ */
+export const CORE_SQL_POOL_EXHAUSTED_STATUS: Scenario = {
+  name: "core-sql-pool-exhausted-status",
+  provenance: {
+    product: "core",
+    version: "3.12.1",
+    source: "live",
+    detail:
+      "Testbench run 2026-10-15, Core 3.12.1 with INFLUXDB3_EXEC_MEM_POOL_SIZE at 4 MB: json, jsonl and csv each returned 500 with a plain-text body and no content-type. Enterprise 3.12.1 returns 429 for the same failure.",
+    outside_spec: "The spec documents no 500 for query_sql.",
+  },
+  request: {
+    method: "POST",
+    path: "/api/v3/query_sql",
+    db: TRUST_DB,
+    q: /\bFROM\s+"?cpu_pool_exhausted_status"?(?!\w)/iu,
+  },
+  response: {
+    status: 500,
+    body: "External error: Execution error for 'deduplicate batches'\ncaused by\nResources exhausted: Additional allocation failed for SortPreservingMergeExec[0] with top memory consumers (across reservations) as:\n  SortPreservingMergeExec[0]#1001(can spill: false) consumed 3.9 MB, peak 3.9 MB.",
+  },
+};
+
+/**
  * A 200 whose body ends cleanly before the first row. A JSON result is never
  * an empty body, so this is a failed query, not "no rows".
  */
@@ -191,7 +218,7 @@ export const CORE_SQL_EMPTY_BODY: Scenario = {
     version: "3.11.7",
     source: "source-inspection",
     detail:
-      "Unobserved. The 3.11.6 Enterprise release notes say json, jsonl and csv end the response early when memory runs out. Testbench run 2026-10-15 saw a dropped connection instead (CORE_SQL_POOL_EXHAUSTED), and `[]` for an empty result.",
+      "Unobserved. The 3.11.6 Enterprise release notes say json, jsonl and csv end the response early when memory runs out. Testbench run 2026-10-15 saw a dropped connection instead (CORE_SQL_POOL_EXHAUSTED_DROP), and `[]` for an empty result.",
     outside_spec:
       "A 200 response with no body is outside every documented response.",
   },
@@ -212,10 +239,10 @@ export const CORE_INFLUXQL_CPU_TABLE: Scenario = {
   name: "core-influxql-cpu-table",
   provenance: {
     product: "core",
-    version: "3.11.7",
+    version: "3.12.1",
     source: "live",
     detail:
-      "Testbench run 2026-10-15, Core and Enterprise 3.11.7: a top-level array of row objects, and an empty result is `[]`. Each row has iox::measurement, and time has no Z suffix.",
+      "Testbench run 2026-10-15, Core and Enterprise 3.11.7 and 3.12.1: a top-level array of row objects, and an empty result is `[]`. Each row has iox::measurement, and time has no Z suffix.",
     outside_spec: ROWS_ARRAY_OUTSIDE_SPEC,
   },
   request: {
@@ -275,7 +302,8 @@ export const ALL_SCENARIOS: Scenario[] = [
   CORE_SQL_UNKNOWN_TABLE,
   coreSqlInterrupted("truncate"),
   coreSqlInterrupted("abort"),
-  CORE_SQL_POOL_EXHAUSTED,
+  CORE_SQL_POOL_EXHAUSTED_DROP,
+  CORE_SQL_POOL_EXHAUSTED_STATUS,
   CORE_SQL_EMPTY_BODY,
   CORE_INFLUXQL_CPU_TABLE,
   CORE_SQL_CSV_RETURNS_JSON,
