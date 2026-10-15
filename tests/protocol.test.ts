@@ -133,6 +133,17 @@ describe("MCP protocol compliance", () => {
       }
     });
 
+    it("points execute_query at query_sql for bounded reads", async () => {
+      const result = await testClient.client.listTools();
+      const description =
+        result.tools.find((tool) => tool.name === "execute_query")
+          ?.description ?? "";
+
+      expect(description).toContain(
+        "For bounded reads that report completeness, use query_sql.",
+      );
+    });
+
     it("shows the InfluxQL regex field form the parser accepts", async () => {
       const result = await testClient.client.listTools();
       const description =
