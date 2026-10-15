@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACCESS_SCENARIOS,
   DISCOVERY_SCENARIOS,
+  INGEST_NODE_QUERY,
   RECOVERY_SCENARIOS,
   SAMPLES_DENIED_OR_EMPTY,
 } from "./fixtures/discovery-scenarios.js";
@@ -38,6 +39,7 @@ const SCENARIOS = [
   ...ALL_SCENARIOS,
   ...ACCESS_SCENARIOS,
   ...RECOVERY_SCENARIOS,
+  INGEST_NODE_QUERY,
   ...DISCOVERY_SCENARIOS,
   ...SAMPLES_DENIED_OR_EMPTY,
 ];

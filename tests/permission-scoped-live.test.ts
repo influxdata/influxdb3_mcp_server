@@ -49,9 +49,7 @@ describe.skipIf(!run)("[live-only] scoped Enterprise database access", () => {
           : {}),
       });
       expect(result.ok).toBe(false);
-      expect(["access_denied", "not_found_or_denied"]).toContain(
-        result.error.code,
-      );
+      expect(result.error.code).toBe("not_found_or_denied");
     }
     const health = await call("health_check", {});
     if (

@@ -104,16 +104,34 @@ export class OperationError extends Error {
   }
 }
 
-// These access outcomes follow the existing HTTP contract. The field error
-// matches the recorded Core fixture. Add version-specific recovery signatures
-// here only after the operator records the corresponding live response.
+// Observed on Core and Enterprise 3.12.1: a token that may not read a
+// database gets 403 whether or not the database exists, and 404 reaches only
+// a token that can see the database is missing. Add version-specific
+// recovery signatures here only after the operator records the corresponding
+// live response.
 const ACCESS_FAILURES: Partial<
   Record<number, { code: string; recovery: Recovery }>
 > = {
   401: { code: "credential_invalid", recovery: "renew_credential" },
-  403: { code: "access_denied", recovery: "none" },
-  404: { code: "not_found_or_denied", recovery: "none" },
+  403: { code: "not_found_or_denied", recovery: "none" },
+  404: { code: "not_found", recovery: "none" },
 };
+
+/** Server messages that name their own recovery. */
+const RECOVERY_SIGNATURES: Array<{
+  status: number;
+  pattern: RegExp;
+  recovery: Recovery;
+}> = [
+  // Recorded Core unknown-field error.
+  { status: 500, pattern: /No field named/u, recovery: "fix_reference" },
+  // Enterprise 3.12.1 ingest-only node.
+  {
+    status: 405,
+    pattern: /send this query to a query node/u,
+    recovery: "change_endpoint",
+  },
+];
 
 /** Preserve access evidence across axios, Flight and metadata wrappers. */
 export function resolveOperationError(
@@ -140,12 +158,11 @@ export function resolveOperationError(
   const prefix: Record<number, string> = {
     400: "Bad request",
     401: "Unauthorized",
-    403: "Access denied",
-    404: "Not found or access denied",
+    403: "Access denied or not found",
+    404: "Not found",
     405: "Method not allowed",
     422: "Unprocessable entity",
   };
-  // No route has yet established whether 404 masks denied access.
   const access = status === undefined ? undefined : ACCESS_FAILURES[status];
   const clientTimeout =
     error &&
@@ -153,13 +170,14 @@ export function resolveOperationError(
     "code" in error &&
     (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT");
   const code = access?.code ?? (clientTimeout ? "client_timeout" : fallback);
-  // Credential renewal and unknown-field recovery have existing observations.
-  // Wrong-node, exhaustion, backpressure and timeout signatures need live evidence.
+  // Exhaustion, backpressure and timeout signatures need live evidence.
   const recovery: Recovery =
     access?.recovery ??
-    (status === 500 && /No field named/u.test(message)
-      ? "fix_reference"
-      : "none");
+    RECOVERY_SIGNATURES.find(
+      (signature) =>
+        signature.status === status && signature.pattern.test(message),
+    )?.recovery ??
+    "none";
   let retryAfter: unknown;
   if (error && typeof error === "object" && "response" in error) {
     const response = error.response;

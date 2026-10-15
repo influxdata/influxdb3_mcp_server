@@ -7,13 +7,14 @@ below remain pending until their results are recorded.
 ## Review the changed contracts
 
 - Query and discovery errors preserve normalized HTTP status and distinguish
-  `credential_invalid`, `access_denied`, and `not_found_or_denied`. A 404 stays
-  ambiguous until a live route establishes what it means. Unavailable schema
-  metadata uses `metadata_unavailable`.
+  `credential_invalid` (401), `not_found_or_denied` (403), and `not_found`
+  (404), as observed on 3.12.1. Unavailable schema metadata uses
+  `metadata_unavailable`.
 - Errors include `recovery` and derive `retryable` from it. Known invalid
   credentials request renewal. The recorded Core unknown-field error requests
-  reference correction. Unobserved signatures use `none`, including synthetic
-  405, 429, 503, and timeout responses. `Retry-After` is preserved in milliseconds
+  reference correction. The ingest-only node's 405 requests a different
+  endpoint. Unobserved signatures use `none`, including synthetic 429, 503,
+  and timeout responses. `Retry-After` is preserved in milliseconds
   when supplied; its presence alone does not authorize a retry.
   Local HTTP transport timeouts report `client_timeout` and
   `timeout_origin: "client"`, without inventing an HTTP response status.
