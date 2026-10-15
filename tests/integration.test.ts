@@ -43,7 +43,7 @@ describe.skipIf(!RUN)("live InfluxDB integration", () => {
     });
     const text = (result.content as Array<{ type: string; text: string }>)[0]
       ?.text;
-    expect(text).toContain("HEALTHY");
+    expect(JSON.parse(text).connection.status).toBe("healthy");
   });
 
   it("list_databases returns a response", async () => {

@@ -4,6 +4,7 @@
  * Defines resources that provide read-only data access
  */
 
+import { assessHealth } from "../services/health-assessment.service.js";
 import { InfluxDBMasterService } from "../services/influxdb-master.service.js";
 
 export interface McpResource {
@@ -29,7 +30,11 @@ export function createResources(
       handler: async () => {
         const connectionInfo = influxService.getConnectionInfo();
         const pingResult = await influxService.ping();
-        const isConnected = pingResult.ok;
+        const isConnected = pingResult.ok
+          ? true
+          : pingResult.outcome === "credential_cannot_check"
+            ? "unknown"
+            : false;
 
         const config = {
           connection: {
@@ -37,6 +42,11 @@ export function createResources(
             hasToken: connectionInfo.hasToken,
             database: connectionInfo.database,
             isConnected,
+            capability_evidence: {
+              connection: pingResult.ok ? "observed" : "unknown",
+              query: "unknown",
+              endpoint: "configured",
+            },
           },
         };
 
@@ -59,35 +69,8 @@ export function createResources(
         "Comprehensive status of the InfluxDB connection including ping and health check results",
       handler: async () => {
         try {
-          const pingResult = await influxService.ping();
-
-          let healthStatus;
-          try {
-            healthStatus = await influxService.getHealthStatus();
-          } catch (healthError: any) {
-            healthStatus = {
-              status: "unavailable",
-              error: healthError.message,
-            };
-          }
-
-          const status = {
-            timestamp: new Date().toISOString(),
-            ping: {
-              ok: pingResult.ok,
-              version: pingResult.version || null,
-              build: pingResult.build || null,
-              message: pingResult.message || null,
-            },
-            health: healthStatus,
-            overall: {
-              status:
-                pingResult.ok && healthStatus.status !== "fail"
-                  ? "healthy"
-                  : "unhealthy",
-              connection: pingResult.ok ? "connected" : "disconnected",
-            },
-          };
+          const assessment = await assessHealth(influxService);
+          const status = { timestamp: new Date().toISOString(), ...assessment };
 
           return {
             contents: [
@@ -142,6 +125,11 @@ export function createResources(
             databases: databases,
             count: databases.length,
             status: "success",
+            visibility: "unknown",
+            capability_evidence: {
+              list_databases: "observed",
+              database_reads: "unknown",
+            },
           };
 
           return {

@@ -5,7 +5,7 @@
 import { z } from "zod";
 import { InfluxDBMasterService } from "../../services/influxdb-master.service.js";
 import { McpTool } from "../index.js";
-import { okResponse } from "../response.js";
+import { errorResponse, okResponse } from "../response.js";
 
 export function createDatabaseTools(
   influxService: InfluxDBMasterService,
@@ -311,7 +311,7 @@ export function createDatabaseTools(
     {
       name: "list_databases",
       description:
-        "List all databases in the InfluxDB instance (all versions). Returns database names, count, and status information.",
+        "List databases visible to this credential. Visibility completeness and permissions to read individual databases remain unknown unless independently observed.",
       inputSchema: {
         type: "object",
         properties: {},
@@ -326,18 +326,16 @@ export function createDatabaseTools(
             ok: true,
             databases,
             database_count: databases.length,
+            access_outcome: databases.length ? "data" : "empty",
+            visibility: "unknown",
+            capability_evidence: {
+              list_databases: "observed",
+              database_reads: "unknown",
+            },
             warnings: [],
           });
-        } catch (error: any) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Error listing databases: ${error.message}`,
-              },
-            ],
-            isError: true,
-          };
+        } catch (error: unknown) {
+          return errorResponse(error, "list_databases_failed");
         }
       },
     },

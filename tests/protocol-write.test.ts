@@ -81,12 +81,12 @@ describe("write_line_protocol – advertised contract", () => {
 
   it("rejects an unknown precision at the validation boundary", async () => {
     // zodSchema and inputSchema are maintained separately and must agree.
-    await expect(
-      testClient.client.callTool({
-        name: "write_line_protocol",
-        arguments: { database: "mydb", data: "m f=1i", precision: "hour" },
-      }),
-    ).rejects.toThrow();
+    const result = await testClient.client.callTool({
+      name: "write_line_protocol",
+      arguments: { database: "mydb", data: "m f=1i", precision: "hour" },
+    });
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(textOf(result)).error.code).toBe("invalid_arguments");
   });
 });
 
@@ -158,17 +158,16 @@ describe("capability detection – current state", () => {
     await testClient?.close();
   });
 
-  it("health_check reports HEALTHY against an unreachable instance", async () => {
-    // `hasAnySuccess` is set by `connectionInfo.isDataClientInitialized`,
-    // which is true whenever a client object was constructed — no request
-    // required. Both /ping and /health fail here, and the tool still reports
-    // success.
+  it("client initialization does not prove an unreachable instance healthy", async () => {
     const result = await testClient.client.callTool({
       name: "health_check",
       arguments: {},
     });
 
-    expect(textOf(result)).toContain("✅ HEALTHY");
+    expect(JSON.parse(textOf(result)).connection).toMatchObject({
+      status: "unhealthy",
+      reachable: false,
+    });
   });
 
   it("reports the configured product type verbatim, unverified", async () => {
