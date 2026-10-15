@@ -3,8 +3,9 @@ import { createTestClient, TestClient } from "./helpers/mcp-client.js";
 
 // Update this when tools are added or removed.
 // Verified against: src/tools/index.ts createTools() aggregation.
-// help(2) + write(1) + database(4) + query(8) + token(6) + cloud-token(5) + health(1) = 27
-const EXPECTED_TOOL_COUNT = 27;
+// Core doesn't support resource tokens, so its operator surface omits
+// list_resource_tokens and create_resource_token.
+const EXPECTED_CORE_TOOL_COUNT = 25;
 
 const EXPECTED_RESOURCE_URIS = [
   "influx://config",
@@ -48,7 +49,7 @@ describe("MCP protocol compliance", () => {
   describe("tools/list", () => {
     it("returns the expected number of tools", async () => {
       const result = await testClient.client.listTools();
-      expect(result.tools).toHaveLength(EXPECTED_TOOL_COUNT);
+      expect(result.tools).toHaveLength(EXPECTED_CORE_TOOL_COUNT);
     });
 
     it("each tool has name, description, and inputSchema", async () => {
@@ -74,6 +75,29 @@ describe("MCP protocol compliance", () => {
       expect(names).toContain("write_line_protocol");
       expect(names).toContain("list_databases");
       expect(names).toContain("create_admin_token");
+      expect(names).not.toContain("list_resource_tokens");
+      expect(names).not.toContain("create_resource_token");
+    });
+
+    it("advertises Enterprise resource tokens and named-admin expiry", async () => {
+      const enterpriseClient = await createTestClient({
+        INFLUX_DB_PRODUCT_TYPE: "enterprise",
+      });
+      try {
+        const result = await enterpriseClient.client.listTools();
+        const names = result.tools.map((tool) => tool.name);
+        const createAdmin = result.tools.find(
+          (tool) => tool.name === "create_admin_token",
+        );
+
+        expect(names).toContain("list_resource_tokens");
+        expect(names).toContain("create_resource_token");
+        expect(createAdmin?.inputSchema.properties).toHaveProperty(
+          "expiry_secs",
+        );
+      } finally {
+        await enterpriseClient.close();
+      }
     });
 
     it("advertises SQL wildcard recovery guidance", async () => {

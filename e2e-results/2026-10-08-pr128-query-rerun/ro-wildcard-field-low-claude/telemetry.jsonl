@@ -1,0 +1,2 @@
+{"tool_name":"describe_table","request_id":"2a5c917b-7131-47c1-b790-acedbcf4543b","timestamp_ms":1791467635608,"duration_ms":26,"db":"host_system","success":true}
+{"tool_name":"query_sql","request_id":"a47132a7-4681-464f-be4d-5ef79b821b96","query_id":"4461d84f-8d7b-45d5-ac98-2c7082c2dc85","timestamp_ms":1791467638843,"duration_ms":23,"db":"host_system","row_count":2,"truncated":false,"success":true}

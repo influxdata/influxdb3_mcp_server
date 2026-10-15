@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Standalone InfluxDB MCP Server
+ * Standalone InfluxDB 3 MCP Server
  *
  * Main entry point for the MCP server that provides InfluxDB integration
  * for Claude Desktop and other MCP clients.
@@ -15,7 +15,7 @@ async function main() {
     const server = createServer();
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.error("[MCP] InfluxDB MCP Server started successfully");
+    console.error("[MCP] InfluxDB 3 MCP Server started successfully");
   } catch (error) {
     console.error("[MCP] Failed to start server:", error);
     process.exit(1);

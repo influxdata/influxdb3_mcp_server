@@ -1,0 +1,37 @@
+[
+  {
+    "tool": "mcp__influxdb3__describe_table",
+    "arguments": {
+      "db": "host_system",
+      "table": "metrics"
+    },
+    "response": {
+      "tool_use_id": "toolu_01QLhUWJcEw7HPin1h9KTfUi",
+      "type": "tool_result",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\n  \"ok\": true,\n  \"db\": \"host_system\",\n  \"table\": \"metrics\",\n  \"columns\": [\n    {\n      \"name\": \"cpu::usage_idle\",\n      \"type\": \"Float64\",\n      \"category\": \"unknown\",\n      \"categoryConfidence\": \"low\",\n      \"warnings\": [\n        \"Tag versus field role is not available from metadata.\"\n      ]\n    },\n    {\n      \"name\": \"cpu::usage_system\",\n      \"type\": \"Float64\",\n      \"category\": \"unknown\",\n      \"categoryConfidence\": \"low\",\n      \"warnings\": [\n        \"Tag versus field role is not available from metadata.\"\n      ]\n    },\n    {\n      \"name\": \"cpu::usage_user\",\n      \"type\": \"Float64\",\n      \"category\": \"unknown\",\n      \"categoryConfidence\": \"low\",\n      \"warnings\": [\n        \"Tag versus field role is not available from metadata.\"\n      ]\n    },\n    {\n      \"name\": \"host\",\n      \"type\": \"Dictionary(Int32, Utf8)\",\n      \"category\": \"unknown\",\n      \"categoryConfidence\": \"low\",\n      \"warnings\": [\n        \"Tag versus field role is not available from metadata.\"\n      ]\n    },\n    {\n      \"name\": \"time\",\n      \"type\": \"Timestamp(ns)\",\n      \"category\": \"time\",\n      \"categoryConfidence\": \"high\"\n    }\n  ],\n  \"warnings\": [\n    {\n      \"code\": \"unknown_column_category\",\n      \"message\": \"Column 'cpu::usage_idle' has unknown tag/field category.\"\n    },\n    {\n      \"code\": \"unknown_column_category\",\n      \"message\": \"Column 'cpu::usage_system' has unknown tag/field category.\"\n    },\n    {\n      \"code\": \"unknown_column_category\",\n      \"message\": \"Column 'cpu::usage_user' has unknown tag/field category.\"\n    },\n    {\n      \"code\": \"unknown_column_category\",\n      \"message\": \"Column 'host' has unknown tag/field category.\"\n    }\n  ]\n}"
+        }
+      ]
+    }
+  },
+  {
+    "tool": "mcp__influxdb3__query_sql",
+    "arguments": {
+      "db": "host_system",
+      "q": "SELECT time, host, \"cpu::usage_idle\", \"cpu::usage_system\", \"cpu::usage_user\" FROM metrics ORDER BY time DESC LIMIT 100",
+      "maxRows": 100
+    },
+    "response": {
+      "tool_use_id": "toolu_0118aYEYcvu4w12U74V6ZyT7",
+      "type": "tool_result",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\n  \"ok\": true,\n  \"db\": \"host_system\",\n  \"q\": \"SELECT time, host, \\\"cpu::usage_idle\\\", \\\"cpu::usage_system\\\", \\\"cpu::usage_user\\\" FROM metrics ORDER BY time DESC LIMIT 100\",\n  \"format\": \"json\",\n  \"rows\": [\n    {\n      \"time\": \"2026-01-01T00:00:00\",\n      \"host\": \"e2e-host-2\",\n      \"cpu::usage_idle\": 45.2,\n      \"cpu::usage_system\": 9.7,\n      \"cpu::usage_user\": 45.1\n    },\n    {\n      \"time\": \"2026-01-01T00:00:00\",\n      \"host\": \"e2e-host-1\",\n      \"cpu::usage_idle\": 84.3,\n      \"cpu::usage_system\": 3.2,\n      \"cpu::usage_user\": 12.5\n    }\n  ],\n  \"metadata\": {\n    \"request_id\": \"a47132a7-4681-464f-be4d-5ef79b821b96\",\n    \"query_id\": \"4461d84f-8d7b-45d5-ac98-2c7082c2dc85\",\n    \"query_id_source\": \"system.queries.id\",\n    \"phase\": \"success\",\n    \"query_type\": \"sql\",\n    \"success\": true,\n    \"duration_ms\": 13,\n    \"row_count\": 2,\n    \"truncated\": false,\n    \"running\": false,\n    \"cancelled\": false,\n    \"plan_duration\": \"PT0.005853961S\",\n    \"permit_duration\": \"PT0.000016291S\",\n    \"execute_duration\": \"PT0.002782773S\",\n    \"end2end_duration\": \"PT0.0086689S\",\n    \"compute_duration\": \"PT0.001207365S\",\n    \"max_memory\": 330122\n  },\n  \"warnings\": []\n}"
+        }
+      ]
+    }
+  }
+]

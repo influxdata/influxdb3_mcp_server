@@ -1,0 +1,66 @@
+{
+  "case": "cloud-dedicated",
+  "product": "cloud-dedicated",
+  "sha": "ee8bc15003c911eb7acca1976205fa512501d029",
+  "auth": "configured Claude auth",
+  "start": "2026-10-08T13:22:30.968Z",
+  "end": "2026-10-08T13:22:40.250Z",
+  "exit_code": 0,
+  "model": "claude-opus-5-5",
+  "duration_ms": 8190,
+  "usage": {
+    "input_tokens": 4,
+    "cache_creation_input_tokens": 16991,
+    "cache_read_input_tokens": 18605,
+    "output_tokens": 668,
+    "output_tokens_details": {
+      "thinking_tokens": 56
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 16991,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 632,
+        "cache_read_input_tokens": 15764,
+        "cache_creation_input_tokens": 4068,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 4068
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard",
+    "fallback_credit": null
+  },
+  "tool_path": [
+    "mcp__influxdb3__get_help"
+  ],
+  "tool_calls": 1,
+  "failed_calls": 0,
+  "shell_used": false,
+  "telemetry_lines": 1,
+  "result": "failed",
+  "criteria": {
+    "overall_help_heading": "failed: reported query-section heading",
+    "query_tool_mapping": "passed",
+    "tool_vs_endpoint": "passed",
+    "server_routes": "passed",
+    "flux_unsupported": "passed",
+    "no_mutation": "passed",
+    "influxql_endpoint": "passed",
+    "only_get_help": "passed"
+  },
+  "harness": "claude",
+  "artifacts": "2026-10-08-pr128-get-help/cloud-dedicated-claude",
+  "grading_method": "Agent review of prompt, final answer, MCP call responses, and telemetry; no separate model judge."
+}

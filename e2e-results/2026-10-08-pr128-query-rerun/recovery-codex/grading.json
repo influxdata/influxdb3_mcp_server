@@ -1,0 +1,46 @@
+{
+  "case": "recovery",
+  "product": "enterprise",
+  "sha": "626ff257f1d91594d1475dbfb80a71f7bd63f80c",
+  "model": "gpt-5.6-sol",
+  "reasoning": "low",
+  "auth": "ChatGPT sign-in",
+  "start": "2026-10-08T13:54:54.585Z",
+  "end": "2026-10-08T13:55:17.676Z",
+  "exit_code": 0,
+  "usage": {
+    "input_tokens": 142857,
+    "cached_input_tokens": 124416,
+    "output_tokens": 965,
+    "reasoning_output_tokens": 137
+  },
+  "duration_ms": 23091,
+  "harness": "codex",
+  "tool_path": [
+    "get_help",
+    "query_influxql",
+    "describe_table",
+    "query_influxql"
+  ],
+  "tool_calls": 4,
+  "failed_calls": 0,
+  "shell_used": false,
+  "telemetry_lines": 4,
+  "artifacts": "2026-10-08-pr128-query-rerun/recovery-codex",
+  "grading_method": "Agent review of exact prompt, final answer, tool responses, and telemetry; no separate model judge.",
+  "influxdb_image": "influxdb:3.11.5-enterprise",
+  "influxdb_version": "3.11.5",
+  "influxdb_revision": "6b5b62a42f18feb2d3054a501eea417bf94a96b3",
+  "result": "passed",
+  "criteria": {
+    "get_help_first": "passed",
+    "overall_help_heading": "passed",
+    "initial_literal_query": "passed: zero rows",
+    "schema_inspection": "passed",
+    "influxql_regex_recovery": "passed",
+    "json_rows": "passed",
+    "query_metadata": "passed",
+    "flux_unsupported": "passed",
+    "no_mutation": "passed"
+  }
+}

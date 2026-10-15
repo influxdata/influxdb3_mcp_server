@@ -23,6 +23,52 @@ function emptyAsyncResult() {
 
 describe("query routing options", () => {
   it.each([
+    ["cloud-dedicated", InfluxProductType.CloudDedicated],
+    ["cloud-serverless", InfluxProductType.CloudServerless],
+    ["clustered", InfluxProductType.Clustered],
+  ])("%s rejects non-JSON SQL formats before dispatch", async (_name, type) => {
+    const base = stubBaseService(type);
+    const service = new QueryService(base);
+
+    for (const format of ["csv", "jsonl", "pretty", "parquet"] as const) {
+      await expect(
+        service.executeQuery(QUERY, DATABASE, { format }),
+      ).rejects.toThrow(
+        `Query format '${format}' is not supported by this MCP SQL query path for ${type}; use 'json'`,
+      );
+    }
+
+    expect(base.getClient).not.toHaveBeenCalled();
+    expect(base.getInfluxHttpClient).not.toHaveBeenCalled();
+  });
+
+  it("returns a stable error code for an unsupported SQL format", async () => {
+    const base = stubBaseService(InfluxProductType.CloudServerless);
+
+    await expect(
+      new QueryService(base).executeQuery(QUERY, DATABASE, { format: "csv" }),
+    ).rejects.toMatchObject({ code: "unsupported_query_format" });
+  });
+
+  it("keeps forwarding CSV format for Core", async () => {
+    const base = stubBaseService(InfluxProductType.Core);
+    const httpClient = { post: vi.fn().mockResolvedValue("a\n1\n") };
+    vi.mocked(base.getInfluxHttpClient).mockReturnValue(httpClient as any);
+
+    await new QueryService(base).executeQuery(QUERY, DATABASE, {
+      format: "csv",
+    });
+
+    expect(httpClient.post).toHaveBeenCalledWith(
+      "/api/v3/query_sql",
+      { db: DATABASE, q: QUERY, format: "csv" },
+      expect.objectContaining({
+        headers: expect.objectContaining({ Accept: "text/csv" }),
+      }),
+    );
+  });
+
+  it.each([
     ["core", InfluxProductType.Core],
     ["enterprise", InfluxProductType.Enterprise],
   ])(
@@ -113,20 +159,32 @@ describe("query routing options", () => {
     );
   });
 
-  it("preserves the Clustered InfluxQL timeout", async () => {
-    const base = stubBaseService(InfluxProductType.Clustered);
-    const httpClient = { get: vi.fn().mockResolvedValue({}) };
-    vi.mocked(base.getInfluxHttpClient).mockReturnValue(httpClient as any);
+  // These products use the v1-compatible HTTP API for InfluxQL, including
+  // Serverless, whose SQL queries use Flight instead.
+  it.each([
+    ["cloud-dedicated", InfluxProductType.CloudDedicated],
+    ["cloud-serverless", InfluxProductType.CloudServerless],
+    ["clustered", InfluxProductType.Clustered],
+  ])(
+    "%s routes InfluxQL to the v1 API with params and timeout",
+    async (_name, type) => {
+      const base = stubBaseService(type);
+      const response = { results: [{ statement_id: 0 }] };
+      const httpClient = { get: vi.fn().mockResolvedValue(response) };
+      vi.mocked(base.getInfluxHttpClient).mockReturnValue(httpClient as any);
 
-    await new QueryService(base).executeInfluxqlQuery(
-      "SELECT * FROM cpu",
-      DATABASE,
-      { timeoutMs: TIMEOUT_MS },
-    );
+      await expect(
+        new QueryService(base).executeInfluxqlQuery(QUERY, DATABASE, {
+          params: PARAMS,
+          timeoutMs: TIMEOUT_MS,
+        }),
+      ).resolves.toEqual(response);
 
-    expect(httpClient.get).toHaveBeenCalledWith(
-      "/query",
-      expect.objectContaining({ timeout: TIMEOUT_MS }),
-    );
-  });
+      expect(httpClient.get).toHaveBeenCalledWith("/query", {
+        params: { db: DATABASE, q: QUERY, params: PARAMS },
+        timeout: TIMEOUT_MS,
+      });
+      expect(base.getClient).not.toHaveBeenCalled();
+    },
+  );
 });

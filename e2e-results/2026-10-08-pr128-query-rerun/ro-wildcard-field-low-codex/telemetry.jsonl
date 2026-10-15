@@ -1,0 +1,4 @@
+{"tool_name":"load_database_context","request_id":"41b9837b-55cf-42b0-9bb7-3e658d812b84","timestamp_ms":1791467728532,"duration_ms":1,"success":true}
+{"tool_name":"list_databases","request_id":"d8377287-e589-4893-bb88-5de8cf082dcb","timestamp_ms":1791467729991,"duration_ms":52,"success":true}
+{"tool_name":"describe_table","request_id":"c26c4690-20b3-414e-a86d-4d0b717b047c","timestamp_ms":1791467733663,"duration_ms":48,"db":"host_system","success":true}
+{"tool_name":"query_sql","request_id":"c7a7b431-418a-438a-86f5-19cca314297d","query_id":"ed2ef723-a076-4e0f-9cf7-c99089b9823f","timestamp_ms":1791467735902,"duration_ms":42,"db":"host_system","row_count":2,"truncated":false,"success":true}

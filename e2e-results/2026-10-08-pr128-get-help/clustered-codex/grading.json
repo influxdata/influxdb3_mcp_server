@@ -1,0 +1,39 @@
+{
+  "case": "clustered",
+  "product": "clustered",
+  "sha": "ee8bc15003c911eb7acca1976205fa512501d029",
+  "model": "gpt-5.6-sol",
+  "reasoning": "low",
+  "auth": "ChatGPT sign-in",
+  "start": "2026-10-08T13:26:56.819Z",
+  "end": "2026-10-08T13:27:08.702Z",
+  "exit_code": 0,
+  "result": "failed",
+  "tool_calls": 1,
+  "tool_path": [
+    "get_help"
+  ],
+  "failed_calls": 0,
+  "shell_used": false,
+  "telemetry_lines": 1,
+  "usage": {
+    "input_tokens": 46378,
+    "cached_input_tokens": 35072,
+    "output_tokens": 303,
+    "reasoning_output_tokens": 86
+  },
+  "criteria": {
+    "overall_help_heading": "failed: reported query-section heading",
+    "query_tool_mapping": "passed",
+    "tool_vs_endpoint": "passed",
+    "server_routes": "passed",
+    "flux_unsupported": "passed",
+    "no_mutation": "passed",
+    "influxql_endpoint": "passed",
+    "only_get_help": "passed"
+  },
+  "harness": "codex",
+  "artifacts": "2026-10-08-pr128-get-help/clustered-codex",
+  "grading_method": "Agent review of prompt, final answer, MCP call responses, and telemetry; no separate model judge.",
+  "duration_ms": 11883
+}
