@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   CORE_SQL_CPU_TABLE,
   CORE_SQL_EMPTY_BODY,
-  CORE_SQL_POOL_EXHAUSTED,
+  CORE_SQL_POOL_EXHAUSTED_DROP,
+  CORE_SQL_POOL_EXHAUSTED_STATUS,
   CORE_SQL_UNKNOWN_TABLE,
   coreSqlInterrupted,
   CPU_LINE_PROTOCOL,
@@ -136,12 +137,33 @@ describe("read-only query completeness", () => {
         "returns a connection dropped before the first row (%s) as interrupted with no rows",
         async (format) => {
           await expectInterruptedWithNoRows(
-            CORE_SQL_POOL_EXHAUSTED,
+            CORE_SQL_POOL_EXHAUSTED_DROP,
             "cpu_pool_exhausted",
             format,
           );
         },
       );
+
+      it("returns a memory failure status before the first row as a failed query with the server's reason", async () => {
+        const fake = await startBackend([CORE_SQL_POOL_EXHAUSTED_STATUS]);
+        const client = await createTestClient(fake.env);
+        try {
+          const { body, isError } = await callTool(client, "query_sql", {
+            db: TRUST_DB,
+            q: `SELECT host, usage FROM cpu_pool_exhausted_status WHERE ${TIME_RANGE}`,
+          });
+
+          expect(isError).toBe(true);
+          expect(body.ok).toBe(false);
+          expect(body).not.toHaveProperty("rows");
+          expect(body.metadata).toMatchObject({ row_count: 0 });
+          expect(body.error.code).not.toBe("query_interrupted");
+          expect(body.error.message).toContain("Resources exhausted");
+        } finally {
+          await client.close();
+          await fake.close();
+        }
+      });
 
       it("returns a 200 with an empty body as interrupted, not as no rows", async () => {
         await expectInterruptedWithNoRows(
