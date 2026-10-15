@@ -31,7 +31,7 @@ describe("handleQueryError – Core (axios) error path", () => {
     const svc = new QueryService(base);
 
     await expect(svc.executeQuery("SELECT 1", "nonexistent")).rejects.toThrow(
-      /^Not found or access denied: query error: database not found: nonexistent$/,
+      /^Not found: query error: database not found: nonexistent$/,
     );
   });
 

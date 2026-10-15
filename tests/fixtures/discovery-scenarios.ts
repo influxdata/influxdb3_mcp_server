@@ -25,13 +25,13 @@ export const ACCESS_OUTCOMES = [
     code: "credential_invalid",
     recovery: "renew_credential",
   },
-  { name: "denied", status: 403, code: "access_denied", recovery: "none" },
   {
-    name: "ambiguous absence",
-    status: 404,
+    name: "denied or absent",
+    status: 403,
     code: "not_found_or_denied",
     recovery: "none",
   },
+  { name: "not found", status: 404, code: "not_found", recovery: "none" },
 ] as const;
 
 const NOT_AUTHENTICATED = { error: "the request was not authenticated" };
@@ -191,14 +191,21 @@ export function accessScenariosFor(status: number): Scenario[] {
   );
 }
 
+/** A query sent to an Enterprise node that does not run the query mode. */
+export const INGEST_NODE_QUERY: Scenario = {
+  name: "query on an ingest-only node",
+  provenance: live(
+    ["enterprise"],
+    "query_sql and query_influxql on an ingest-only node.",
+  ),
+  request: { method: "POST", path: "/api/v3/query_sql" },
+  response: {
+    status: 405,
+    body: "This feature is not implemented: this node does not run the `query` mode, so it serves only system table queries. Restart it with `--mode query`, or send this query to a query node in the cluster",
+  },
+};
+
 const OBSERVED_RECOVERY: Record<number, [ScenarioProvenance, string]> = {
-  405: [
-    live(
-      ["enterprise"],
-      "query_sql and query_influxql on an ingest-only node.",
-    ),
-    "This feature is not implemented: this node does not run the `query` mode, so it serves only system table queries. Restart it with `--mode query`, or send this query to a query node in the cluster",
-  ],
   429: [
     live(
       ["enterprise"],
@@ -212,8 +219,8 @@ const UNDOCUMENTED_STATUS = "The public query spec omits this status.";
 
 /**
  * Failures with no recovery classification yet, with and without
- * Retry-After. The observed 405 and 429 carry no Retry-After; the variants
- * with one are synthetic.
+ * Retry-After. The observed 429 carries no Retry-After; the other cases are
+ * synthetic.
  */
 export const RECOVERY_SCENARIOS: Scenario[] = [405, 429, 503, 504].flatMap(
   (status) =>

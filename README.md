@@ -46,8 +46,9 @@ unknown without authoritative metadata. A possible tombstone name produces a
 warning and remains listed. Cardinality estimation is currently refused.
 
 Read `error.code`, `error.recovery`, and `error.retryable` when a call fails.
-Unverified server signatures retain `recovery: "none"`; a 404 remains
-`not_found_or_denied`. `EXPLAIN ANALYZE` executes a bounded query and reports a
+A 403 is `not_found_or_denied`, since a token without access can't tell a
+denied database from a missing one; a 404 is `not_found`. Unverified server
+signatures retain `recovery: "none"`. `EXPLAIN ANALYZE` executes a bounded query and reports a
 `diagnostic_execution` warning.
 
 ### Analyst explores an unfamiliar database

@@ -8,6 +8,7 @@ import {
   ACCESS_OUTCOMES,
   accessScenariosFor,
   DISCOVERY_SCENARIOS,
+  INGEST_NODE_QUERY,
   RECOVERY_SCENARIOS,
   SAMPLES_DENIED_OR_EMPTY,
   TOKEN_ECHO,
@@ -157,7 +158,7 @@ describe.skipIf(live)(
       });
       expect(result.tables[1]).toMatchObject({
         status: "failed",
-        error: { code: "access_denied" },
+        error: { code: "not_found_or_denied" },
       });
       expect(result.tables[2].deletion).toEqual({
         value: "unknown",
@@ -261,6 +262,21 @@ describe.skipIf(live)(
         else expect(result.error.retry_after_ms).toBeUndefined();
       });
     }
+    it("tells the caller to send a query for an ingest-only node to a query node", async () => {
+      const client = await connect([INGEST_NODE_QUERY]);
+      const result = payload(
+        await client.callTool({
+          name: "query_sql",
+          arguments: { db: "smoke", q: "SELECT 1" },
+        }),
+      );
+      expect(result.error).toMatchObject({
+        status: 405,
+        recovery: "change_endpoint",
+        retryable: false,
+      });
+      expect(result.error.message).toContain("send this query to a query node");
+    });
     it("does not let a denied database poison successful discovery", async () => {
       const client = await connect();
       const databases = payload(
@@ -277,7 +293,7 @@ describe.skipIf(live)(
         );
         outcomes.push(result.access_outcome ?? result.error.access_outcome);
       }
-      expect(outcomes).toEqual(["data", "access_denied", "empty"]);
+      expect(outcomes).toEqual(["data", "not_found_or_denied", "empty"]);
     });
     it("keeps schema when sampling is denied and labels an empty window accurately", async () => {
       const client = await connect([
@@ -293,7 +309,7 @@ describe.skipIf(live)(
       expect(result.tables[0]).toMatchObject({
         status: "partial",
         schema: { columns: expect.any(Array) },
-        error: { code: "access_denied" },
+        error: { code: "not_found_or_denied" },
       });
       expect(result.tables[2]).toMatchObject({
         status: "ok",
