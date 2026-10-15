@@ -42,7 +42,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A `403` reports `not_found_or_denied`, because a token without access gets
   `403` whether or not the database exists. A `404` reports `not_found`. A
   query sent to an Enterprise ingest-only node reports
-  `recovery: change_endpoint`. Health checks return JSON and distinguish
+  `recovery: change_endpoint`. A query that runs out of server memory
+  (`500` on Core 3.12.1, `429` on Enterprise) reports `recovery: narrow`,
+  with a hint to shorten the time range, select fewer columns, or
+  aggregate. Health checks return JSON and distinguish
   credential denial from endpoint failure. SDK initialization alone no
   longer establishes server health.
 - Investigation preserves per-table failures, reports table truncation and a
@@ -59,12 +62,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or quoted identifiers contain a write keyword or a semicolon, for example
   `SELECT 'DROP TABLE metrics' AS note`. A `--` inside a string literal no
   longer hides the rest of the line from the check.
+- An error response with an empty body, such as a 3.12.1 `403`, now carries
+  the HTTP client's message instead of an empty one.
 
 ### Verification limits
 
 - Other server failures report `recovery: none` until each one's recovery
-  is classified. On 3.12.1, running out of query memory returns `500` on
-  Core and `429` without `Retry-After` on Enterprise.
+  is classified.
 - Live JWT authentication, catalog metadata, server timeouts, and
   backpressure are not yet observed. Synthetic protocol cases establish
   contracts only.
