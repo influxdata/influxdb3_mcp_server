@@ -98,6 +98,12 @@ For MCP client configuration examples (local, Docker, npx), see
 
 ## Testing with the MCP Inspector
 
+For agent evals, read
+[`AGENT_E2E_TESTS.md`, prerequisites and preflight](../../../AGENT_E2E_TESTS.md#prerequisites-and-preflight)
+and use the testing skill. Verify model access, runner configuration, fixtures,
+grading criteria, and evidence capture before starting eval runs. An Inspector
+smoke check establishes MCP connectivity, not agent-eval success.
+
 The MCP Inspector provides an interactive UI for testing tool calls:
 
 ```bash
