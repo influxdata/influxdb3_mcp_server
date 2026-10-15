@@ -36,8 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `get_help` gains a "READING QUERY RESULTS" section, and the query tool
   descriptions point to it (#131).
 - Query and discovery errors retain structured access and recovery outcomes.
-  Health checks return JSON and distinguish credential denial from endpoint
-  failure. SDK initialization alone no longer establishes server health.
+  A `403` reports `not_found_or_denied`, because a token without access gets
+  `403` whether or not the database exists. A `404` reports `not_found`. A
+  query sent to an Enterprise ingest-only node reports
+  `recovery: change_endpoint`. Health checks return JSON and distinguish
+  credential denial from endpoint failure. SDK initialization alone no
+  longer establishes server health.
 - Investigation preserves per-table failures, reports table truncation and a
   request budget, and samples the newest rows within a configurable time window.
   Unknown metadata remains explicit; possible tombstones stay visible with a
@@ -55,10 +59,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Verification limits
 
-- Server failures report `recovery: none` until each one's recovery is
-  classified. On 3.12.1, running out of query memory returns `500` on Core
-  and `429` without `Retry-After` on Enterprise, and an ingest-only node
-  returns `405`.
+- Other server failures report `recovery: none` until each one's recovery
+  is classified. On 3.12.1, running out of query memory returns `500` on
+  Core and `429` without `Retry-After` on Enterprise.
 - Live JWT authentication, catalog metadata, server timeouts, and
   backpressure are not yet observed. Synthetic protocol cases establish
   contracts only.
