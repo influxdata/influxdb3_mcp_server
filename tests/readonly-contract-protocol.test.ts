@@ -4,13 +4,16 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestClient, type TestClient } from "./helpers/mcp-client.js";
-import { startFakeInflux } from "./helpers/fake-influxdb.js";
-import { discoveryReply } from "./fixtures/discovery-scenarios.js";
-import { assertEnvelope, assertTelemetry } from "./helpers/contracts.js";
+import { FakeInfluxDB, startFakeInfluxDB } from "./helpers/fake-influxdb.js";
+import { DISCOVERY_SCENARIOS } from "./fixtures/discovery-scenarios.js";
+import {
+  expectValidEnvelope,
+  expectValidTelemetry,
+} from "./helpers/envelope.js";
 
 const live = ["1", "true"].includes(process.env.INFLUX_TEST_ENABLED || "");
 let session: TestClient | undefined;
-let fake: Awaited<ReturnType<typeof startFakeInflux>> | undefined;
+let fake: FakeInfluxDB | undefined;
 let directory: string | undefined;
 afterEach(async () => {
   await session?.close();
@@ -37,7 +40,7 @@ it("[both] every readonly tool agrees on inputs and writes one telemetry event p
       env[key] = value;
     }
   } else {
-    fake = await startFakeInflux(discoveryReply);
+    fake = await startFakeInfluxDB(DISCOVERY_SCENARIOS);
     env.INFLUX_DB_INSTANCE_URL = fake.url;
   }
   session = await createTestClient(env);
@@ -54,7 +57,7 @@ it("[both] every readonly tool agrees on inputs and writes one telemetry event p
   const db = live ? process.env.INFLUX_TEST_DATABASE || "smoke" : "smoke";
   const discovered = await call("list_tables", { db });
   const discovery = JSON.parse(discovered.text);
-  assertEnvelope(discovery);
+  expectValidEnvelope(discovery);
   expect(discovery.ok).toBe(true);
   expect(
     discovery.tables.length,
@@ -87,7 +90,7 @@ it("[both] every readonly tool agrees on inputs and writes one telemetry event p
     const success = await call(tool.name, args);
     expect(success.result.isError, tool.name).not.toBe(true);
     if (!["get_help", "load_database_context"].includes(tool.name))
-      assertEnvelope(JSON.parse(success.text));
+      expectValidEnvelope(JSON.parse(success.text));
     if (tool.name === "investigate_database") {
       const investigation = JSON.parse(success.text);
       expect(investigation.sample_window.hours).toBe(24);
@@ -103,7 +106,7 @@ it("[both] every readonly tool agrees on inputs and writes one telemetry event p
     expect(validate(unexpected)).toBe(false);
     const invalid = await call(tool.name, unexpected);
     const failure = JSON.parse(invalid.text);
-    assertEnvelope(failure);
+    expectValidEnvelope(failure);
     expect(invalid.result.isError).toBe(true);
     expect(failure.error.code).toBe("invalid_arguments");
     for (const required of tool.inputSchema.required || []) {
@@ -111,7 +114,7 @@ it("[both] every readonly tool agrees on inputs and writes one telemetry event p
       delete missing[required];
       expect(validate(missing)).toBe(false);
       const rejected = JSON.parse((await call(tool.name, missing)).text);
-      assertEnvelope(rejected);
+      expectValidEnvelope(rejected);
       expect(rejected.error.code).toBe("invalid_arguments");
     }
   }
@@ -120,7 +123,7 @@ it("[both] every readonly tool agrees on inputs and writes one telemetry event p
     .split("\n")
     .map((line) => JSON.parse(line));
   expect(events).toHaveLength(callCount);
-  events.forEach(assertTelemetry);
+  events.forEach(expectValidTelemetry);
   expect(new Set(events.map((event) => event.request_id)).size).toBe(callCount);
   const secret = env.INFLUX_DB_TOKEN || "test-token-not-used";
   expect(JSON.stringify(events)).not.toContain(secret);

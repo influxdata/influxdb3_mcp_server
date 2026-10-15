@@ -54,12 +54,15 @@ Each test name starts with its backend:
   server can't produce on demand, such as a stream that fails after two rows.
 - `[live-only]` needs a real server.
 
-Scripted responses are named scenarios in `fixtures/influxdb-scenarios.ts`.
-Each records the product and version it stands for and where its response
-came from. A `source-inspection` scenario is a guess until a live run
-confirms it. When a live run disagrees, update the scenario from the observed
-response and change its provenance in the same change. Add every scenario to
-`ALL_SCENARIOS`.
+Scripted responses are named scenarios: query scenarios in
+`fixtures/influxdb-scenarios.ts`, and discovery, access, and recovery
+scenarios in `fixtures/discovery-scenarios.ts`. The fake answers each request
+with the first scenario that matches it. Each scenario records the products
+and version it stands for and where its response came from. A
+`source-inspection` scenario is a guess until a live run confirms it. When a
+live run disagrees, update the scenario from the observed response and change
+its provenance in the same change. Add every scenario to one of the lists
+that `scenario-contract.test.ts` checks.
 
 Cloud Dedicated and Cloud Serverless SQL go through the Flight client, which
 the fake can't serve. Their cases stay in `query-routing.test.ts`, with
@@ -67,10 +70,11 @@ stubbed clients.
 
 ### Contracts
 
-| Contract              | Test                                        | Checks                                                                                                                                                                                                                     |
-| --------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Response envelope     | every `callTool` in `helpers/mcp-client.ts` | Query tool responses, and every tool's errors, against `schemas/read-only-response.schema.json`, on both backends                                                                                                          |
-| Fake-server scenarios | `scenario-contract.test.ts`                 | Each scenario against the pinned OpenAPI spec for its product (`fixtures/openapi/SOURCE.md`). A scenario outside the spec must say why in `provenance.outside_spec`; the test reports it in its output instead of failing. |
+| Contract              | Test                                                                    | Checks                                                                                                                                                                                                                                                                             |
+| --------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Response envelope     | `expectValidEnvelope` in `helpers/envelope.ts`, run by every `callTool` | Every read-only tool response against `schemas/read-only-response.schema.json`, on both backends                                                                                                                                                                                   |
+| Telemetry event       | `expectValidTelemetry` in `helpers/envelope.ts`                         | Each logged tool call against `schemas/telemetry-event.schema.json`                                                                                                                                                                                                                |
+| Fake-server scenarios | `scenario-contract.test.ts`                                             | Each scenario against the pinned OpenAPI excerpt for each of its products (`fixtures/openapi/`, refreshed by `scripts/snapshot-protocol-openapi.py`). A scenario outside the spec must say why in `provenance.outside_spec`; the test reports it in its output instead of failing. |
 
 To run the protocol tests against a testbench target:
 
