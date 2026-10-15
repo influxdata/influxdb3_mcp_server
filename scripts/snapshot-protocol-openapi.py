@@ -13,7 +13,7 @@ import yaml
 
 source = Path(sys.argv[1]).resolve()
 commit = subprocess.check_output(["git", "-C", str(source), "rev-parse", "HEAD"], text=True).strip()
-destination = Path(__file__).resolve().parent.parent / "tests/fixtures/contracts"
+destination = Path(__file__).resolve().parent.parent / "tests/fixtures/openapi"
 operations = {
     "/api/v3/query_sql": "post",
     "/api/v3/query_influxql": "post",

@@ -4,5 +4,3 @@ package-lock.json
 # Verbatim e2e artifacts: agent final messages are recorded as produced and
 # must not be reformatted; the results YAML is validated by schema instead.
 e2e-results/
-# Pinned upstream OpenAPI spec, converted from YAML; refresh, don't edit.
-tests/fixtures/openapi/

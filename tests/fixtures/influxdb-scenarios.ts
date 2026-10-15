@@ -2,14 +2,15 @@
  * Scripted InfluxDB HTTP responses for the fake server in
  * `tests/helpers/fake-influxdb.ts`.
  *
- * Each scenario records which product and version it stands for and where
+ * Each scenario records which products and version it stands for and where
  * its response came from. A `source-inspection` scenario is a guess until a
  * live run confirms it. When a live run disagrees, update the scenario from
  * the observed response and change its provenance to that run.
  */
 
 export interface ScenarioProvenance {
-  product: "core" | "enterprise";
+  /** The products it stands for; the contract test checks each one's spec. */
+  products: Array<"core" | "enterprise">;
   version: string;
   source: "live" | "claim" | "source-inspection";
   /** Live: date, version and testbench target. Claim: the claim ID. Source inspection: what was read. */
@@ -62,7 +63,7 @@ export interface Scenario {
   response: ScriptedBody | ScriptedTable;
 }
 
-const ROWS_ARRAY_OUTSIDE_SPEC =
+export const ROWS_ARRAY_OUTSIDE_SPEC =
   "The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.";
 
 /** Database the protocol tests seed and query on a live testbench. */
@@ -91,7 +92,7 @@ export const CPU_LINE_PROTOCOL = [
 export const CORE_SQL_CPU_TABLE: Scenario = {
   name: "core-sql-cpu-table",
   provenance: {
-    product: "core",
+    products: ["core", "enterprise"],
     version: "3.12.1",
     source: "live",
     detail:
@@ -111,7 +112,7 @@ export const CORE_SQL_CPU_TABLE: Scenario = {
 export const CORE_SQL_UNKNOWN_TABLE: Scenario = {
   name: "core-sql-unknown-table",
   provenance: {
-    product: "core",
+    products: ["core", "enterprise"],
     version: "3.12.1",
     source: "live",
     detail:
@@ -138,7 +139,7 @@ export function coreSqlInterrupted(mode: "truncate" | "abort"): Scenario {
   return {
     name: `core-sql-interrupted-${mode}`,
     provenance: {
-      product: "core",
+      products: ["core"],
       version: "3.11.7",
       source: "source-inspection",
       detail:
@@ -164,7 +165,7 @@ export function coreSqlInterrupted(mode: "truncate" | "abort"): Scenario {
 export const CORE_SQL_POOL_EXHAUSTED_DROP: Scenario = {
   name: "core-sql-pool-exhausted-drop",
   provenance: {
-    product: "core",
+    products: ["core", "enterprise"],
     version: "3.11.7",
     source: "live",
     detail:
@@ -188,7 +189,7 @@ export const CORE_SQL_POOL_EXHAUSTED_DROP: Scenario = {
 export const CORE_SQL_POOL_EXHAUSTED_STATUS: Scenario = {
   name: "core-sql-pool-exhausted-status",
   provenance: {
-    product: "core",
+    products: ["core"],
     version: "3.12.1",
     source: "live",
     detail:
@@ -214,7 +215,7 @@ export const CORE_SQL_POOL_EXHAUSTED_STATUS: Scenario = {
 export const CORE_SQL_EMPTY_BODY: Scenario = {
   name: "core-sql-empty-body",
   provenance: {
-    product: "core",
+    products: ["core"],
     version: "3.11.7",
     source: "source-inspection",
     detail:
@@ -238,7 +239,7 @@ export const CORE_SQL_EMPTY_BODY: Scenario = {
 export const CORE_INFLUXQL_CPU_TABLE: Scenario = {
   name: "core-influxql-cpu-table",
   provenance: {
-    product: "core",
+    products: ["core", "enterprise"],
     version: "3.12.1",
     source: "live",
     detail:
@@ -260,7 +261,7 @@ export const CORE_INFLUXQL_CPU_TABLE: Scenario = {
 export const CORE_SQL_CSV_RETURNS_JSON: Scenario = {
   name: "core-sql-csv-returns-json",
   provenance: {
-    product: "core",
+    products: ["core"],
     version: "unknown",
     source: "source-inspection",
     detail:
@@ -280,7 +281,7 @@ export const CORE_SQL_CSV_RETURNS_JSON: Scenario = {
 export const CORE_SQL_SLOW: Scenario = {
   name: "core-sql-slow",
   provenance: {
-    product: "core",
+    products: ["core"],
     version: "3.11.5",
     source: "source-inspection",
     detail:

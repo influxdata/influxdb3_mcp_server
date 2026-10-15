@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestClient, type TestClient } from "./helpers/mcp-client.js";
-import { assertEnvelope } from "./helpers/contracts.js";
+import { expectValidEnvelope } from "./helpers/envelope.js";
 
 const run =
   ["true", "1"].includes(process.env.INFLUX_TEST_ENABLED || "") &&
@@ -29,7 +29,7 @@ describe.skipIf(!run)("[live-only] scoped Enterprise database access", () => {
     if (!Array.isArray(content) || content[0].type !== "text")
       throw new Error("Expected text");
     const body = JSON.parse(content[0].text);
-    assertEnvelope(body);
+    expectValidEnvelope(body);
     return body;
   }
   it("keeps permitted reads usable after denial on another database", async () => {
