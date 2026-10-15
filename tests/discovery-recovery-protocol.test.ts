@@ -10,6 +10,7 @@ import {
   DISCOVERY_SCENARIOS,
   RECOVERY_SCENARIOS,
   SAMPLES_DENIED_OR_EMPTY,
+  TOKEN_ECHO,
 } from "./fixtures/discovery-scenarios.js";
 import {
   CORE_SQL_SLOW,
@@ -95,11 +96,20 @@ describe.skipIf(live)(
             recovery: scenario.recovery,
             retryable: false,
           });
-          expect(result.error.message).toContain("server detail");
-          expect(JSON.stringify(result)).not.toContain("test-token-not-used");
         }
       });
     }
+    it("passes the server's error text through with the token redacted", async () => {
+      const client = await connect([TOKEN_ECHO]);
+      const result = payload(
+        await client.callTool({
+          name: "query_sql",
+          arguments: { db: "smoke", q: "SELECT 1" },
+        }),
+      );
+      expect(result.error.message).toContain("is not valid");
+      expect(JSON.stringify(result)).not.toContain("test-token-not-used");
+    });
     it("reports denied health as reachable and unconfirmed", async () => {
       const client = await connect(accessScenariosFor(403));
       const result = payload(
