@@ -12,7 +12,7 @@ const BASE_EVENT = {
   duration_ms: 42,
   db: "host_system",
   row_count: 3,
-  truncated: false,
+  completeness: "complete" as const,
   success: true,
 };
 

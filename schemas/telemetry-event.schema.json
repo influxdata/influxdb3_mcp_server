@@ -27,6 +27,16 @@
     },
     "error_code": {
       "type": "string"
+    },
+    "row_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "completeness": {
+      "enum": ["complete", "capped", "interrupted"]
+    },
+    "cap_source": {
+      "enum": ["server_bound", "query_limit"]
     }
   },
   "allOf": [

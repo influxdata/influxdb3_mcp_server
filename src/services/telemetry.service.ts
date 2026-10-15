@@ -10,7 +10,8 @@ export interface ToolTelemetryEvent {
   duration_ms: number;
   db?: string;
   row_count?: number;
-  truncated?: boolean;
+  completeness?: "complete" | "capped" | "interrupted";
+  cap_source?: "server_bound" | "query_limit";
   success: boolean;
   error_code?: string;
 }
@@ -31,7 +32,8 @@ function serializeToolTelemetry(event: ToolTelemetryEvent): string {
     duration_ms: event.duration_ms,
     db: event.db,
     row_count: event.row_count,
-    truncated: event.truncated,
+    completeness: event.completeness,
+    cap_source: event.cap_source,
     success: event.success,
     error_code: event.error_code,
   };
