@@ -9,6 +9,7 @@ import { InfluxDBClient } from "@influxdata/influxdb3-client";
 import { InfluxConfig, McpServerConfig } from "../config.js";
 import { HttpClientService } from "./http-client.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
+import { redactErrorDetails } from "./error-resolution.service.js";
 
 export interface ConnectionInfo {
   isDataClientInitialized: boolean;
@@ -284,6 +285,7 @@ export class BaseConnectionService {
    */
   async ping(): Promise<{
     ok: boolean;
+    outcome?: "ok" | "unreachable" | "credential_cannot_check";
     version?: string;
     build?: string;
     message?: string;
@@ -310,7 +312,14 @@ export class BaseConnectionService {
       } else {
         return {
           ok: false,
-          message: `Ping failed with status ${response.status}`,
+          outcome:
+            response.status === 401 || response.status === 403
+              ? "credential_cannot_check"
+              : "unreachable",
+          message:
+            response.status === 401 || response.status === 403
+              ? "This credential cannot check ping; permitted database reads may still work."
+              : `Ping failed with status ${response.status}`,
         };
       }
     } catch (error) {
@@ -324,7 +333,11 @@ export class BaseConnectionService {
   /**
    * Get health status
    */
-  async getHealthStatus(): Promise<{ status: string; checks?: any[] }> {
+  async getHealthStatus(): Promise<{
+    status: string;
+    checks?: any[];
+    outcome?: "ok" | "unreachable" | "credential_cannot_check";
+  }> {
     const url = this.getDataHost();
     if (!url || !this.client) {
       return { status: "fail" };
@@ -337,13 +350,33 @@ export class BaseConnectionService {
       });
       if (response.ok) {
         try {
-          const healthData = await response.json();
-          return healthData;
+          const healthData: unknown = await response.json();
+          if (healthData && typeof healthData === "object") {
+            const status =
+              "status" in healthData && typeof healthData.status === "string"
+                ? healthData.status
+                : "pass";
+            const checks =
+              "checks" in healthData && Array.isArray(healthData.checks)
+                ? healthData.checks.map(redactErrorDetails)
+                : undefined;
+            return { status, checks };
+          }
+          return { status: "pass" };
         } catch {
           return { status: "pass" };
         }
       } else {
-        return { status: "fail" };
+        return {
+          status:
+            response.status === 401 || response.status === 403
+              ? "unknown"
+              : "fail",
+          outcome:
+            response.status === 401 || response.status === 403
+              ? "credential_cannot_check"
+              : "unreachable",
+        };
       }
     } catch (_error) {
       return { status: "fail" };

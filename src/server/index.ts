@@ -21,6 +21,8 @@ import { createTools } from "../tools/index.js";
 import { createResources } from "../resources/index.js";
 import { createPrompts } from "../prompts/index.js";
 import { createRequestId, logToolCall } from "../services/telemetry.service.js";
+import { errorResponse } from "../tools/response.js";
+import { OperationError } from "../services/error-resolution.service.js";
 
 function parseToolPayload(result: {
   content: Array<{ type: string; text: string }>;
@@ -119,30 +121,46 @@ export function createServer(): Server {
       throw new Error(`Unknown tool: ${name}`);
     }
 
-    const validatedArgs = tool.zodSchema.parse(args || {});
-
     try {
+      // Match additionalProperties:false even for legacy Zod objects that strip
+      // unknown keys. includeCardinality is a recognized, explicitly refused
+      // legacy investigation option, not an advertised working capability.
+      const allowed = new Set(Object.keys(tool.inputSchema.properties || {}));
+      if (name === "investigate_database") allowed.add("includeCardinality");
+      const unexpected = Object.keys(args || {}).filter(
+        (key) => !allowed.has(key),
+      );
+      if (
+        tool.inputSchema.additionalProperties === false &&
+        unexpected.length
+      ) {
+        throw new OperationError(
+          `Unexpected fields: ${unexpected.join(", ")}. Expected fields: ${[...allowed].join(", ") || "none"}.`,
+          "invalid_arguments",
+        );
+      }
+      const parsed = tool.zodSchema.safeParse(args || {});
+      if (!parsed.success) {
+        // Describe fields and constraints; never echo submitted values.
+        const issues = parsed.error.issues
+          .map(
+            (issue) =>
+              `${issue.path.join(".") || "arguments"}: ${issue.message}`,
+          )
+          .join("; ");
+        throw new OperationError(
+          `Invalid arguments: ${issues}. Expected fields: ${[...allowed].join(", ") || "none"}.`,
+          "invalid_arguments",
+        );
+      }
+      const validatedArgs = parsed.data;
       const result = await tool.handler(validatedArgs);
       logMcpToolResult(name, requestId, startedAt, result);
       return result;
     } catch (error) {
-      logToolCall({
-        tool_name: name,
-        request_id: requestId,
-        timestamp_ms: startedAt,
-        duration_ms: Date.now() - startedAt,
-        success: false,
-        error_code: "tool_exception",
-      });
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-          },
-        ],
-        isError: true,
-      };
+      const result = errorResponse(error, "tool_exception");
+      logMcpToolResult(name, requestId, startedAt, result);
+      return result;
     }
   });
 

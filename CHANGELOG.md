@@ -35,6 +35,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   send, are refused with `unsupported_query_option`.
 - `get_help` gains a "READING QUERY RESULTS" section, and the query tool
   descriptions point to it (#131).
+- Query and discovery errors retain structured access and recovery outcomes.
+  Health checks return JSON and distinguish credential denial from endpoint
+  failure. SDK initialization alone no longer establishes server health.
+- Investigation preserves per-table failures, reports table truncation and a
+  request budget, and samples the newest rows within a configurable time window.
+  Unknown metadata remains explicit; possible tombstones stay visible with a
+  warning. Cardinality estimation returns `unsupported_option`.
+- Read-only query tools accept `database` and `query` aliases. Argument
+  validation returns structured, logged `invalid_arguments` tool errors.
+- `EXPLAIN ANALYZE` applies query bounds and reports that it executes the query.
 
 ### Fixed
 
@@ -42,6 +52,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   or quoted identifiers contain a write keyword or a semicolon, for example
   `SELECT 'DROP TABLE metrics' AS note`. A `--` inside a string literal no
   longer hides the rest of the line from the check.
+
+### Verification limits
+
+- Live JWT authentication, 3.12.1 catalog metadata, and version-specific
+  exhaustion, timeout, backpressure, and wrong-node recovery await operator
+  observations. Synthetic protocol cases establish contracts only.
 
 ## [1.4.2] - 2026-09-28
 

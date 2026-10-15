@@ -1,0 +1,408 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["ok"],
+      "properties": {
+        "ok": {
+          "const": true
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "access_outcome": {
+          "enum": ["data", "empty", "metadata_unavailable"]
+        },
+        "table_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "table_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tables_truncated": {
+          "type": "boolean"
+        },
+        "tables_failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tables_partial": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "schema_mode": {
+          "type": "object",
+          "required": ["value", "source"],
+          "properties": {
+            "source": {
+              "enum": ["server", "inferred", "unknown"]
+            }
+          }
+        },
+        "deletion": {
+          "type": "object",
+          "required": ["value", "source"],
+          "properties": {
+            "source": {
+              "enum": ["server", "inferred", "unknown"]
+            }
+          }
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type", "category", "source"],
+            "properties": {
+              "source": {
+                "enum": ["server", "inferred", "unknown"]
+              },
+              "category": {
+                "enum": ["time", "tag", "field", "unknown"]
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["table_total"]
+          },
+          "then": {
+            "required": [
+              "table_count",
+              "tables_truncated",
+              "tables_failed",
+              "tables_partial",
+              "sample_window",
+              "query_budget",
+              "tables",
+              "warnings"
+            ],
+            "properties": {
+              "sample_window": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "object",
+                    "required": ["start", "end", "hours"]
+                  }
+                ]
+              },
+              "tables": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "status",
+                    "deletion",
+                    "schema_mode",
+                    "warnings"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": ["ok", "partial", "failed"]
+                    },
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "code",
+                        "message",
+                        "access_outcome",
+                        "recovery",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "access_outcome": {
+                          "enum": [
+                            "not_found",
+                            "access_denied",
+                            "credential_invalid",
+                            "metadata_unavailable",
+                            "not_found_or_denied",
+                            "unknown"
+                          ]
+                        },
+                        "recovery": {
+                          "enum": [
+                            "retry",
+                            "narrow",
+                            "fix_reference",
+                            "renew_credential",
+                            "change_endpoint",
+                            "none"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "retry_after_ms": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "timeout_origin": {
+                          "enum": ["client"]
+                        }
+                      },
+                      "allOf": [
+                        {
+                          "if": {
+                            "properties": {
+                              "recovery": {
+                                "const": "retry"
+                              }
+                            }
+                          },
+                          "then": {
+                            "properties": {
+                              "retryable": {
+                                "const": true
+                              }
+                            }
+                          },
+                          "else": {
+                            "properties": {
+                              "retryable": {
+                                "const": false
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "deletion": {
+                      "type": "object",
+                      "required": ["value", "source"],
+                      "properties": {
+                        "source": {
+                          "enum": ["server", "inferred", "unknown"]
+                        }
+                      }
+                    },
+                    "schema_mode": {
+                      "type": "object",
+                      "required": ["value", "source"],
+                      "properties": {
+                        "source": {
+                          "enum": ["server", "inferred", "unknown"]
+                        }
+                      }
+                    },
+                    "schema": {
+                      "type": "object",
+                      "required": [
+                        "columns",
+                        "schema_mode",
+                        "deletion",
+                        "warnings"
+                      ],
+                      "properties": {
+                        "columns": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "required": ["name", "type", "category", "source"],
+                            "properties": {
+                              "source": {
+                                "enum": ["server", "inferred", "unknown"]
+                              },
+                              "category": {
+                                "enum": ["time", "tag", "field", "unknown"]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "status": {
+                            "enum": ["partial", "failed"]
+                          }
+                        }
+                      },
+                      "then": {
+                        "required": ["error"]
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "status": {
+                            "enum": ["ok", "partial"]
+                          }
+                        }
+                      },
+                      "then": {
+                        "required": ["schema"]
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["rows"]
+          },
+          "then": {
+            "required": [
+              "db",
+              "q",
+              "format",
+              "rows",
+              "metadata",
+              "warnings",
+              "access_outcome"
+            ],
+            "properties": {
+              "metadata": {
+                "type": "object",
+                "required": ["request_id", "query_id", "row_count", "truncated"]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["health", "ping"]
+          },
+          "then": {
+            "properties": {
+              "health": {
+                "type": "object",
+                "required": ["outcome"],
+                "properties": {
+                  "outcome": {
+                    "enum": ["ok", "unreachable", "credential_cannot_check"]
+                  }
+                }
+              },
+              "ping": {
+                "type": "object",
+                "required": ["outcome"],
+                "properties": {
+                  "outcome": {
+                    "enum": ["ok", "unreachable", "credential_cannot_check"]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "required": ["ok", "error"],
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "error": {
+          "type": "object",
+          "required": [
+            "code",
+            "message",
+            "access_outcome",
+            "recovery",
+            "retryable"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "access_outcome": {
+              "enum": [
+                "not_found",
+                "access_denied",
+                "credential_invalid",
+                "metadata_unavailable",
+                "not_found_or_denied",
+                "unknown"
+              ]
+            },
+            "recovery": {
+              "enum": [
+                "retry",
+                "narrow",
+                "fix_reference",
+                "renew_credential",
+                "change_endpoint",
+                "none"
+              ]
+            },
+            "retryable": {
+              "type": "boolean"
+            },
+            "retry_after_ms": {
+              "type": "number",
+              "minimum": 0
+            },
+            "timeout_origin": {
+              "enum": ["client"]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "recovery": {
+                    "const": "retry"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "retryable": {
+                    "const": true
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "retryable": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
