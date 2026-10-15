@@ -1,3 +1,6 @@
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   CORE_SQL_CPU_TABLE,
@@ -11,6 +14,7 @@ import {
   TRUST_DB,
 } from "./fixtures/influxdb-scenarios.js";
 import { Backend, LIVE, startBackend } from "./helpers/backend.js";
+import { expectValidTelemetry } from "./helpers/envelope.js";
 import {
   callTool,
   createTestClient,
@@ -99,6 +103,40 @@ describe("read-only query completeness", () => {
       );
     },
   );
+
+  it("[both] logs completeness and its cap source in telemetry", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "mcp-telemetry-"));
+    const log = join(directory, "telemetry.jsonl");
+    const client = await createTestClient({
+      ...backend.env,
+      MCP_LOG_TOOL_CALLS: "true",
+      MCP_LOG_BACKEND: "file",
+      MCP_LOG_FILE: log,
+    });
+    try {
+      await callTool(client, "query_sql", {
+        db: TRUST_DB,
+        q: `SELECT host, usage FROM cpu WHERE ${TIME_RANGE} LIMIT 2`,
+        maxRows: 10,
+      });
+      const [event] = readFileSync(log, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+
+      expect(event).toMatchObject({
+        tool_name: "query_sql",
+        row_count: 2,
+        completeness: "capped",
+        cap_source: "query_limit",
+      });
+      expect(event).not.toHaveProperty("truncated");
+      expectValidTelemetry(event);
+    } finally {
+      await client.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
 
   it("[both] echoes the bound the caller sees, not the probe row", async () => {
     const { body } = await callTool(mcp, "query_sql", {
