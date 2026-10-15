@@ -118,6 +118,16 @@ describe("MCP protocol compliance", () => {
       );
     });
 
+    it("shows the InfluxQL regex field form the parser accepts", async () => {
+      const result = await testClient.client.listTools();
+      const description =
+        result.tools.find((tool) => tool.name === "query_influxql")
+          ?.description ?? "";
+
+      expect(description).toContain("SELECT /pattern/ FROM m");
+      expect(description).toContain("/pattern/::field fails to parse");
+    });
+
     it("points query tools at the output contract in get_help (#131)", async () => {
       const result = await testClient.client.listTools();
       for (const name of ["query_sql", "query_influxql"]) {

@@ -142,7 +142,7 @@ export function createQueryTools(
     {
       name: "query_influxql",
       description:
-        "Run one bounded, read-only InfluxQL query against an InfluxDB 3 database. Accepts database/db and query/q aliases; differing pairs are rejected. Rejects SELECT INTO and destructive statements. Prefer query_sql for SQL prompts; use InfluxQL regex field selection only when the user explicitly asks for InfluxQL or regex field matching. Your answer must report metadata.completeness, the cap when capped, warnings, and row_count; see READING QUERY RESULTS in get_help.",
+        "Run one bounded, read-only InfluxQL query against an InfluxDB 3 database. Accepts database/db and query/q aliases; differing pairs are rejected. Rejects SELECT INTO and destructive statements. Prefer query_sql for SQL prompts; use InfluxQL regex field selection only when the user explicitly asks for InfluxQL or regex field matching. For regex field selection, write SELECT /pattern/ FROM m; a type suffix such as /pattern/::field fails to parse. Your answer must report metadata.completeness, the cap when capped, warnings, and row_count; see READING QUERY RESULTS in get_help.",
       inputSchema: readOnlyQueryInputSchema("Read-only InfluxQL query to run"),
       zodSchema: readOnlyQueryZodSchema,
       handler: async (args) => {
