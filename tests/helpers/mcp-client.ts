@@ -52,7 +52,7 @@ export async function callTool(
 ): Promise<{ body: any; isError: boolean }> {
   const result = await test.client.callTool({ name, arguments: args });
   const body = toolJson(result);
-  expectValidEnvelope(name, body);
+  expectValidEnvelope(body, name);
   return { body, isError: result.isError === true };
 }
 

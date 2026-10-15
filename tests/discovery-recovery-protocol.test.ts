@@ -3,21 +3,30 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestClient, type TestClient } from "./helpers/mcp-client.js";
-import { startFakeInflux } from "./helpers/fake-influxdb.js";
+import { FakeInfluxDB, startFakeInfluxDB } from "./helpers/fake-influxdb.js";
 import {
-  accessScenarios,
-  discoveryReply,
-  recordedScenarios,
-  recoveryScenarios,
+  ACCESS_OUTCOMES,
+  accessScenariosFor,
+  DISCOVERY_SCENARIOS,
+  RECOVERY_SCENARIOS,
+  SAMPLES_DENIED_OR_EMPTY,
 } from "./fixtures/discovery-scenarios.js";
-import { assertEnvelope, assertTelemetry } from "./helpers/contracts.js";
+import {
+  CORE_SQL_SLOW,
+  Scenario,
+  TRUST_DB,
+} from "./fixtures/influxdb-scenarios.js";
+import {
+  expectValidEnvelope,
+  expectValidTelemetry,
+} from "./helpers/envelope.js";
 
 const live = ["true", "1"].includes(process.env.INFLUX_TEST_ENABLED || "");
 let session: TestClient | undefined;
-let fake: Awaited<ReturnType<typeof startFakeInflux>> | undefined;
+let fake: FakeInfluxDB | undefined;
 let logDir: string | undefined;
-async function connect(reply = discoveryReply) {
-  fake = await startFakeInflux(reply);
+async function connect(scenarios: Scenario[] = DISCOVERY_SCENARIOS) {
+  fake = await startFakeInfluxDB(scenarios);
   logDir = mkdtempSync(join(tmpdir(), "mcp-discovery-"));
   session = await createTestClient({
     INFLUX_DB_INSTANCE_URL: fake.url,
@@ -37,7 +46,7 @@ function payload(
   const first = content[0];
   if (first.type !== "text") throw new Error("Expected text");
   const resultPayload = JSON.parse(first.text);
-  assertEnvelope(resultPayload);
+  expectValidEnvelope(resultPayload);
   return resultPayload;
 }
 afterEach(async () => {
@@ -52,17 +61,9 @@ afterEach(async () => {
 describe.skipIf(live)(
   "[fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets",
   () => {
-    for (const scenario of accessScenarios) {
+    for (const scenario of ACCESS_OUTCOMES) {
       it(`preserves ${scenario.name} on queries and discovery`, async () => {
-        const client = await connect((request) => {
-          const recorded = recordedScenarios.find(
-            (item) =>
-              item.request.path === request.path &&
-              item.response.status === scenario.status,
-          );
-          if (!recorded) throw new Error(`Unscripted request: ${request.path}`);
-          return recorded.response;
-        });
+        const client = await connect(accessScenariosFor(scenario.status));
         for (const name of [
           "query_sql",
           "query_influxql",
@@ -100,10 +101,7 @@ describe.skipIf(live)(
       });
     }
     it("reports denied health as reachable and unconfirmed", async () => {
-      const client = await connect(() => ({
-        status: 403,
-        body: { error: "denied" },
-      }));
+      const client = await connect(accessScenariosFor(403));
       const result = payload(
         await client.callTool({ name: "health_check", arguments: {} }),
       );
@@ -112,9 +110,9 @@ describe.skipIf(live)(
       expect(result.health.outcome).toBe("credential_cannot_check");
       expect(result.ping.outcome).toBe("credential_cannot_check");
       const status = await client.readResource({ uri: "influx://status" });
-      expect(JSON.parse(status.contents[0].text as string).overall.status).toBe(
-        "unknown",
-      );
+      const [content] = status.contents;
+      if (!("text" in content)) throw new Error("Expected text");
+      expect(JSON.parse(content.text).overall.status).toBe("unknown");
     });
     it("keeps successful tables, stable truncation, recent bounded samples, and warnings", async () => {
       const client = await connect();
@@ -225,14 +223,18 @@ describe.skipIf(live)(
         .split("\n")
         .map((line) => JSON.parse(line));
       expect(events).toHaveLength(10);
-      events.forEach(assertTelemetry);
+      events.forEach(expectValidTelemetry);
       expect(
         events.filter((e) => e.error_code === "invalid_arguments"),
       ).toHaveLength(8);
     });
-    for (const scenario of recoveryScenarios) {
+    for (const scenario of RECOVERY_SCENARIOS) {
+      const response = scenario.response as {
+        status: number;
+        headers?: Record<string, string>;
+      };
       it(`preserves ${scenario.name} without inventing a recovery classification`, async () => {
-        const client = await connect(() => scenario.response);
+        const client = await connect([scenario]);
         const result = payload(
           await client.callTool({
             name: "query_sql",
@@ -242,9 +244,9 @@ describe.skipIf(live)(
         expect(result.error).toMatchObject({
           recovery: "none",
           retryable: false,
-          status: scenario.response.status,
+          status: response.status,
         });
-        if (scenario.response.headers["retry-after"])
+        if (response.headers?.["retry-after"])
           expect(result.error.retry_after_ms).toBe(2000);
         else expect(result.error.retry_after_ms).toBeUndefined();
       });
@@ -255,7 +257,7 @@ describe.skipIf(live)(
         await client.callTool({ name: "list_databases", arguments: {} }),
       );
       expect(databases.visibility).toBe("unknown");
-      const outcomes = [];
+      const outcomes: string[] = [];
       for (const database of databases.databases) {
         const result = payload(
           await client.callTool({
@@ -268,16 +270,10 @@ describe.skipIf(live)(
       expect(outcomes).toEqual(["data", "access_denied", "empty"]);
     });
     it("keeps schema when sampling is denied and labels an empty window accurately", async () => {
-      const client = await connect((request) =>
-        request.q?.startsWith("SELECT * FROM")
-          ? {
-              status: request.q.includes('"alpha"') ? 403 : 200,
-              body: request.q.includes('"alpha"')
-                ? { error: "sample denied" }
-                : [],
-            }
-          : discoveryReply(request),
-      );
+      const client = await connect([
+        ...SAMPLES_DENIED_OR_EMPTY,
+        ...DISCOVERY_SCENARIOS,
+      ]);
       const result = payload(
         await client.callTool({
           name: "investigate_database",
@@ -316,15 +312,15 @@ describe.skipIf(live)(
       );
     });
     it("distinguishes an actual HTTP client timeout from a server HTTP timeout response", async () => {
-      const client = await connect(() => ({
-        status: 200,
-        body: [],
-        delayMs: 100,
-      }));
+      const client = await connect([CORE_SQL_SLOW]);
       const result = payload(
         await client.callTool({
           name: "query_sql",
-          arguments: { db: "smoke", q: "SELECT 1", timeoutMs: 10 },
+          arguments: {
+            db: TRUST_DB,
+            q: "SELECT host FROM cpu_slow",
+            timeoutMs: 10,
+          },
         }),
       );
       expect(result.error).toMatchObject({
