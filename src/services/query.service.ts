@@ -532,10 +532,10 @@ export class QueryService {
     }
 
     // A JSON body that does not parse, or a stream that failed, means the
-    // server began a result it did not finish. Keep the rows that arrived
-    // whole; never report the partial result as a successful one.
+    // server began a result it did not finish. An empty result is `[]`, so
+    // an empty body is unfinished too. Keep the rows that arrived whole;
+    // never report the partial result as a successful one.
     if (!response.interruption) {
-      if (response.text.trim() === "") return [];
       try {
         return JSON.parse(response.text);
       } catch {

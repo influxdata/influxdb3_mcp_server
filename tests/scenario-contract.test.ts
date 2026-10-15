@@ -44,10 +44,16 @@ function specGaps(scenario: Scenario): string[] {
   const gaps: string[] = [];
   let jsonBody: unknown;
   if ("table" in scripted) {
-    if (scripted.interrupt) gaps.push("the body ends partway through a row");
+    if (scripted.interrupt) gaps.push("the body ends before the result does");
     else jsonBody = scripted.table;
   } else if (typeof scripted.body === "object") {
     jsonBody = scripted.body;
+  } else if (scripted.headers?.["content-type"] === "application/json") {
+    try {
+      jsonBody = JSON.parse(scripted.body);
+    } catch {
+      gaps.push("the JSON body does not parse");
+    }
   }
   const schema = response.content?.["application/json"]?.schema;
   if (jsonBody !== undefined && schema) {

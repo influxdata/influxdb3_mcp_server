@@ -16,9 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A result cut by `maxRows` is now reported as capped. The server asks for
   one row more than `maxRows` to detect it. Before, a capped result always
   read as complete.
-- A JSON response that stops after rows have arrived now returns `ok: false`
-  with the rows received and the `query_interrupted` code. Before, a
-  response cut off mid-row could return `ok: true` with no rows.
+- A response that ends before the result is complete now returns
+  `ok: false` with the `query_interrupted` code, plus the whole rows received
+  for JSON. This includes a connection dropped right after the `200`
+  headers, which Core and Enterprise 3.11.7 do when a query runs out of
+  memory, and an empty JSON body. Before, a response cut off mid-row could
+  return `ok: true` with no rows.
 - The `format` field reports the format the server returned. A
   `format_mismatch` warning says when it differs from the one requested.
 - The read-only query tools return `json`, `jsonl`, or `csv` on Core and

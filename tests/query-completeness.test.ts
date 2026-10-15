@@ -1,9 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   CORE_SQL_CPU_TABLE,
+  CORE_SQL_EMPTY_BODY,
+  CORE_SQL_POOL_EXHAUSTED,
   CORE_SQL_UNKNOWN_TABLE,
   coreSqlInterrupted,
   CPU_LINE_PROTOCOL,
+  Scenario,
   TRUST_DB,
 } from "./fixtures/influxdb-scenarios.js";
 import { Backend, LIVE, startBackend } from "./helpers/backend.js";
@@ -128,9 +131,57 @@ describe("read-only query completeness", () => {
           await expectInterruptedAfterTwoRows(mode);
         },
       );
+
+      it.for(["json", "jsonl", "csv"] as const)(
+        "returns a connection dropped before the first row (%s) as interrupted with no rows",
+        async (format) => {
+          await expectInterruptedWithNoRows(
+            CORE_SQL_POOL_EXHAUSTED,
+            "cpu_pool_exhausted",
+            format,
+          );
+        },
+      );
+
+      it("returns a 200 with an empty body as interrupted, not as no rows", async () => {
+        await expectInterruptedWithNoRows(
+          CORE_SQL_EMPTY_BODY,
+          "cpu_empty_body",
+          "json",
+        );
+      });
     },
   );
 });
+
+async function expectInterruptedWithNoRows(
+  scenario: Scenario,
+  table: string,
+  format: "json" | "jsonl" | "csv",
+): Promise<void> {
+  const fake = await startBackend([scenario]);
+  const client = await createTestClient(fake.env);
+  try {
+    const { body, isError } = await callTool(client, "query_sql", {
+      db: TRUST_DB,
+      q: `SELECT host, usage FROM ${table} WHERE ${TIME_RANGE}`,
+      format,
+    });
+
+    expect(isError).toBe(true);
+    expect(body.ok).toBe(false);
+    expect(body.rows ?? []).toHaveLength(0);
+    expect(body.metadata).toMatchObject({
+      completeness: "interrupted",
+      row_count: 0,
+      truncated: true,
+    });
+    expect(body.error.code).toBe("query_interrupted");
+  } finally {
+    await client.close();
+    await fake.close();
+  }
+}
 
 async function expectInterruptedAfterTwoRows(
   mode: "truncate" | "abort",
