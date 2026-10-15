@@ -22,33 +22,53 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 
 ## Read-only Agent Workflows
 
-Set `INFLUX_MCP_TOOL_PROFILE=readonly` when you want an MCP client to explore
-and query InfluxDB 3 data without exposing write, admin, token-management, or
-host-level tools. API tokens and Enterprise JWTs use the same opaque bearer
-credential path. Verify JWT access against your deployment's user authentication
-configuration; API-token results do not establish JWT compatibility.
+Set `INFLUX_MCP_TOOL_PROFILE=readonly` to give an MCP client tools that explore
+and query data. The profile leaves out every tool that writes data, administers
+databases, manages tokens, or runs on the host.
 
-Query tools accept `database` as an alias for `db` and `query` as an alias for
-`q`. Supplying different values for a canonical argument and its alias returns
-`invalid_arguments`. Validation failures are structured tool errors and appear in
-tool-call telemetry.
+### Credentials
 
-Discovery distinguishes denied access, invalid credentials, unavailable metadata,
-and ambiguous absence. Database-list visibility is `unknown` unless established
-by the server. `health_check` returns JSON with separate health and ping outcomes.
-A denied health check does not prevent permitted database reads.
+Set `INFLUX_DB_TOKEN` to an admin token, a scoped token, or an Enterprise
+user-authentication JWT. The server sends it in a `Bearer` header without
+inspecting it, so the token's permissions decide which databases the tools can
+read.
 
-`investigate_database` preserves per-table findings, reports visible-table totals
-and truncation, and returns samples ordered by time within a reported window.
-The default window is 24 hours; set `sampleWindowHours` to change it. An empty
-window does not establish an empty table. Schema mode and deletion status remain
-unknown without authoritative metadata. A possible tombstone name produces a
-warning and remains listed. Cardinality estimation is currently refused.
+### Query arguments
 
-Read `error.code`, `error.recovery`, and `error.retryable` when a call fails.
-A 403 is `not_found_or_denied`, since a token without access can't tell a
-denied database from a missing one; a 404 is `not_found`. Unverified server
-signatures retain `recovery: "none"`. `EXPLAIN ANALYZE` executes a bounded query and reports a
+`query_sql` and `query_influxql` accept `database` for `db` and `query` for `q`.
+A call that gives both names with different values fails with
+`invalid_arguments`. Every argument error is a structured tool error and is
+recorded in telemetry.
+
+### Discovery
+
+`list_databases` returns what the server lists, with `visibility: "unknown"`,
+because a listed database might still be unreadable. `health_check` returns JSON
+with separate health and ping outcomes. A scoped token can be denied both checks
+and still read its databases.
+
+`investigate_database` keeps each table's result even when another table fails,
+and reports how many tables it saw and whether it stopped early. Samples come
+from a time window, 24 hours by default; set `sampleWindowHours` to change it.
+An empty window doesn't mean the table is empty. Schema mode and deletion status
+stay `unknown` unless the server reports them. A table name with a
+timestamp-shaped suffix, which can mark a deleted table, gets a
+`possibly_deleted` warning and stays listed. Cardinality estimates aren't
+supported yet.
+
+### Errors
+
+When a call fails, read `error.code`, `error.recovery`, and `error.retryable`:
+
+- A `403` is `not_found_or_denied`. A token without access gets `403` whether
+  or not the database exists.
+- A `404` is `not_found`.
+- A query that runs out of server memory has `recovery: "narrow"`.
+- A query sent to an Enterprise ingest-only node has
+  `recovery: "change_endpoint"`.
+- Other server failures have `recovery: "none"`.
+
+`EXPLAIN ANALYZE` runs the query within the same bounds and adds a
 `diagnostic_execution` warning.
 
 ### Analyst explores an unfamiliar database
