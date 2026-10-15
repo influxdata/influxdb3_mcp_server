@@ -55,9 +55,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Verification limits
 
-- Live JWT authentication, 3.12.1 catalog metadata, and version-specific
-  exhaustion, timeout, backpressure, and wrong-node recovery await operator
-  observations. Synthetic protocol cases establish contracts only.
+- Server failures report `recovery: none` until each one's recovery is
+  classified. On 3.12.1, running out of query memory returns `500` on Core
+  and `429` without `Retry-After` on Enterprise, and an ingest-only node
+  returns `405`.
+- Live JWT authentication, catalog metadata, server timeouts, and
+  backpressure are not yet observed. Synthetic protocol cases establish
+  contracts only.
 
 ## [1.4.2] - 2026-09-28
 
