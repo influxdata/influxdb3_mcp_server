@@ -5,6 +5,77 @@ All notable changes to the official InfluxDB 3 MCP Server will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `query_sql` and `query_influxql` report `metadata.completeness` as
+  `complete`, `capped`, or `interrupted`. A capped result also carries `cap`
+  and `cap_source` (`server_bound` or `query_limit`). `truncated` remains and
+  equals `completeness !== "complete"`.
+- A result cut by `maxRows` is now reported as capped. The server asks for
+  one row more than `maxRows` to detect it. Before, a capped result always
+  read as complete.
+- A response that ends before the result is complete now returns
+  `ok: false` with the `query_interrupted` code, plus the whole rows received
+  for JSON. This includes a connection dropped right after the `200`
+  headers, which Core and Enterprise 3.11.7 do when a query runs out of
+  memory, and an empty JSON body. Before, a response cut off mid-row could
+  return `ok: true` with no rows.
+- The `format` field reports the format the server returned. A
+  `format_mismatch` warning says when it differs from the one requested.
+- The read-only query tools return `json`, `jsonl`, or `csv` on Core and
+  Enterprise, and `json` elsewhere. Other formats are refused before the
+  query runs with `unsupported_query_format` and a `supported_formats` list.
+  CSV and JSONL results are bounded and counted by record.
+- `query_influxql` on Cloud Serverless, Cloud Dedicated, and Clustered
+  refuses non-JSON formats instead of returning JSON labeled with the
+  requested format (#84).
+- `timeoutMs` on Flight SQL queries, and Flight parameters the client can't
+  send, are refused with `unsupported_query_option`.
+- `get_help` gains a "READING QUERY RESULTS" section, and the query tool
+  descriptions point to it (#131).
+- The `query_influxql` description shows the regex field form the parser
+  accepts, `SELECT /pattern/ FROM m`. A type suffix such as
+  `/pattern/::field` fails to parse on 3.11.7 and 3.12.1.
+- Query and discovery errors retain structured access and recovery outcomes.
+  A `403` reports `not_found_or_denied`, because a token without access gets
+  `403` whether or not the database exists. A `404` reports `not_found`. A
+  query sent to an Enterprise ingest-only node reports
+  `recovery: change_endpoint`. A query that runs out of server memory
+  (`500` on Core 3.12.1, `429` on Enterprise) reports `recovery: narrow`,
+  with a hint to shorten the time range, select fewer columns, or
+  aggregate. Health checks return JSON and distinguish
+  credential denial from endpoint failure. SDK initialization alone no
+  longer establishes server health.
+- Telemetry events log `completeness` and `cap_source` in place of
+  `truncated`, so a result that filled its own `LIMIT` no longer reads as
+  cut off.
+- Investigation preserves per-table failures, reports table truncation and a
+  request budget, and samples the newest rows within a configurable time window.
+  Unknown metadata remains explicit; possible tombstones stay visible with a
+  warning. Cardinality estimation returns `unsupported_option`.
+- Read-only query tools accept `database` and `query` aliases. Argument
+  validation returns structured, logged `invalid_arguments` tool errors.
+- `EXPLAIN ANALYZE` applies query bounds and reports that it executes the query.
+
+### Fixed
+
+- The read-only safety check no longer refuses queries whose string literals
+  or quoted identifiers contain a write keyword or a semicolon, for example
+  `SELECT 'DROP TABLE metrics' AS note`. A `--` inside a string literal no
+  longer hides the rest of the line from the check.
+- An error response with an empty body, such as a 3.12.1 `403`, now carries
+  the HTTP client's message instead of an empty one.
+
+### Verification limits
+
+- Other server failures report `recovery: none` until each one's recovery
+  is classified.
+- Live JWT authentication, catalog metadata, server timeouts, and
+  backpressure are not yet observed. Synthetic protocol cases establish
+  contracts only.
+
 ## [1.4.2] - 2026-09-28
 
 ### Fixed

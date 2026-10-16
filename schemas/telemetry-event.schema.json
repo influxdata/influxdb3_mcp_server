@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "tool_name",
+    "request_id",
+    "timestamp_ms",
+    "duration_ms",
+    "success"
+  ],
+  "properties": {
+    "tool_name": {
+      "type": "string"
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "timestamp_ms": {
+      "type": "number"
+    },
+    "duration_ms": {
+      "type": "number",
+      "minimum": 0
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "error_code": {
+      "type": "string"
+    },
+    "row_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "completeness": {
+      "enum": ["complete", "capped", "interrupted"]
+    },
+    "cap_source": {
+      "enum": ["server_bound", "query_limit"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "success": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "required": ["error_code"]
+      }
+    }
+  ],
+  "additionalProperties": true
+}

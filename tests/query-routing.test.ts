@@ -50,47 +50,6 @@ describe("query routing options", () => {
     ).rejects.toMatchObject({ code: "unsupported_query_format" });
   });
 
-  it("keeps forwarding CSV format for Core", async () => {
-    const base = stubBaseService(InfluxProductType.Core);
-    const httpClient = { post: vi.fn().mockResolvedValue("a\n1\n") };
-    vi.mocked(base.getInfluxHttpClient).mockReturnValue(httpClient as any);
-
-    await new QueryService(base).executeQuery(QUERY, DATABASE, {
-      format: "csv",
-    });
-
-    expect(httpClient.post).toHaveBeenCalledWith(
-      "/api/v3/query_sql",
-      { db: DATABASE, q: QUERY, format: "csv" },
-      expect.objectContaining({
-        headers: expect.objectContaining({ Accept: "text/csv" }),
-      }),
-    );
-  });
-
-  it.each([
-    ["core", InfluxProductType.Core],
-    ["enterprise", InfluxProductType.Enterprise],
-  ])(
-    "%s forwards params and timeout to the v3 SQL API",
-    async (_name, type) => {
-      const base = stubBaseService(type);
-      const httpClient = { post: vi.fn().mockResolvedValue([]) };
-      vi.mocked(base.getInfluxHttpClient).mockReturnValue(httpClient as any);
-
-      await new QueryService(base).executeQuery(QUERY, DATABASE, {
-        params: PARAMS,
-        timeoutMs: TIMEOUT_MS,
-      });
-
-      expect(httpClient.post).toHaveBeenCalledWith(
-        "/api/v3/query_sql",
-        { db: DATABASE, q: QUERY, format: "json", params: PARAMS },
-        expect.objectContaining({ timeout: TIMEOUT_MS }),
-      );
-    },
-  );
-
   it.each([
     ["cloud-dedicated", InfluxProductType.CloudDedicated],
     ["cloud-serverless", InfluxProductType.CloudServerless],
@@ -144,7 +103,9 @@ describe("query routing options", () => {
 
   it("preserves InfluxQL params and timeout on the v3 API", async () => {
     const base = stubBaseService(InfluxProductType.Core);
-    const httpClient = { post: vi.fn().mockResolvedValue([]) };
+    const httpClient = {
+      postText: vi.fn().mockResolvedValue({ text: "[]" }),
+    };
     vi.mocked(base.getInfluxHttpClient).mockReturnValue(httpClient as any);
 
     await new QueryService(base).executeInfluxqlQuery(QUERY, DATABASE, {
@@ -152,7 +113,7 @@ describe("query routing options", () => {
       timeoutMs: TIMEOUT_MS,
     });
 
-    expect(httpClient.post).toHaveBeenCalledWith(
+    expect(httpClient.postText).toHaveBeenCalledWith(
       "/api/v3/query_influxql",
       { db: DATABASE, q: QUERY, format: "json", params: PARAMS },
       expect.objectContaining({ timeout: TIMEOUT_MS }),

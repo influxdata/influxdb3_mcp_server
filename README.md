@@ -22,11 +22,54 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 
 ## Read-only Agent Workflows
 
-Set `INFLUX_MCP_TOOL_PROFILE=readonly` when you want an MCP client to explore
-and query InfluxDB 3 data without exposing write, admin, token-management, or
-host-level tools. In Enterprise deployments that use preview user auth, the
-same read-only flow works when the configured bearer credential is a JWT instead
-of an `apiv3_` token.
+Set `INFLUX_MCP_TOOL_PROFILE=readonly` to give an MCP client tools that explore
+and query data. The profile leaves out every tool that writes data, administers
+databases, manages tokens, or runs on the host.
+
+### Credentials
+
+Set `INFLUX_DB_TOKEN` to an admin token, a scoped token, or an Enterprise
+user-authentication JWT. The server sends it in a `Bearer` header without
+inspecting it, so the token's permissions decide which databases the tools can
+read.
+
+### Query arguments
+
+`query_sql` and `query_influxql` accept `database` for `db` and `query` for `q`.
+A call that gives both names with different values fails with
+`invalid_arguments`. Every argument error is a structured tool error and is
+recorded in telemetry.
+
+### Discovery
+
+`list_databases` returns what the server lists, with `visibility: "unknown"`,
+because a listed database might still be unreadable. `health_check` returns JSON
+with separate health and ping outcomes. A scoped token can be denied both checks
+and still read its databases.
+
+`investigate_database` keeps each table's result even when another table fails,
+and reports how many tables it saw and whether it stopped early. Samples come
+from a time window, 24 hours by default; set `sampleWindowHours` to change it.
+An empty window doesn't mean the table is empty. Schema mode and deletion status
+stay `unknown` unless the server reports them. A table name with a
+timestamp-shaped suffix, which can mark a deleted table, gets a
+`possibly_deleted` warning and stays listed. Cardinality estimates aren't
+supported yet.
+
+### Errors
+
+When a call fails, read `error.code`, `error.recovery`, and `error.retryable`:
+
+- A `403` is `not_found_or_denied`. A token without access gets `403` whether
+  or not the database exists.
+- A `404` is `not_found`.
+- A query that runs out of server memory has `recovery: "narrow"`.
+- A query sent to an Enterprise ingest-only node has
+  `recovery: "change_endpoint"`.
+- Other server failures have `recovery: "none"`.
+
+`EXPLAIN ANALYZE` runs the query within the same bounds and adds a
+`diagnostic_execution` warning.
 
 ### Analyst explores an unfamiliar database
 

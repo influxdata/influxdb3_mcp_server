@@ -97,6 +97,69 @@ describe("QuerySafetyService", () => {
     ).toBe("multiple_statements");
   });
 
+  it.each([
+    ["sql", "SELECT 'DROP TABLE metrics' AS note FROM cpu"],
+    ["sql", 'SELECT "delete" FROM cpu WHERE time > now() - 1h'],
+    ["influxql", "SELECT usage FROM cpu WHERE note = 'drop it'"],
+    ["influxql", 'SELECT "into" FROM cpu'],
+  ] as const)(
+    "allows a %s write keyword inside a string literal or quoted identifier: %s",
+    (language, query) => {
+      expect(service.validate(query, language)).toMatchObject({ ok: true });
+    },
+  );
+
+  it("allows a semicolon inside a string literal", () => {
+    expect(
+      service.validate("SELECT 'a;b' AS note FROM cpu", "sql"),
+    ).toMatchObject({ ok: true });
+  });
+
+  it("does not let a comment marker inside a literal hide a write keyword", () => {
+    expect(
+      service.validate("SELECT '--' AS note FROM cpu DROP TABLE cpu", "sql")
+        .code,
+    ).toBe("not_read_only");
+  });
+
+  // The rejected-keyword lists as of 875d600. Stripping literals must not
+  // let any of them through when it appears outside a literal.
+  it.each([
+    "INSERT",
+    "UPDATE",
+    "DELETE",
+    "CREATE",
+    "ALTER",
+    "DROP",
+    "COPY",
+    "EXPORT",
+    "ATTACH",
+    "GRANT",
+    "REVOKE",
+    "TRUNCATE",
+  ])("still rejects SQL %s outside a literal", (keyword) => {
+    expect(service.validate(`${keyword} TABLE cpu`, "sql").code).toBe(
+      "not_read_only",
+    );
+    expect(
+      service.validate(`SELECT 'x' AS note FROM cpu ${keyword} t`, "sql").code,
+    ).toBe("not_read_only");
+  });
+
+  it.each([
+    ["DELETE", "not_read_only"],
+    ["DROP", "not_read_only"],
+    ["CREATE", "not_read_only"],
+    ["ALTER", "not_read_only"],
+    ["GRANT", "not_read_only"],
+    ["REVOKE", "not_read_only"],
+    ["INTO", "select_into"],
+  ])("still rejects InfluxQL %s outside a literal", (keyword, code) => {
+    expect(
+      service.validate(`SELECT 'x' FROM cpu ${keyword} t`, "influxql").code,
+    ).toBe(code);
+  });
+
   it("allows read-only InfluxQL", () => {
     const result = service.validate("SHOW MEASUREMENTS", "influxql");
 

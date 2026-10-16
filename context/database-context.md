@@ -6,7 +6,7 @@ This MCP server provides tools and resources to remotely access and manage vario
 
 When working with this InfluxDB instance:
 
-1. **Start with health check** - Always verify connectivity and instance status first
+1. **Check access where needed** - A health or ping denial means the credential cannot check that endpoint. Continue with permitted database reads.
 2. **Explore available databases** - List all databases to understand the data landscape
 3. **Understand the schema** - Use schema tools to discover measurements and field structures
 4. **Query thoughtfully** - Use time filters and appropriate aggregations for performance

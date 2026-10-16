@@ -76,6 +76,36 @@ export class HttpClientService {
   }
 
   /**
+   * Make a POST request and read the response body as text.
+   *
+   * The body is streamed so that a connection that fails after the response
+   * began keeps what arrived: the failure is returned as `interruption`
+   * instead of thrown. A non-2xx response still throws, with its body read
+   * into `error.response.data` (parsed when it is JSON).
+   */
+  async postText(
+    url: string,
+    data?: any,
+    config?: any,
+  ): Promise<{ text: string; interruption?: Error }> {
+    let response: any;
+    try {
+      response = await this.axiosInstance.post(url, data, {
+        ...config,
+        responseType: "stream",
+      });
+    } catch (error: any) {
+      if (typeof error.response?.data?.on === "function") {
+        const { text } = await readStream(error.response.data);
+        error.response.data = parseJsonOrText(text);
+      }
+      throw error;
+    }
+
+    return readStream(response.data);
+  }
+
+  /**
    * Make a PUT request
    */
   async put<T = any>(url: string, data?: any, config?: any): Promise<T> {
@@ -129,5 +159,28 @@ export class HttpClientService {
     influxType?: string,
   ): HttpClientService {
     return new HttpClientService(baseUrl, token, influxType);
+  }
+}
+
+async function readStream(
+  stream: AsyncIterable<Buffer>,
+): Promise<{ text: string; interruption?: Error }> {
+  const chunks: Buffer[] = [];
+  try {
+    for await (const chunk of stream) chunks.push(chunk);
+    return { text: Buffer.concat(chunks).toString("utf8") };
+  } catch (error) {
+    return {
+      text: Buffer.concat(chunks).toString("utf8"),
+      interruption: error instanceof Error ? error : new Error(String(error)),
+    };
+  }
+}
+
+function parseJsonOrText(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
   }
 }
