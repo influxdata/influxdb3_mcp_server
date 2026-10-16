@@ -394,6 +394,6 @@ describe.skip("[P2] live-only Enterprise 3.12.1 JWT, blocked on user authenticat
 describe.skip("[P3] live-only 3.12.1 metadata and isolated tombstone fixture not configured", () => {
   it("records authoritative column roles, schema mode and deletion provenance", () => {});
 });
-describe.skip("[P4] live-only exhaustion/wrong-node mapping, blocked on recorded 3.12.1 responses", () => {
-  it("records exhaustion, queue timeout and ingest-only 405 bodies before classifying recovery", () => {});
+describe.skip("[P4] live-only server timeout and backpressure, not yet observed on 3.12.1", () => {
+  it("records server-timeout and Retry-After backpressure bodies before classifying recovery", () => {});
 });
