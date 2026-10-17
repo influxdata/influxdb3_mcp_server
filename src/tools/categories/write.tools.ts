@@ -35,7 +35,9 @@ Batch (separate with newlines):
 temperature,location=office value=23.5 1640995200
 humidity,location=office value=45i 1640995201
 
-Important: Always specify correct precision parameter to match your timestamp format. Use any precision if writing data with no timestamp. Escaping required for special characters in tags/fields.`,
+Important: Always specify correct precision parameter to match your timestamp format. Use any precision if writing data with no timestamp. Escaping required for special characters in tags/fields.
+
+Errors: a 400 on an Enterprise database in explicit schema mode means the table or column isn't declared; don't rewrite the data to work around it. On a partial write, resend only the rejected lines. "Too many requests" and "Service temporarily unavailable" are retryable after a short backoff. "Access denied" means the token can't write to that database; don't retry.`,
       inputSchema: {
         type: "object",
         properties: {

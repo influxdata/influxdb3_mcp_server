@@ -310,7 +310,10 @@ export class BaseConnectionService {
       } else {
         return {
           ok: false,
-          message: `Ping failed with status ${response.status}`,
+          message:
+            response.status === 403
+              ? `Ping failed with status 403: the server is reachable, but this token isn't authorized for /ping. Database-scoped tokens (including read-only tokens) can't call /ping or /health; queries they're granted still work.`
+              : `Ping failed with status ${response.status}`,
         };
       }
     } catch (error) {
