@@ -128,6 +128,12 @@ const RECOVERY_SIGNATURES: Array<{
 }> = [
   // Recorded Core unknown-field error.
   { statuses: [500], pattern: /No field named/u, recovery: "fix_reference" },
+  // Unknown table: 400, plain text, on Core and Enterprise 3.11.7 and 3.12.1.
+  {
+    statuses: [400],
+    pattern: /Error during planning: table '[^']+' not found/u,
+    recovery: "fix_reference",
+  },
   // Enterprise 3.12.1 ingest-only node.
   {
     statuses: [405],
