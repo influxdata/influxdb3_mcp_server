@@ -41,7 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Query and discovery errors retain structured access and recovery outcomes.
   A `403` reports `not_found_or_denied`, because a token without access gets
   `403` whether or not the database exists. A `404` reports `not_found`. A
-  query sent to an Enterprise ingest-only node reports
+  SQL query that names an unknown table (`400`) reports
+  `recovery: fix_reference`. A query sent to an Enterprise ingest-only node reports
   `recovery: change_endpoint`. A query that runs out of server memory
   (`500` on Core 3.12.1, `429` on Enterprise) reports `recovery: narrow`,
   with a hint to shorten the time range, select fewer columns, or
