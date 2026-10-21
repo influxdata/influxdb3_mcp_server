@@ -84,6 +84,7 @@ export class QuerySafetyService {
         ? {
             ...execution,
             normalizedQuery: `EXPLAIN ANALYZE ${execution.normalizedQuery}`,
+            executedQuery: `EXPLAIN ANALYZE ${execution.executedQuery}`,
             warnings: [
               ...execution.warnings,
               {

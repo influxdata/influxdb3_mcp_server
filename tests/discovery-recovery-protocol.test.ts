@@ -362,6 +362,10 @@ describe.skipIf(live)(
       );
       expect(result.ok).toBe(true);
       expect(result.q).toMatch(/EXPLAIN ANALYZE .* LIMIT 2$/);
+      // The server runs the diagnostic, bounded with the one-row probe.
+      expect(fake!.requests.map((r) => r.q)).toContain(
+        "EXPLAIN ANALYZE SELECT * FROM metrics LIMIT 3",
+      );
       expect(result.warnings).toContainEqual(
         expect.objectContaining({ code: "diagnostic_execution" }),
       );
