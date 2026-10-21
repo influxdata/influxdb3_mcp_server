@@ -161,6 +161,19 @@ describe("read-only query completeness", () => {
     expect(body.metadata.completeness).not.toBe("complete");
   });
 
+  it("[both] tells the agent to fix the reference when a table is unknown", async () => {
+    const { body } = await callTool(mcp, "query_sql", {
+      db: TRUST_DB,
+      q: `SELECT * FROM no_such_table WHERE ${TIME_RANGE}`,
+    });
+
+    expect(body.error).toMatchObject({
+      status: 400,
+      recovery: "fix_reference",
+      retryable: false,
+    });
+  });
+
   describe.skipIf(LIVE)(
     "[fake-only: the testbench cannot fail a stream on demand]",
     () => {

@@ -63,6 +63,8 @@ When a call fails, read `error.code`, `error.recovery`, and `error.retryable`:
 - A `403` is `not_found_or_denied`. A token without access gets `403` whether
   or not the database exists.
 - A `404` is `not_found`.
+- A SQL query that names an unknown table has `recovery: "fix_reference"`.
+  Call `list_tables` or `describe_table` for the right name.
 - A query that runs out of server memory has `recovery: "narrow"`.
 - A query sent to an Enterprise ingest-only node has
   `recovery: "change_endpoint"`.
