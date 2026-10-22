@@ -5,18 +5,18 @@ how to choose the version number, and how to deprecate. For the release
 mechanics (version bump, tag, publish), see `.claude/skills/release/SKILL.md`.
 
 The consumers of this server are agents as well as humans. A change is
-*visible* if it alters what an agent can call, or how an agent decides what to
+_visible_ if it alters what an agent can call, or how an agent decides what to
 call.
 
 ## What triggers a release
 
-| Change | Release? | Notes |
-| --- | --- | --- |
-| Contract change: tool names, parameter schemas, result envelopes, error shapes | Yes | Changes what clients and agents call. |
-| Description change: tool, parameter, or prompt descriptions | Yes | Changes agent behavior as much as code does. Not a docs tweak. Must pass the capability evals. |
-| Security fix | Yes, immediately and alone | Don't batch. Don't hold for other changes. |
-| Spec alignment: MCP protocol version support, such as the stateless 2026-07-28 spec | Yes | |
-| Internal refactor with no change in behavior | No | Merge it. Don't release it on its own. It ships with the next release. |
+| Change                                                                              | Release?                   | Notes                                                                                          |
+| ----------------------------------------------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------- |
+| Contract change: tool names, parameter schemas, result envelopes, error shapes      | Yes                        | Changes what clients and agents call.                                                          |
+| Description change: tool, parameter, or prompt descriptions                         | Yes                        | Changes agent behavior as much as code does. Not a docs tweak. Must pass the capability evals. |
+| Security fix                                                                        | Yes, immediately and alone | Don't batch. Don't hold for other changes.                                                     |
+| Spec alignment: MCP protocol version support, such as the stateless 2026-07-28 spec | Yes                        |                                                                                                |
+| Internal refactor with no change in behavior                                        | No                         | Merge it. Don't release it on its own. It ships with the next release.                         |
 
 ## Version numbers
 
@@ -104,12 +104,12 @@ which resolves to the `latest` dist-tag at every launch.
 
 ### What can and can't be measured
 
-| Source | Reports | Limit |
-| --- | --- | --- |
+| Source                             | Reports                       | Limit                                                                                                                             |
+| ---------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | npm download API (`api.npmjs.org`) | Downloads per package version | Records the resolved version, not the specifier. `npx pkg` and `npx pkg@1.4.1` look identical. Also counts CI and mirror traffic. |
-| Docker Hub | Total pulls per repository | No per-tag counts. |
-| GitHub release assets | None | The project publishes no downloadable assets. |
-| The server | None | Telemetry is local only (`telemetry.service.ts`). Nothing is sent to InfluxData. |
+| Docker Hub                         | Total pulls per repository    | No per-tag counts.                                                                                                                |
+| GitHub release assets              | None                          | The project publishes no downloadable assets.                                                                                     |
+| The server                         | None                          | Telemetry is local only (`telemetry.service.ts`). Nothing is sent to InfluxData.                                                  |
 
 No source reports the install method directly. The practical proxy is the
 distribution of npm downloads by version after a release:
