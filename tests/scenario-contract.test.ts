@@ -7,6 +7,7 @@ import {
   DISCOVERY_SCENARIOS,
   ENTERPRISE_SQL_MEMORY_EXHAUSTED,
   INGEST_NODE_QUERY,
+  JWT_SCENARIOS,
   RECOVERY_SCENARIOS,
   SAMPLES_DENIED_OR_EMPTY,
 } from "./fixtures/discovery-scenarios.js";
@@ -44,6 +45,7 @@ const SCENARIOS = [
   ENTERPRISE_SQL_MEMORY_EXHAUSTED,
   ...DISCOVERY_SCENARIOS,
   ...SAMPLES_DENIED_OR_EMPTY,
+  ...Object.values(JWT_SCENARIOS),
 ];
 
 const ajv = new Ajv({ strict: false, allErrors: true });

@@ -10,6 +10,9 @@ import {
   DISCOVERY_SCENARIOS,
   ENTERPRISE_SQL_MEMORY_EXHAUSTED,
   INGEST_NODE_QUERY,
+  JWT_DENIED_DB,
+  JWT_MISSING_DB,
+  JWT_SCENARIOS,
   RECOVERY_SCENARIOS,
   SAMPLES_DENIED_OR_EMPTY,
   TOKEN_ECHO,
@@ -392,8 +395,142 @@ describe.skipIf(live)(
   },
 );
 
-describe.skip("[P2] live-only Enterprise 3.12.1 JWT, blocked on user authentication in testbench compose", () => {
-  it("distinguishes permitted, denied and expired JWT reads", () => {});
+// Live Enterprise user JWTs. Each case runs only when its variable is set,
+// so the testbench runner can supply any subset. The smoke-reader role needs
+// --rbac-authoring-disabled=false, which 3.12.1 does not list in
+// serve --help-all: report a failure there as a preview, not a regression.
+const JWT_DB = process.env.INFLUX_TEST_DATABASE || "smoke";
+const jwtCases = [
+  { role: "member", env: "INFLUX_TEST_JWT_MEMBER" },
+  { role: "auditor", env: "INFLUX_TEST_JWT_AUDITOR" },
+  { role: "smoke-reader (preview)", env: "INFLUX_TEST_JWT_SMOKE" },
+] as const;
+describe.skipIf(!live)("[live-only] Enterprise 3.12.1 user JWT reads", () => {
+  async function connectJwt(token: string) {
+    session = await createTestClient({
+      INFLUX_DB_INSTANCE_URL: process.env.INFLUX_DB_INSTANCE_URL!,
+      INFLUX_DB_PRODUCT_TYPE: "enterprise",
+      INFLUX_DB_TOKEN: token,
+      INFLUX_MCP_TOOL_PROFILE: "readonly",
+    });
+    return session.client;
+  }
+  for (const { role, env } of jwtCases) {
+    it.skipIf(!process.env[env])(`${role}: ${env}`, async () => {
+      const client = await connectJwt(process.env[env]!);
+      const call = async (name: string, args: Record<string, unknown>) =>
+        payload(await client.callTool({ name, arguments: args }));
+      const health = await call("health_check", {});
+      expect(health.connection.reachable).toBe(true);
+      expect(health.health.outcome).toBe("credential_cannot_check");
+      expect(health.ping.outcome).toBe("credential_cannot_check");
+
+      const databases = await call("list_databases", {});
+      expect(databases.ok).toBe(true);
+      const names = databases.databases.map((d: any) => d.name);
+      if (env === "INFLUX_TEST_JWT_SMOKE") expect(names).toEqual([JWT_DB]);
+      else expect(names).toContain(JWT_DB);
+
+      const tables = await call("list_tables", { db: JWT_DB });
+      const query = await call("query_sql", {
+        db: JWT_DB,
+        q: "SELECT * FROM seed_marker LIMIT 1",
+      });
+      if (env === "INFLUX_TEST_JWT_AUDITOR") {
+        // Auditor lists databases but cannot query, and list_tables queries.
+        for (const result of [tables, query]) {
+          expect(result.ok).toBe(false);
+          expect(result.error).toMatchObject({
+            code: "not_found_or_denied",
+            status: 403,
+            recovery: "none",
+          });
+        }
+      } else {
+        expect(tables.ok).toBe(true);
+        expect(query.ok).toBe(true);
+        expect(query.rows).toHaveLength(1);
+      }
+    });
+  }
+  it.skipIf(!process.env.INFLUX_TEST_JWT_EXPIRED)(
+    "expired: INFLUX_TEST_JWT_EXPIRED",
+    async () => {
+      const client = await connectJwt(process.env.INFLUX_TEST_JWT_EXPIRED!);
+      const result = payload(
+        await client.callTool({
+          name: "query_sql",
+          arguments: { db: JWT_DB, q: "SELECT 1" },
+        }),
+      );
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatchObject({
+        code: "credential_invalid",
+        access_outcome: "credential_invalid",
+        recovery: "renew_credential",
+        retryable: false,
+        status: 401,
+      });
+    },
+  );
+});
+describe.skipIf(live)("[fake-only] Enterprise 3.12.1 JWT responses", () => {
+  const query = (db: string) => ({
+    name: "query_sql",
+    arguments: { db, q: "SELECT 1" },
+  });
+  it("classifies an Auditor denial as not found or denied, with no recovery", async () => {
+    const client = await connect([JWT_SCENARIOS.auditorDenied]);
+    for (const name of ["query_sql", "list_tables"]) {
+      const result = payload(
+        await client.callTool({
+          name,
+          arguments: {
+            db: "smoke",
+            ...(name === "query_sql" && { q: "SELECT 1" }),
+          },
+        }),
+      );
+      expect(result.error).toMatchObject({
+        code: "not_found_or_denied",
+        status: 403,
+        recovery: "none",
+      });
+    }
+  });
+  it("answers a denied database and a missing one alike", async () => {
+    const client = await connect([
+      JWT_SCENARIOS.deniedDatabase,
+      JWT_SCENARIOS.missingDatabase,
+    ]);
+    const errors = [];
+    for (const db of [JWT_DENIED_DB, JWT_MISSING_DB]) {
+      errors.push(payload(await client.callTool(query(db))).error);
+    }
+    expect(errors[0]).toMatchObject({
+      code: "not_found_or_denied",
+      status: 403,
+      recovery: "none",
+    });
+    expect(errors[0].message).toBe(errors[1].message);
+    expect(errors[0].code).toBe(errors[1].code);
+  });
+  // The body does not say whether the JWT expired, is malformed, or went to
+  // a node that does not accept it, so all three stay credential_invalid.
+  for (const key of ["expired", "malformed", "wrongNode"] as const) {
+    it(`keeps a 401 for a ${key} JWT as credential_invalid`, async () => {
+      const client = await connect([JWT_SCENARIOS[key]]);
+      const result = payload(await client.callTool(query(JWT_DB)));
+      expect(result.error).toMatchObject({
+        code: "credential_invalid",
+        access_outcome: "credential_invalid",
+        recovery: "renew_credential",
+        retryable: false,
+        status: 401,
+        message: "Unauthorized: the request was not authenticated",
+      });
+    });
+  }
 });
 describe.skip("[P3] live-only 3.12.1 metadata and isolated tombstone fixture not configured", () => {
   it("records authoritative column roles, schema mode and deletion provenance", () => {});
