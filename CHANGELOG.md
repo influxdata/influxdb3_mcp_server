@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Core and Enterprise table descriptions and investigations report observed
+  column roles from `system.influxdb_schema`. When the credential can read
+  `_internal`, they also report schema mode and deletion flags with catalog
+  provenance. Unavailable metadata remains `unknown`. Tombstone warnings
+  recognize the observed `-YYYYMMDDTHHMMSS` suffix and remain advisory.
+  Investigation reserves up to three schema requests per table.
 - `query_sql` and `query_influxql` report `metadata.completeness` as
   `complete`, `capped`, or `interrupted`. A capped result also carries `cap`
   and `cap_source` (`server_bound` or `query_limit`). `truncated` remains and

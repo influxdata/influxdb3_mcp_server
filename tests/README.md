@@ -132,6 +132,24 @@ Each JWT case skips independently when its credential is unset.
 The smoke-reader case needs the preview custom role with read access only to `smoke`.
 An expired-JWT skip does not establish expiry handling against a live server.
 
+### Isolated P3 metadata fixtures
+
+`tests/p3-metadata-live.test.ts` creates its own database, declared tables,
+and expiring app token with the configured Core or Enterprise admin credential.
+It checks server-reported column roles, implicit and Enterprise explicit schema
+mode, active and soft-deleted tables, and scoped Enterprise catalog denial.
+It revokes the app token and hard-deletes its database after each fixture.
+Core needs one free database slot; the test never deletes shared fixtures to make room.
+
+```sh
+INFLUX_TEST_ENABLED=true npx vitest run tests/p3-metadata-live.test.ts
+```
+
+Set `INFLUX_TEST_P3_OBSERVATIONS` to a file path to append raw fixture metadata
+requests and responses, including `/ping` version evidence.
+Token creation responses are excluded, and supplied credentials are redacted.
+The ordinary test suite checks metadata-source fallback with the fake server.
+
 ```bash
 npm run test:infra:up
 source env.test.example && npm run test:integration

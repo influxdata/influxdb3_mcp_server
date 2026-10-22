@@ -1,0 +1,538 @@
+
+ RUN  v4.1.11 /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+
+ ✓ tests/phase1-readonly-live.test.ts > Phase 1 read-only live tools > advertises only the read-only Phase 1 tool surface 3ms
+ ✓ tests/phase1-readonly-live.test.ts > Phase 1 read-only live tools > runs structured read-only SQL and rejects writes 66ms
+ ✓ tests/phase1-readonly-live.test.ts > Phase 1 read-only live tools > runs structured read-only InfluxQL and rejects SELECT INTO 12ms
+ ✓ tests/phase1-readonly-live.test.ts > Phase 1 read-only live tools > discovers tables and reports server-provided schema categories 19ms
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves invalid credential on queries and discovery
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves denied or absent on queries and discovery
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves not found on queries and discovery
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > passes the server's error text through with the token redacted
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > reports denied health as reachable and unconfirmed
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > keeps successful tables, stable truncation, recent bounded samples, and warnings
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > distinguishes empty discovery and refuses cardinality
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > accepts both alias pairs and logs validation failures once
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 405-no-wait without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 405-retry-after without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 429-no-wait without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 429-retry-after without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 503-no-wait without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 503-retry-after without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 504-no-wait without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 504-retry-after without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > tells the caller to send a query for an ingest-only node to a query node
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > asks the caller to narrow a query that ran out of memory (Core 500)
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > asks the caller to narrow a query that ran out of memory (Enterprise 429)
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > does not let a denied database poison successful discovery
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > keeps schema when sampling is denied and labels an empty window accurately
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > runs EXPLAIN ANALYZE through query bounds and labels execution
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > distinguishes an actual HTTP client timeout from a server HTTP timeout response
+ ↓ tests/discovery-recovery-protocol.test.ts > [live-only] Enterprise 3.12.1 user JWT reads > member: INFLUX_TEST_JWT_MEMBER
+ ↓ tests/discovery-recovery-protocol.test.ts > [live-only] Enterprise 3.12.1 user JWT reads > auditor: INFLUX_TEST_JWT_AUDITOR
+ ↓ tests/discovery-recovery-protocol.test.ts > [live-only] Enterprise 3.12.1 user JWT reads > smoke-reader (preview): INFLUX_TEST_JWT_SMOKE
+ ↓ tests/discovery-recovery-protocol.test.ts > [live-only] Enterprise 3.12.1 user JWT reads > expired: INFLUX_TEST_JWT_EXPIRED
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] Enterprise 3.12.1 JWT responses > classifies an Auditor denial as not found or denied, with no recovery
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] Enterprise 3.12.1 JWT responses > answers a denied database and a missing one alike
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] Enterprise 3.12.1 JWT responses > keeps a 401 for a expired JWT as credential_invalid
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] Enterprise 3.12.1 JWT responses > keeps a 401 for a malformed JWT as credential_invalid
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] Enterprise 3.12.1 JWT responses > keeps a 401 for a wrongNode JWT as credential_invalid
+ ↓ tests/discovery-recovery-protocol.test.ts > [P4] live-only server timeout and backpressure, not yet observed on 3.12.1 > records server-timeout and Retry-After backpressure bodies before classifying recovery
+ ✓ tests/p3-metadata-live.test.ts > [live-only] P3 isolated implicit metadata on core > reports authoritative roles, schema mode, and active-table deletion evidence 25ms
+ ✓ tests/p3-metadata-live.test.ts > [live-only] P3 isolated implicit metadata on core > keeps tombstones and similarly named active tables without losing successful samples 42ms
+ ↓ tests/p3-metadata-live.test.ts > [live-only] P3 isolated implicit metadata on core > keeps scoped reads and column roles when the internal catalog is denied
+ ↓ tests/p3-metadata-live.test.ts > [live-only] P3 isolated explicit metadata on core > reports authoritative roles, schema mode, and active-table deletion evidence
+ ↓ tests/p3-metadata-live.test.ts > [live-only] P3 isolated explicit metadata on core > keeps tombstones and similarly named active tables without losing successful samples
+ ↓ tests/p3-metadata-live.test.ts > [live-only] P3 isolated explicit metadata on core > keeps scoped reads and column roles when the internal catalog is denied
+ ✓ tests/query-completeness.test.ts > read-only query completeness > [both] reports a result cut by maxRows as capped by the server bound 30ms
+ ✓ tests/query-completeness.test.ts > read-only query completeness > [both] reports a result that fills the query's own LIMIT as possibly capped by that limit 8ms
+ ✓ tests/query-completeness.test.ts > read-only query completeness > [both] reports a complete result when maxRows equals the row count 7ms
+ ✓ tests/query-completeness.test.ts > read-only query completeness > [both] reports a complete result when the query's own LIMIT exceeds the row count 8ms
+ ✓ tests/query-completeness.test.ts > read-only query completeness > [both] logs completeness and its cap source in telemetry 248ms
+ ✓ tests/query-completeness.test.ts > read-only query completeness > [both] echoes the bound the caller sees, not the probe row 8ms
+ ✓ tests/query-completeness.test.ts > read-only query completeness > [both] returns a failure before the first row as an error with no rows 3ms
+ ✓ tests/query-completeness.test.ts > read-only query completeness > [both] tells the agent to fix the reference when a table is unknown 2ms
+ ↓ tests/query-completeness.test.ts > read-only query completeness > [fake-only: the testbench cannot fail a stream on demand] > returns a response that stops after two rows (truncate) as interrupted, with those rows
+ ↓ tests/query-completeness.test.ts > read-only query completeness > [fake-only: the testbench cannot fail a stream on demand] > returns a response that stops after two rows (abort) as interrupted, with those rows
+ ↓ tests/query-completeness.test.ts > read-only query completeness > [fake-only: the testbench cannot fail a stream on demand] > returns a connection dropped before the first row (json) as interrupted with no rows
+ ↓ tests/query-completeness.test.ts > read-only query completeness > [fake-only: the testbench cannot fail a stream on demand] > returns a connection dropped before the first row (jsonl) as interrupted with no rows
+ ↓ tests/query-completeness.test.ts > read-only query completeness > [fake-only: the testbench cannot fail a stream on demand] > returns a connection dropped before the first row (csv) as interrupted with no rows
+ ↓ tests/query-completeness.test.ts > read-only query completeness > [fake-only: the testbench cannot fail a stream on demand] > returns a memory failure status before the first row as a failed query with the server's reason
+ ↓ tests/query-completeness.test.ts > read-only query completeness > [fake-only: the testbench cannot fail a stream on demand] > returns a 200 with an empty body as interrupted, not as no rows
+ ✓ tests/p3-metadata-protocol.test.ts > P3 metadata protocol > uses observed roles, binds catalog references, and overrides a name-only deletion warning 228ms
+ ✓ tests/p3-metadata-protocol.test.ts > P3 metadata protocol > preserves columns and unknown metadata when optional sources return 400 220ms
+ ✓ tests/p3-metadata-protocol.test.ts > P3 metadata protocol > preserves columns and unknown metadata when optional sources return 403 218ms
+ ✓ tests/p3-metadata-protocol.test.ts > P3 metadata protocol > does not infer roles or deletion from unfamiliar successful metadata 213ms
+ ✓ tests/p3-metadata-protocol.test.ts > P3 metadata protocol > preserves authoritative metadata when sampling fails 227ms
+ ✓ tests/protocol-write.test.ts > write_line_protocol – advertised contract > requires database, data and precision 2ms
+ ✓ tests/protocol-write.test.ts > write_line_protocol – advertised contract > advertises the four precision values the service maps 1ms
+ ✓ tests/protocol-write.test.ts > write_line_protocol – advertised contract > advertises acceptPartial defaulting to true 1ms
+ ✓ tests/protocol-write.test.ts > write_line_protocol – advertised contract > rejects an unknown precision at the validation boundary 2ms
+ ✓ tests/protocol-write.test.ts > write failures reach the model as tool errors > returns isError with non-empty text rather than throwing 9ms
+ ✓ tests/protocol-write.test.ts > write failures reach the model as tool errors > never renders an error body as [object Object] 2ms
+ ✓ tests/protocol-write.test.ts > write failures reach the model as tool errors > names the database in the failure message 6ms
+ ✓ tests/protocol-write.test.ts > capability detection – current state > client initialization does not prove an unreachable instance healthy 9ms
+ ✓ tests/protocol-write.test.ts > capability detection – current state > reports the configured product type verbatim, unverified 230ms
+ ✓ tests/protocol-write.test.ts > capability detection – current state > reports no version when /ping is unreachable 3ms
+ ↓ tests/protocol-write.test.ts > health_check reflects reachability > reports FAILED when every endpoint check fails
+ ✓ tests/protocol.test.ts > MCP protocol compliance > completes initialize handshake and reports capabilities 1ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > returns server version info 0ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > tools/list > returns the expected number of tools 2ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > tools/list > each tool has name, description, and inputSchema 1ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > tools/list > includes core tools by name 1ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > tools/list > advertises Enterprise resource tokens and named-admin expiry 213ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > tools/list > advertises SQL wildcard recovery guidance 1ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > tools/list > describes aliases, output, and formats the same way on both query tools 1ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > tools/list > points execute_query at query_sql for bounded reads 1ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > tools/list > shows the InfluxQL regex field form the parser accepts 1ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > tools/list > points query tools at the output contract in get_help (#131) 2ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > tools/list > advertises only read-only tools in readonly profile 218ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > resources/list > returns all expected resources 1ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > resources/list > each resource has name, uri, and description 0ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > prompts/list > returns all expected prompts 1ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > ping > responds to ping 0ms
+ ✓ tests/protocol.test.ts > MCP protocol compliance > error handling > throws McpError for unknown tool 1ms
+ ↓ tests/query-cloud-routes.test.ts > [fake-only: the testbench has no Cloud target] Cloud query routes refuse unsupported combinations > cloud-serverless refuses CSV from query_influxql instead of returning JSON labeled CSV (#84)
+ ↓ tests/query-cloud-routes.test.ts > [fake-only: the testbench has no Cloud target] Cloud query routes refuse unsupported combinations > clustered refuses CSV from query_influxql instead of returning JSON labeled CSV (#84)
+ ↓ tests/query-cloud-routes.test.ts > [fake-only: the testbench has no Cloud target] Cloud query routes refuse unsupported combinations > cloud-serverless refuses timeoutMs on query_sql with a stable code
+ ✓ tests/query-format.test.ts > read-only query formats and options on Core and Enterprise > [both] returns capped CSV with the bound's records and a matching label 25ms
+ ✓ tests/query-format.test.ts > read-only query formats and options on Core and Enterprise > [both] returns capped CSV from query_influxql the same way 10ms
+ ✓ tests/query-format.test.ts > read-only query formats and options on Core and Enterprise > [both] returns capped JSONL with one record per row 7ms
+ ↓ tests/query-format.test.ts > read-only query formats and options on Core and Enterprise > [fake-only: no product returns JSON for a CSV request on demand] labels JSON returned for a CSV request as JSON, with a warning (#84)
+ ✓ tests/query-format.test.ts > read-only query formats and options on Core and Enterprise > [both] query_sql refuses pretty before dispatch and names the supported formats 1ms
+ ✓ tests/query-format.test.ts > read-only query formats and options on Core and Enterprise > [both] query_influxql refuses pretty before dispatch and names the supported formats 1ms
+ ✓ tests/query-format.test.ts > read-only query formats and options on Core and Enterprise > [both] forwards query parameters to the server 8ms
+ ↓ tests/query-format.test.ts > read-only query formats and options on Core and Enterprise > [fake-only: the testbench has no reliably slow query] gives up after timeoutMs instead of ignoring it
+ ✓ tests/query-safety-protocol.test.ts > read-only query safety over MCP > [both] runs a query whose string literal contains DROP 24ms
+ ✓ tests/readonly-contract-protocol.test.ts > [both] every readonly tool agrees on inputs and writes one telemetry event per successful or invalid call 315ms
+ ✓ tests/check-versions.test.ts > scripts/check-versions.js with an [Unreleased] changelog section > passes with an Unreleased section and no TAG_NAME 63ms
+ ✓ tests/check-versions.test.ts > scripts/check-versions.js with an [Unreleased] changelog section > fails with an Unreleased section and TAG_NAME 61ms
+ ✓ tests/check-versions.test.ts > scripts/check-versions.js with an [Unreleased] changelog section > passes with no Unreleased section and TAG_NAME 61ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > pins the core spec to a docs-v2 commit 1ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > pins the enterprise spec to a docs-v2 commit 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core core-sql-cpu-table 12ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise core-sql-cpu-table 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core core-sql-unknown-table 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise core-sql-unknown-table 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core core-sql-interrupted-truncate 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: the body ends before the result does. A response cut short is outside every documented response.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core core-sql-interrupted-abort 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: the body ends before the result does. A response cut short is outside every documented response.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core core-sql-pool-exhausted-drop 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: the body ends before the result does. A 200 response with no body is outside every documented response.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise core-sql-pool-exhausted-drop 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: the body ends before the result does. A 200 response with no body is outside every documented response.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core core-sql-pool-exhausted-status 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 500 is not documented. The spec documents no 500 for query_sql.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core core-sql-empty-body 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: the JSON body does not parse. A 200 response with no body is outside every documented response.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core core-influxql-cpu-table 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise core-influxql-cpu-table 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core core-sql-csv-returns-json 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core core-sql-slow 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core P3 information schema columns 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The query spec documents an object response; the live server returns an array of rows.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise P3 information schema columns 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The query spec documents an object response; the live server returns an array of rows.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core P3 database-local column roles 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The query spec documents an object response; the live server returns an array of rows.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise P3 database-local column roles 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The query spec documents an object response; the live server returns an array of rows.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core P3 active implicit table catalog 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The query spec documents an object response; the live server returns an array of rows.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise P3 active implicit table catalog 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The query spec documents an object response; the live server returns an array of rows.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core /api/v3/query_sql: invalid credential 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /api/v3/query_sql: invalid credential 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core /api/v3/query_influxql: invalid credential 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /api/v3/query_influxql: invalid credential 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core /api/v3/configure/database: invalid credential 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /api/v3/configure/database: invalid credential 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core /health: invalid credential 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /health: invalid credential 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core /ping: invalid credential 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /ping: invalid credential 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /api/v3/query_sql: denied or absent 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /api/v3/query_influxql: denied or absent 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core /api/v3/configure/database: denied or absent 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 403 is not documented. The public database-list spec omits 403.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /api/v3/configure/database: denied or absent 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 403 is not documented. The public database-list spec omits 403.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /health: denied or absent 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /ping: denied or absent 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core /api/v3/query_sql: not found 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /api/v3/query_sql: not found 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core /api/v3/query_influxql: not found 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /api/v3/query_influxql: not found 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core /api/v3/configure/database: not found 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /api/v3/configure/database: not found 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core /health: not found 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 404 is not documented. The public health spec omits 404.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /health: not found 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 404 is not documented. The public health spec omits 404.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core /ping: not found 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise /ping: not found 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core 405-no-wait 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise 405-no-wait 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core 405-retry-after 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise 405-retry-after 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core 429-no-wait 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 429 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise 429-no-wait 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 429 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core 429-retry-after 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 429 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise 429-retry-after 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 429 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core 503-no-wait 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 503 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise 503-no-wait 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 503 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core 503-retry-after 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 503 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise 503-retry-after 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 503 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core 504-no-wait 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 504 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise 504-no-wait 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 504 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core 504-retry-after 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 504 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise 504-retry-after 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 504 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise query on an ingest-only node 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise enterprise memory exhausted 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: status 429 is not documented. The public query spec omits this status.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core health legacy JSON 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: the spec documents no JSON body for status 200, only text/plain. The public health schema describes plain text; this synthetic legacy JSON response tests existing compatibility.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise health legacy JSON 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: the spec documents no JSON body for status 200, only text/plain. The public health schema describes plain text; this synthetic legacy JSON response tests existing compatibility.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core ping 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise ping 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise visible databases 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents `{ databases: [names] }`; the server returns an array of `iox::database` rows.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core denied database 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise denied database 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core empty query on empty 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise empty query on empty 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core empty query on _internal 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise empty query on _internal 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core unsorted tables with advisory tombstone 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise unsorted tables with advisory tombstone 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core denied table metadata 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise denied table metadata 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core column metadata 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise column metadata 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core sample row from /api/v3/query_sql 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise sample row from /api/v3/query_sql 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core sample row from /api/v3/query_influxql 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise sample row from /api/v3/query_influxql 0ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core denied sample 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise denied sample 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > core empty sample window 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise empty sample window 1ms
+
+   ❯ tests/scenario-contract.test.ts:128:13 notice
+     ↳ Outside the spec: JSON body: data must be object. The spec documents a JSON object with `results`. Core and Enterprise 3.11.7 and 3.12.1 return a top-level array of rows, which the MCP server parses.
+
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise JWT: auditor query denied 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise JWT: denied database 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise JWT: missing database 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise JWT: expired 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise JWT: malformed 0ms
+ ✓ tests/scenario-contract.test.ts > fake-server scenarios against the pinned OpenAPI specs > enterprise JWT: sent to a node that does not accept it 0ms
+ ✓ tests/base-connection-ping.test.ts > ping – version reporting, current behavior > returns the x-influxdb-version header unparsed 6ms
+ ✓ tests/base-connection-ping.test.ts > ping – version reporting, current behavior > reports build "Other" when only a version header is present 2ms
+ ✓ tests/base-connection-ping.test.ts > ping – version reporting, current behavior > reports no version at all when the header is absent 0ms
+ ✓ tests/base-connection-auth.test.ts > BaseConnectionService auth headers > uses Bearer auth for Enterprise JWT credentials on ping and health 7ms
+ ✓ tests/base-connection-auth.test.ts > BaseConnectionService auth headers > keeps Token auth for Cloud Serverless 3ms
+ ✓ tests/query-routing.test.ts > query routing options > cloud-dedicated rejects non-JSON SQL formats before dispatch 2ms
+ ✓ tests/query-routing.test.ts > query routing options > cloud-serverless rejects non-JSON SQL formats before dispatch 0ms
+ ✓ tests/query-routing.test.ts > query routing options > clustered rejects non-JSON SQL formats before dispatch 0ms
+ ✓ tests/query-routing.test.ts > query routing options > returns a stable error code for an unsupported SQL format 0ms
+ ✓ tests/query-routing.test.ts > query routing options > cloud-dedicated forwards params to the Flight client 0ms
+ ✓ tests/query-routing.test.ts > query routing options > cloud-serverless forwards params to the Flight client 0ms
+ ✓ tests/query-routing.test.ts > query routing options > cloud-dedicated rejects per-query timeout explicitly 0ms
+ ✓ tests/query-routing.test.ts > query routing options > cloud-serverless rejects per-query timeout explicitly 0ms
+ ✓ tests/query-routing.test.ts > query routing options > clustered forwards params and timeout to its query API 0ms
+ ✓ tests/query-routing.test.ts > query routing options > preserves InfluxQL params and timeout on the v3 API 0ms
+ ✓ tests/query-routing.test.ts > query routing options > cloud-dedicated routes InfluxQL to the v1 API with params and timeout 0ms
+ ✓ tests/query-routing.test.ts > query routing options > cloud-serverless routes InfluxQL to the v1 API with params and timeout 0ms
+ ✓ tests/query-routing.test.ts > query routing options > clustered routes InfluxQL to the v1 API with params and timeout 0ms
+ ✓ tests/write-error-cloud.test.ts > cloud SDK errors are normalized before branching > cloud-dedicated: a 400 reaches the 400 arm 1ms
+ ✓ tests/write-error-cloud.test.ts > cloud SDK errors are normalized before branching > cloud-serverless: a 400 reaches the 400 arm 0ms
+ ✓ tests/write-error-cloud.test.ts > cloud SDK errors are normalized before branching > cloud-dedicated: a 401 reaches the 401 arm 0ms
+ ✓ tests/write-error-cloud.test.ts > cloud SDK errors are normalized before branching > cloud-serverless: a 401 reaches the 401 arm 0ms
+ ✓ tests/write-error-cloud.test.ts > cloud SDK errors are normalized before branching > cloud-dedicated: a 503 reaches the retryable arm 0ms
+ ✓ tests/write-error-cloud.test.ts > cloud SDK errors are normalized before branching > cloud-serverless: a 503 reaches the retryable arm 0ms
+ ✓ tests/write-error-cloud.test.ts > cloud SDK errors are normalized before branching > resolves the body from HttpError.json, not only HttpError.message 0ms
+ ✓ tests/telemetry.test.ts > telemetry logging > writes valid JSONL when the file backend is configured 3ms
+ ✓ tests/telemetry.test.ts > telemetry logging > falls back to stderr when file backend is missing MCP_LOG_FILE 1ms
+ ✓ tests/telemetry.test.ts > telemetry logging > suppresses telemetry when MCP_LOG_TOOL_CALLS is false 0ms
+ ✓ tests/telemetry.test.ts > telemetry logging > does not log tokens, headers, tool arguments, or query text 1ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > allows bounded read-only SQL 1ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > adds a limit to unbounded SQL SELECT 1ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > reduces excessive SQL LIMIT values 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > adds an outer limit when a nested sql query is the only bounded query 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > adds an outer limit when a nested influxql query is the only bounded query 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > only reduces the outer SQL limit 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > does not treat limits in strings, comments, or identifiers as outer limits 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > appends a limit outside a trailing line comment 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > rejects SQL writes and multi-statement input 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > allows a sql write keyword inside a string literal or quoted identifier: SELECT 'DROP TABLE metrics' AS note FROM cpu 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > allows a sql write keyword inside a string literal or quoted identifier: SELECT "delete" FROM cpu WHERE time > now() - 1h 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > allows a influxql write keyword inside a string literal or quoted identifier: SELECT usage FROM cpu WHERE note = 'drop it' 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > allows a influxql write keyword inside a string literal or quoted identifier: SELECT "into" FROM cpu 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > allows a semicolon inside a string literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > does not let a comment marker inside a literal hide a write keyword 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects SQL INSERT outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects SQL UPDATE outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects SQL DELETE outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects SQL CREATE outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects SQL ALTER outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects SQL DROP outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects SQL COPY outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects SQL EXPORT outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects SQL ATTACH outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects SQL GRANT outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects SQL REVOKE outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects SQL TRUNCATE outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects InfluxQL DELETE outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects InfluxQL DROP outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects InfluxQL CREATE outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects InfluxQL ALTER outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects InfluxQL GRANT outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects InfluxQL REVOKE outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > still rejects InfluxQL INTO outside a literal 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > allows read-only InfluxQL 0ms
+ ✓ tests/query-safety.test.ts > QuerySafetyService > rejects InfluxQL SELECT INTO 0ms
+ ✓ tests/write-routing.test.ts > write routing – Core and Enterprise use the v3 endpoint > core posts to /api/v3/write_lp, never /api/v2/write 1ms
+ ✓ tests/write-routing.test.ts > write routing – Core and Enterprise use the v3 endpoint > enterprise posts to /api/v3/write_lp, never /api/v2/write 0ms
+ ✓ tests/write-routing.test.ts > write routing – Core and Enterprise use the v3 endpoint > sends db, precision, accept_partial and no_sync as query parameters 0ms
+ ✓ tests/write-routing.test.ts > write routing – Core and Enterprise use the v3 endpoint > defaults accept_partial to true, so partial-write bodies are reachable 0ms
+ ✓ tests/write-routing.test.ts > write routing – Core and Enterprise use the v3 endpoint > uses the long-form precision name, unmapped 0ms
+ ✓ tests/write-routing.test.ts > write routing – Core and Enterprise use the v3 endpoint > sends line protocol as a text/plain body 0ms
+ ✓ tests/write-routing.test.ts > write routing – Clustered is the only v2 caller > posts to /api/v2/write 0ms
+ ✓ tests/write-routing.test.ts > write routing – Clustered is the only v2 caller > sends bucket (not db) and a short precision code 0ms
+ ✓ tests/write-routing.test.ts > write routing – Cloud product types use the SDK client > cloud-dedicated calls client.write with the long-form precision 0ms
+ ✓ tests/write-routing.test.ts > write routing – Cloud product types use the SDK client > cloud-serverless calls client.write with a short precision code 0ms
+ ✓ tests/write-routing.test.ts > write routing – Cloud product types use the SDK client > cloud-dedicated makes no HTTP write request 0ms
+ ✓ tests/write-routing.test.ts > write routing – Cloud product types use the SDK client > cloud-serverless makes no HTTP write request 0ms
+ ✓ tests/write-routing.test.ts > write routing – unknown product type > rejects rather than defaulting to a transport 1ms
+ ✓ tests/write-error-core.test.ts > handleWriteError preserves the InfluxDB error body > 400: the duplicated tag key is returned to the caller 2ms
+ ✓ tests/write-error-core.test.ts > handleWriteError preserves the InfluxDB error body > 401: the InfluxDB body survives 0ms
+ ✓ tests/write-error-core.test.ts > handleWriteError preserves the InfluxDB error body > 403: the InfluxDB body survives 0ms
+ ✓ tests/write-error-core.test.ts > handleWriteError preserves the InfluxDB error body > 413: the actual size limit survives 0ms
+ ✓ tests/write-error-core.test.ts > handleWriteError preserves the InfluxDB error body > 422: the offending column survives 0ms
+ ✓ tests/write-error-core.test.ts > handleWriteError preserves the InfluxDB error body > applies identically on Enterprise 0ms
+ ✓ tests/write-error-core.test.ts > handleWriteError adds a 503 arm and serializes bodies > 503: is phrased as retryable and distinguishable from a bad request 0ms
+ ✓ tests/write-error-core.test.ts > handleWriteError adds a 503 arm and serializes bodies > fallback serializes a parsed JSON body instead of interpolating it 0ms
+ ✓ tests/write-error-core.test.ts > handleWriteError adds a 503 arm and serializes bodies > fallback still preserves a plain-text body unchanged 0ms
+ ✓ tests/database-update-retention.test.ts > updateDatabase – Core/Enterprise retention > PUTs /api/v3/configure/database with retention_period as a duration string 2ms
+ ✓ tests/database-update-retention.test.ts > updateDatabase – Core/Enterprise retention > emits whole days when evenly divisible 0ms
+ ✓ tests/database-update-retention.test.ts > updateDatabase – Core/Enterprise retention > does not round a 1-hour retention down to 0d (regression) 0ms
+ ✓ tests/database-update-retention.test.ts > updateDatabase – Core/Enterprise retention > falls back to whole hours for sub-day, non-day-divisible periods 0ms
+ ✓ tests/database-update-retention.test.ts > updateDatabase – Core/Enterprise retention > rejects retention periods shorter than one hour 1ms
+ ✓ tests/database-update-retention.test.ts > updateDatabase – Core/Enterprise retention > rejects when no retentionPeriod is provided 0ms
+ ✓ tests/database-update-retention.test.ts > updateDatabase – Core/Enterprise retention > warns about unsupported params but still applies retention 0ms
+ ✓ tests/database-update-retention.test.ts > updateDatabase – Core/Enterprise retention > allows update_database for all five product types 0ms
+ ✓ tests/query-error-core.test.ts > handleQueryError – Core (axios) error path > 404: surfaces InfluxDB error from JSON {error:...} response 2ms
+ ✓ tests/query-error-core.test.ts > handleQueryError – Core (axios) error path > 400: surfaces InfluxDB error from JSON {error:...} response 0ms
+ ✓ tests/query-error-core.test.ts > handleQueryError – Core (axios) error path > 500: surfaces plain-text error body 0ms
+ ✓ tests/query-error-core.test.ts > handleQueryError – Core (axios) error path > adds describe_table recovery hint for SQL quoted wildcard fields 1ms
+ ✓ tests/token-management.test.ts > TokenManagementService 3.11.5 contracts > sends token_name and expiry_secs to named_admin 2ms
+ ✓ tests/token-management.test.ts > TokenManagementService 3.11.5 contracts > limits resource-token creation to Enterprise 0ms
+ ✓ tests/query-error-serverless.test.ts > handleQueryError – Cloud Serverless (SDK async iterator) > 400: surfaces error message from SDK HttpError 2ms
+ ✓ tests/query-error-serverless.test.ts > handleQueryError – Cloud Serverless (SDK async iterator) > 404: surfaces error message from SDK HttpError 0ms
+ ✓ tests/query-error-serverless.test.ts > handleQueryError – Serverless {code,message} via axios path > 400: surfaces message from {code, message} JSON response 0ms
+ ✓ tests/query-error-serverless.test.ts > handleQueryError – Serverless {code,message} via axios path > 404: surfaces message from {code, message} JSON response 0ms
+ ✓ tests/packaging.test.ts > runtime imports are declared as dependencies > finds the packages src/ imports at all (guards the scanner itself) 1ms
+ ✓ tests/packaging.test.ts > runtime imports are declared as dependencies > the published package ships build/, so a missing dependency reaches consumers 0ms
+ ✓ tests/packaging.test.ts > zod is a runtime dependency > no runtime import is missing from dependencies 0ms
+ ✓ tests/packaging.test.ts > zod is a runtime dependency > zod is not left duplicated in devDependencies 0ms
+ ✓ tests/integration.test.ts > live InfluxDB integration > health_check reports healthy 14ms
+ ✓ tests/integration.test.ts > live InfluxDB integration > list_databases returns a response 8ms
+ ✓ tests/integration.test.ts > live InfluxDB integration > execute_query runs a simple query 8ms
+ ✓ tests/integration.test.ts > live InfluxDB integration > update_database sets a retention period (Core/Enterprise) 9ms
+ ✓ tests/integration.test.ts > live InfluxDB integration > creates and deletes an expiring named admin token 4ms
+ ↓ tests/permission-scoped-live.test.ts > [live-only] scoped Enterprise database access > keeps permitted reads usable after denial on another database
+ ✓ tests/query-error-integration.test.ts > error path integration tests (live instance) > execute_query on nonexistent database surfaces real error 11ms
+ ✓ tests/query-error-integration.test.ts > error path integration tests (live instance) > execute_query with invalid SQL surfaces parser error 7ms
+ ✓ tests/query-format-live.test.ts > live query format behavior (requires INFLUX_TEST_DATABASE) > doesn't stringify Cloud Serverless CSV rows as objects (#107) 13ms
+
+ Test Files  27 passed | 3 skipped (30)
+      Tests  271 passed | 51 skipped (322)
+   Start at  21:03:41
+   Duration  15.50s (transform 174ms, setup 78ms, import 1.76s, tests 10.75s, environment 1ms)
