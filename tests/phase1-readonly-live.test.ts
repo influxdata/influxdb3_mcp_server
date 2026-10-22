@@ -141,7 +141,7 @@ describe.skipIf(!RUN)("Phase 1 read-only live tools", () => {
     expect(error.error.code).toBe("select_into");
   });
 
-  it("discovers tables and returns conservative schema categories", async () => {
+  it("discovers tables and reports server-provided schema categories", async () => {
     const tablesResult = await readonlyClient.client.callTool({
       name: "list_tables",
       arguments: { db: DB_NAME },
@@ -163,7 +163,16 @@ describe.skipIf(!RUN)("Phase 1 read-only live tools", () => {
     expect(schema.columns).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: "time", category: "time" }),
-        expect.objectContaining({ name: "temp", category: "unknown" }),
+        expect.objectContaining({
+          name: "temp",
+          category: "field",
+          source: "server",
+        }),
+        expect.objectContaining({
+          name: "sensor",
+          category: "tag",
+          source: "server",
+        }),
       ]),
     );
   });

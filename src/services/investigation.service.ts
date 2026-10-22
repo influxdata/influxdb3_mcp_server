@@ -4,18 +4,26 @@ import {
   operationErrorDetails,
 } from "./error-resolution.service.js";
 
-export function tableMetadata(name: string) {
+export function tableMetadata(
+  name: string,
+  evidence?: Pick<SchemaInfo, "schema_mode" | "deletion">,
+) {
   return {
-    schema_mode: { value: "unknown", source: "unknown" },
-    deletion: { value: "unknown", source: "unknown" },
-    warnings: /.+-\d{10,20}$/u.test(name)
-      ? [
-          {
-            code: "possibly_deleted",
-            message: `Table '${name}' resembles a deletion tombstone. Its deletion status is unknown; the table remains listed.`,
-          },
-        ]
-      : [],
+    schema_mode: evidence?.schema_mode ?? {
+      value: "unknown",
+      source: "unknown",
+    },
+    deletion: evidence?.deletion ?? { value: "unknown", source: "unknown" },
+    warnings:
+      evidence?.deletion?.source !== "server" &&
+      /.+-(?:\d{10,20}|\d{8}T\d{6})$/u.test(name)
+        ? [
+            {
+              code: "possibly_deleted",
+              message: `Table '${name}' resembles a deletion tombstone. Its deletion status is unknown; the table remains listed.`,
+            },
+          ]
+        : [],
   };
 }
 
@@ -30,9 +38,10 @@ export function schemaMetadata(schema: SchemaInfo, name: string) {
           : (column.source ??
             (column.category === "time" ? "inferred" : "server")),
     })),
-    ...tableMetadata(name),
+    ...tableMetadata(name, schema),
     warnings: [
-      ...tableMetadata(name).warnings,
+      ...tableMetadata(name, schema).warnings,
+      ...(schema.warnings ?? []),
       ...schema.columns
         .filter((column) => column.category === "unknown")
         .map((column) => ({
@@ -72,10 +81,10 @@ export async function investigateDatabase(
     start: start.toISOString(),
     end: end.toISOString(),
   };
-  // Reserve the worst case across products: two schema calls, a sample, and
+  // Reserve the worst case across products: three schema calls, a sample, and
   // one optional query-history lookup. No cardinality or extra probes run.
   const budget = {
-    max: 1 + args.maxTables * (args.includeSamples ? 4 : 2),
+    max: 1 + args.maxTables * (args.includeSamples ? 5 : 3),
     used: 1,
     accounting: "upper_bound_requests",
   };
@@ -83,7 +92,7 @@ export async function investigateDatabase(
   for (const table of tables) {
     let schema: ReturnType<typeof schemaMetadata> | undefined;
     try {
-      budget.used += 2;
+      budget.used += 3;
       schema = schemaMetadata(
         await query.getMeasurementSchema(table.name, args.db),
         table.name,
@@ -97,7 +106,7 @@ export async function investigateDatabase(
       tableDetails.push({
         name: table.name,
         status: "failed",
-        ...tableMetadata(table.name),
+        ...tableMetadata(table.name, schema),
         error: operationErrorDetails(error, "metadata_unavailable"),
       });
       continue;
@@ -107,7 +116,7 @@ export async function investigateDatabase(
         name: table.name,
         status: "ok",
         schema,
-        ...tableMetadata(table.name),
+        ...tableMetadata(table.name, schema),
         warnings: schema.warnings,
       });
       continue;
@@ -124,7 +133,7 @@ export async function investigateDatabase(
         name: table.name,
         status: "ok",
         schema,
-        ...tableMetadata(table.name),
+        ...tableMetadata(table.name, schema),
         samples: sample.rows,
         sample_metadata: sample.metadata,
         sample_outcome: sample.rows.length ? "data" : "no_rows_in_window",
@@ -135,7 +144,7 @@ export async function investigateDatabase(
         name: table.name,
         status: "partial",
         schema,
-        ...tableMetadata(table.name),
+        ...tableMetadata(table.name, schema),
         warnings: schema.warnings,
         error: operationErrorDetails(error, "query_failed"),
       });

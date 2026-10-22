@@ -533,9 +533,8 @@ describe.skipIf(live)("[fake-only] Enterprise 3.12.1 JWT responses", () => {
     });
   }
 });
-describe.skip("[P3] live-only 3.12.1 metadata and isolated tombstone fixture not configured", () => {
-  it("records authoritative column roles, schema mode and deletion provenance", () => {});
-});
+// P3's isolated Core/Enterprise metadata and tombstone cases run in
+// p3-metadata-live.test.ts, with app and admin credentials kept separate.
 describe.skip("[P4] live-only server timeout and backpressure, not yet observed on 3.12.1", () => {
   it("records server-timeout and Retry-After backpressure bodies before classifying recovery", () => {});
 });

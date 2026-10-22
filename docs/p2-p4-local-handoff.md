@@ -32,15 +32,20 @@ below remain pending until their results are recorded.
   hours. `sampleWindowHours` accepts integers from 1 through 8760. Samples use
   `ORDER BY time DESC` and the existing read-only row limit. An empty window is
   `no_rows_in_window`, not evidence that the table is empty.
-- Investigation reserves one list request plus two schema requests per table
+- Investigation reserves one list request plus three schema requests per table
   and, when sampling, two requests for the sample and optional history lookup.
   The budget reports an upper bound, including failed calls. `maxTables` stops
   the traversal. `includeCardinality: true` returns `unsupported_option` and
   remains absent from the advertised working options.
-- Column roles include their source. Existing server metadata establishes Cloud
-  tag and field roles; time-name inference is labeled `inferred`. Schema mode
-  and deletion status remain `unknown`. Timestamp-shaped suffixes produce an
-  advisory `possibly_deleted` warning and never remove a table.
+- Column roles include their source. Core and Enterprise use
+  `system.influxdb_schema` for authoritative tag, field, and time roles.
+  Existing server metadata establishes Cloud tag and field roles;
+  time-name inference is labeled `inferred` when authoritative roles are unavailable.
+  Core and Enterprise schema mode and deletion status come from `system.databases`
+  and `system.tables` in `_internal` when the same credential can read them.
+  Unavailable values remain `unknown`. Without deletion evidence,
+  timestamp-shaped suffixes produce an advisory `possibly_deleted` warning
+  and never remove a table.
 - Both read-only query tools accept `database` for `db` and `query` for `q`.
   Equal pairs work; conflicting pairs fail. Canonical names remain supported.
   Validation failures return structured `invalid_arguments` tool results and
@@ -122,11 +127,12 @@ recovery mappings. Client timeout and server timeout must remain distinct.
 
 - Enterprise 3.12.1 user JWT tests need user authentication configured on the
   operator's testbench. Scoped API tokens do not establish JWT compatibility.
-- Core and Enterprise 3.12.1 metadata tests need live observations of the metadata
-  available to each credential. No new catalog endpoint or permission probe is
-  assumed by this change.
-- A live tombstone check needs an isolated seeded database. Partial table access
-  remains fake-only unless the testbench can deny one table in a readable database.
+- Core and Enterprise 3.12.1 metadata and tombstone tests use isolated fixtures in
+  `tests/p3-metadata-live.test.ts`. They cover implicit mode on both products,
+  explicit mode on Enterprise, and scoped Enterprise reads denied `_internal`.
+  See [the P3 results](../e2e-results/2026-10-22-p3-metadata/README.md).
+  Partial table access remains fake-only unless the testbench can deny one table
+  in a readable database.
 - Exhaustion, queue timeout, wrong-node, and backpressure recovery mappings remain
   pending recorded version-specific responses. The fake cases verify conservative
   fallback behavior only.
