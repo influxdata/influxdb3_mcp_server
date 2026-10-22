@@ -29,6 +29,12 @@ recovery=none. EXPLAIN inspects a SQL plan; EXPLAIN ANALYZE executes the query
 with the normal bounds. query_sql and query_influxql accept database/db and
 query/q aliases; differing values are invalid_arguments.
 
+Enterprise user JWTs: a 401 does not distinguish an expired or malformed JWT
+from a node that does not accept it. Check the credential and use the node
+that issued it before signing in again. Listing databases does not prove
+query permission: the Auditor role can list databases but cannot query them,
+and list_tables requires query permission. A 403 alone does not identify a role.
+
 === LINE PROTOCOL WRITING ===
 
 Line Protocol Format:
