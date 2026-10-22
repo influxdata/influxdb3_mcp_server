@@ -10,6 +10,9 @@ version: 0.1.0
 
 # Releasing influxdb3_mcp_server
 
+Decide whether to release, and which version number, using
+`docs/release-criteria.md`. This skill covers only the mechanics.
+
 npm publish and Docker Hub publish are automated by
 `.github/workflows/release-publish.yml`, triggered when a GitHub release is
 published. Both jobs are gated behind a protected GitHub Environment
