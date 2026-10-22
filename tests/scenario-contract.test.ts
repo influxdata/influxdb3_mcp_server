@@ -12,6 +12,7 @@ import {
   SAMPLES_DENIED_OR_EMPTY,
 } from "./fixtures/discovery-scenarios.js";
 import { ALL_SCENARIOS, Scenario } from "./fixtures/influxdb-scenarios.js";
+import { P3_METADATA_SCENARIOS } from "./fixtures/p3-metadata-scenarios.js";
 
 // Checks each fake-server scenario against the pinned OpenAPI excerpt for
 // each product it stands for (refresh with
@@ -39,6 +40,7 @@ function loadSpec(product: Product): any {
 
 const SCENARIOS = [
   ...ALL_SCENARIOS,
+  ...P3_METADATA_SCENARIOS,
   ...ACCESS_SCENARIOS,
   ...RECOVERY_SCENARIOS,
   INGEST_NODE_QUERY,

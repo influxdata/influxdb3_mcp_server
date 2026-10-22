@@ -50,11 +50,16 @@ and still read its databases.
 `investigate_database` keeps each table's result even when another table fails,
 and reports how many tables it saw and whether it stopped early. Samples come
 from a time window, 24 hours by default; set `sampleWindowHours` to change it.
-An empty window doesn't mean the table is empty. Schema mode and deletion status
-stay `unknown` unless the server reports them. A table name with a
-timestamp-shaped suffix, which can mark a deleted table, gets a
-`possibly_deleted` warning and stays listed. Cardinality estimates aren't
-supported yet.
+An empty window doesn't mean the table is empty.
+On Core and Enterprise, `describe_table` and investigation use
+`system.influxdb_schema` for authoritative column roles.
+They also read schema mode and deletion status from the `_internal` catalog
+when the same credential permits it, reporting `source: "server"` and the
+catalog table name. Unavailable values stay `unknown`; catalog denial does
+not discard readable column metadata or samples.
+Without authoritative deletion metadata, a table name with a timestamp-shaped
+suffix gets an advisory `possibly_deleted` warning and stays listed.
+Cardinality estimates aren't supported yet.
 
 ### Errors
 

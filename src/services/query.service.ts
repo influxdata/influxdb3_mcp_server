@@ -7,6 +7,7 @@
 import { BaseConnectionService } from "./base-connection.service.js";
 import type { HttpClientService } from "./http-client.service.js";
 import type { QParamType } from "@influxdata/influxdb3-client";
+import { z } from "zod";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import { QueryLanguage, QuerySafetyService } from "./query-safety.service.js";
 import { resolveOperationError } from "./error-resolution.service.js";
@@ -28,6 +29,17 @@ export interface MeasurementInfo {
 }
 
 export interface SchemaInfo {
+  schema_mode?:
+    | {
+        value: "implicit" | "explicit";
+        source: "server";
+        catalog: "system.databases";
+      }
+    | { value: "unknown"; source: "unknown" };
+  deletion?:
+    | { value: boolean; source: "server"; catalog: "system.tables" }
+    | { value: "unknown"; source: "unknown" };
+  warnings?: Array<{ code: string; message: string }>;
   columns: Array<{
     name: string;
     type: string;
@@ -1033,27 +1045,114 @@ export class QueryService {
       });
 
       if (Array.isArray(result)) {
-        const columns = result.map((row: any) => {
-          let category: "time" | "tag" | "field" | "unknown" = "unknown";
-          let categoryConfidence: "high" | "low" = "low";
-
-          if (row.column_name === "time") {
-            category = "time";
-            categoryConfidence = "high";
+        // Observed on Core and Enterprise 3.12.1. These optional sources may
+        // be absent on older servers or denied to a database-scoped credential.
+        const columnRows = z
+          .array(z.object({ column_name: z.string(), data_type: z.string() }))
+          .safeParse(result);
+        if (!columnRows.success)
+          throw new Error("Column metadata has an unexpected shape");
+        const roles = new Map<string, string>();
+        const metadata: Pick<
+          SchemaInfo,
+          "schema_mode" | "deletion" | "warnings"
+        > = { warnings: [] };
+        if (result.length) {
+          try {
+            const response = await this.executeQuery(
+              "SELECT key, data_type FROM system.influxdb_schema WHERE measurement = $table",
+              database,
+              { format: "json", params: { table: measurement } },
+            );
+            const parsed = z
+              .array(z.object({ key: z.string(), data_type: z.string() }))
+              .safeParse(response);
+            if (parsed.success) {
+              for (const row of parsed.data) roles.set(row.key, row.data_type);
+            }
+          } catch {
+            // Keep the information_schema columns when role metadata is unavailable.
           }
+          try {
+            const response = await this.executeQuery(
+              "SELECT t.deleted, d.schema_mode FROM system.tables t JOIN system.databases d ON t.database_name = d.database_name WHERE t.database_name = $db AND t.table_name = $table",
+              "_internal",
+              { format: "json", params: { db: database, table: measurement } },
+            );
+            const parsed = z
+              .array(
+                z.object({
+                  deleted: z.boolean(),
+                  schema_mode: z.enum(["implicit", "explicit"]),
+                }),
+              )
+              .length(1)
+              .safeParse(response);
+            if (parsed.success) {
+              metadata.schema_mode = {
+                value: parsed.data[0].schema_mode,
+                source: "server",
+                catalog: "system.databases",
+              };
+              metadata.deletion = {
+                value: parsed.data[0].deleted,
+                source: "server",
+                catalog: "system.tables",
+              };
+            }
+          } catch {
+            // The same credential must authorize _internal; never substitute an admin token.
+          }
+          if (!metadata.schema_mode)
+            metadata.warnings?.push({
+              code: "catalog_metadata_unavailable",
+              message:
+                "Schema mode and deletion status are unknown because the internal catalog is unavailable to this credential.",
+            });
+        }
+        const fieldTypes = new Set([
+          "float",
+          "integer",
+          "uinteger",
+          "boolean",
+          "string",
+        ]);
+        const columns = columnRows.data.map(
+          (row): SchemaInfo["columns"][number] => {
+            let category: "time" | "tag" | "field" | "unknown" = "unknown";
+            let categoryConfidence: "high" | "low" = "low";
+            let source: "server" | "inferred" | "unknown" = "unknown";
+            const role = roles.get(row.column_name);
 
-          return {
-            name: row.column_name,
-            type: row.data_type,
-            category,
-            categoryConfidence,
-            warnings:
-              category === "unknown"
-                ? ["Tag versus field role is not available from metadata."]
-                : undefined,
-          };
-        });
-        return { columns };
+            if (
+              role === "tag" ||
+              role === "time" ||
+              (role && fieldTypes.has(role))
+            ) {
+              category =
+                role === "tag" ? "tag" : role === "time" ? "time" : "field";
+              categoryConfidence = "high";
+              source = "server";
+            } else if (row.column_name === "time") {
+              category = "time";
+              categoryConfidence = "high";
+              source = "inferred";
+            }
+
+            return {
+              name: row.column_name,
+              type: row.data_type,
+              category,
+              source,
+              categoryConfidence,
+              warnings:
+                category === "unknown"
+                  ? ["Tag versus field role is not available from metadata."]
+                  : undefined,
+            };
+          },
+        );
+        return { columns, ...metadata };
       }
       return result;
     } catch (error: any) {
