@@ -5,7 +5,22 @@ All notable changes to the official InfluxDB 3 MCP Server will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0]
+
+### Migration
+
+- Version 2.0.0 is a major release because it changes existing tool response
+  contracts, including query result envelopes, health-check output, and
+  validation errors. Clients that parse these responses must adapt to the
+  structured results and [read-only output contract](docs/read-only-output-contract.md).
+  Telemetry consumers must also adapt to the changed event fields described below.
+  These breaking contract changes require a major version under Semantic
+  Versioning. InfluxDB 3.12.1 compatibility alone would not require a major release.
+- Read-only query results report completeness and caps. A successful request
+  does not by itself establish a complete answer.
+- Dependency updates include MCP SDK 1.32.0, Hono 4.13.13,
+  follow-redirects 1.16.1, and Vite 8.3.5. Vitest 4.1.12 and
+  ip-address 10.7.4 resolve the remaining dependency audit findings.
 
 ### Changed
 
@@ -79,9 +94,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Other server failures report `recovery: none` until each one's recovery
   is classified.
-- Live JWT authentication, catalog metadata, server timeouts, and
-  backpressure are not yet observed. Synthetic protocol cases establish
-  contracts only.
+- User JWT roles and catalog metadata were verified on Enterprise and Core
+  3.12.1 as applicable. Server timeout/backpressure classifications, partial
+  per-table denial, and failures after streaming begins retain their documented
+  verification limits. Synthetic protocol cases establish contracts only.
 
 ## [1.4.2] - 2026-09-28
 
