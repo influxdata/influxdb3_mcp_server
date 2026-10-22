@@ -184,6 +184,65 @@ export const TOKEN_ECHO: Scenario = {
   },
 };
 
+const JWT_RUN: ScenarioProvenance = {
+  products: ["enterprise"],
+  version: "3.12.1",
+  source: "live",
+  detail:
+    "Testbench run 2026-10-21, Enterprise 3.12.1: a user JWT from basic-auth sign-in. Preview: the smoke-reader role needs --rbac-authoring-disabled=false, which 3.12.1 does not list in serve --help-all.",
+};
+
+/** The database a JWT scenario reads, and one it may not. */
+export const JWT_DB = "smoke";
+export const JWT_DENIED_DB = "host_system";
+export const JWT_MISSING_DB = "no_such_db";
+
+/**
+ * What a user JWT got from Enterprise 3.12.1. The server answers a denied
+ * database and a missing one alike, and an expired, a malformed and a
+ * wrong-node JWT alike, so a test must not expect the MCP server to tell
+ * them apart.
+ */
+export const JWT_SCENARIOS = {
+  /** Auditor can list databases but not query. */
+  auditorDenied: {
+    name: "JWT: auditor query denied",
+    provenance: JWT_RUN,
+    request: { method: "POST", path: "/api/v3/query_sql" },
+    response: { status: 403, body: "" },
+  },
+  deniedDatabase: {
+    name: "JWT: denied database",
+    provenance: JWT_RUN,
+    request: { method: "POST", path: "/api/v3/query_sql", db: JWT_DENIED_DB },
+    response: { status: 403, body: "" },
+  },
+  missingDatabase: {
+    name: "JWT: missing database",
+    provenance: JWT_RUN,
+    request: { method: "POST", path: "/api/v3/query_sql", db: JWT_MISSING_DB },
+    response: { status: 403, body: "" },
+  },
+  expired: {
+    name: "JWT: expired",
+    provenance: JWT_RUN,
+    request: { method: "POST", path: "/api/v3/query_sql" },
+    response: { status: 401, body: NOT_AUTHENTICATED },
+  },
+  malformed: {
+    name: "JWT: malformed",
+    provenance: JWT_RUN,
+    request: { method: "POST", path: "/api/v3/query_sql" },
+    response: { status: 401, body: NOT_AUTHENTICATED },
+  },
+  wrongNode: {
+    name: "JWT: sent to a node that does not accept it",
+    provenance: JWT_RUN,
+    request: { method: "POST", path: "/api/v3/query_sql" },
+    response: { status: 401, body: NOT_AUTHENTICATED },
+  },
+} satisfies Record<string, Scenario>;
+
 export function accessScenariosFor(status: number): Scenario[] {
   return ACCESS_SCENARIOS.filter(
     (scenario) =>
