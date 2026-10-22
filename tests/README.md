@@ -105,6 +105,33 @@ independent of which InfluxDB release is on the other end.
 `INFLUX_TEST_ENABLED` covers any live instance; tests under it must pass on the
 CI Core container.
 
+Live test files run sequentially because they create scratch databases.
+On a shared Core testbench, parallel files can exceed the five-database limit.
+The default fake-server run keeps file parallelism enabled.
+
+To run the full suite against a seeded Core or Enterprise testbench, set
+`INFLUX_DB_INSTANCE_URL`, `INFLUX_DB_TOKEN`, and `INFLUX_DB_PRODUCT_TYPE`, then run:
+
+```sh
+INFLUX_TEST_ENABLED=true INFLUX_TEST_DATABASE=smoke npm test
+```
+
+`query-format-live.test.ts` skips when `INFLUX_TEST_DATABASE` is unset.
+The other enabled live files still run.
+
+For Enterprise user JWT checks, supply any of `INFLUX_TEST_JWT_MEMBER`,
+`INFLUX_TEST_JWT_AUDITOR`, `INFLUX_TEST_JWT_SMOKE`, and `INFLUX_TEST_JWT_EXPIRED`
+through the environment, then run:
+
+```sh
+INFLUX_TEST_ENABLED=true INFLUX_TEST_DATABASE=smoke \
+npx vitest run --reporter=verbose tests/discovery-recovery-protocol.test.ts
+```
+
+Each JWT case skips independently when its credential is unset.
+The smoke-reader case needs the preview custom role with read access only to `smoke`.
+An expired-JWT skip does not establish expiry handling against a live server.
+
 ```bash
 npm run test:infra:up
 source env.test.example && npm run test:integration
