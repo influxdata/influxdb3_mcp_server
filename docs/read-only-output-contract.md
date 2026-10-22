@@ -1,6 +1,6 @@
 # Read-only query output contract
 
-- Status: Draft for review (#131)
+- Status: Accepted (#131)
 - Applies to: `query_sql`, `query_influxql`
 - Schema: [`schemas/read-only-response.schema.json`](../schemas/read-only-response.schema.json)
 
