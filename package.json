@@ -1,6 +1,6 @@
 {
   "name": "@influxdata/influxdb3-mcp-server",
-  "version": "1.4.2",
+  "version": "2.0.0",
   "mcpName": "io.github.influxdata/influxdb3-mcp-server",
   "description": "Official InfluxDB 3 MCP server for Model Context Protocol integration",
   "license": "(Apache-2.0 OR MIT)",
@@ -24,6 +24,9 @@
     "lint": "eslint . --ext .ts,.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "verify:candidate": "npm run lint && npm run format:check && node scripts/check-versions.js && npm test",
+    "verify:artifacts": "node scripts/verify-artifacts.mjs",
+    "smoke:server": "node scripts/smoke-server.mjs",
     "prepublishOnly": "npm run clean && npm run build",
     "pretest": "npm run build",
     "test": "vitest run",
@@ -44,6 +47,7 @@
     "package.json",
     "README.md",
     "CHANGELOG.md",
+    "docs/read-only-output-contract.md",
     "LICENSE-APACHE.txt",
     "LICENSE-MIT.txt",
     "example-*.mcp.json",
@@ -77,6 +81,6 @@
     "eslint": "9.39.4",
     "prettier": "3.8.1",
     "typescript": "5.9.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   }
 }

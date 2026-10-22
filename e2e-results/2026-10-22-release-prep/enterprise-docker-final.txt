@@ -1,0 +1,31 @@
+
+> @influxdata/influxdb3-mcp-server@2.0.0 smoke:server
+> node scripts/smoke-server.mjs --docker influxdb3-mcp-server:verification-2.0.0
+
+{
+  "server": "influxdb3-mcp-server:verification-2.0.0",
+  "product": "enterprise",
+  "checks": [
+    {
+      "profile": "readonly",
+      "version": "2.0.0",
+      "tool_count": 9,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "readwrite",
+      "version": "2.0.0",
+      "tool_count": 27,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "operator",
+      "version": "2.0.0",
+      "tool_count": 27,
+      "query": "passed",
+      "telemetry_events": 1
+    }
+  ]
+}
