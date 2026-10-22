@@ -20,6 +20,15 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 
 ---
 
+## Migrating to 2.0
+
+Version 2.0 changes query result envelopes, health-check output, argument errors,
+and telemetry. Clients that parse these responses must follow the
+[read-only output contract](docs/read-only-output-contract.md).
+Read `metadata.completeness`, caps, and warnings before treating query results
+as a complete answer. Discovery metadata states its source and leaves
+unavailable values unknown. Tool names and configured profiles remain available.
+
 ## Read-only Agent Workflows
 
 Set `INFLUX_MCP_TOOL_PROFILE=readonly` to give an MCP client tools that explore
