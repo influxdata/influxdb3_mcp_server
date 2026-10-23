@@ -3,6 +3,7 @@ import {
   CORE_INFLUXQL_CPU_TABLE,
   CORE_SQL_CPU_TABLE,
   CORE_SQL_CSV_RETURNS_JSON,
+  CORE_SQL_FORMAT_MISMATCHES,
   CORE_SQL_SLOW,
   CPU_LINE_PROTOCOL,
   TRUST_DB,
@@ -33,6 +34,7 @@ describe("read-only query formats and options on Core and Enterprise", () => {
       CORE_SQL_CPU_TABLE,
       CORE_INFLUXQL_CPU_TABLE,
       CORE_SQL_CSV_RETURNS_JSON,
+      ...CORE_SQL_FORMAT_MISMATCHES,
       CORE_SQL_SLOW,
     ]);
     await backend.seed(TRUST_DB, CPU_LINE_PROTOCOL);
@@ -119,6 +121,37 @@ describe("read-only query formats and options on Core and Enterprise", () => {
       );
     },
   );
+
+  describe.skipIf(LIVE)("[fake-only: synthetic response media types]", () => {
+    it.each([
+      ["csv", "cpu_jsonl_only", "jsonl", '{"usage":1}\n'],
+      ["json", "cpu_jsonl_only", "jsonl", '{"usage":1}\n'],
+      ["jsonl", "cpu_csv_only", "csv", "usage\n1\n"],
+      ["json", "cpu_csv_only", "csv", "usage\n1\n"],
+    ])(
+      "decodes requested %s from %s as %s",
+      async (requested, table, returned, value) => {
+        const { body } = await callTool(mcp, "query_sql", {
+          db: TRUST_DB,
+          q: `SELECT usage FROM ${table} WHERE ${TIME_RANGE}`,
+          format: requested,
+          maxRows: 1,
+        });
+        expect(body.ok).toBe(true);
+        expect(body.format).toBe(returned);
+        expect(body.rows).toEqual([{ value }]);
+        expect(body.metadata).toMatchObject({
+          completeness: "capped",
+          cap: 1,
+          cap_source: "server_bound",
+          row_count: 1,
+        });
+        expect(body.warnings).toContainEqual(
+          expect.objectContaining({ code: "format_mismatch" }),
+        );
+      },
+    );
+  });
 
   it.each(["query_sql", "query_influxql"])(
     "[both] %s refuses pretty before dispatch and names the supported formats",

@@ -64,6 +64,10 @@ function readOnlyQueryInputSchema(queryDescription: string) {
       },
     },
     required: [],
+    allOf: [
+      { anyOf: [{ required: ["db"] }, { required: ["database"] }] },
+      { anyOf: [{ required: ["q"] }, { required: ["query"] }] },
+    ],
     additionalProperties: false,
   };
 }
