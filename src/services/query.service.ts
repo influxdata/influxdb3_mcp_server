@@ -9,6 +9,7 @@ import type { QParamType } from "@influxdata/influxdb3-client";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import { QueryLanguage, QuerySafetyService } from "./query-safety.service.js";
 import { createRequestId } from "./telemetry.service.js";
+import { classifiedError } from "./error-resolution.service.js";
 
 export interface QueryResult {
   results?: any[];
@@ -444,7 +445,7 @@ export class QueryService {
       });
       return response;
     } catch (error: any) {
-      this.handleQueryError(error);
+      this.handleQueryError(error, database);
     }
   }
 
@@ -481,7 +482,7 @@ export class QueryService {
       );
       return response;
     } catch (error: any) {
-      this.handleQueryError(error);
+      this.handleQueryError(error, database);
     }
   }
 
@@ -546,7 +547,7 @@ export class QueryService {
       }
       return rows;
     } catch (error: any) {
-      this.handleQueryError(error);
+      this.handleQueryError(error, database);
     }
   }
 
@@ -573,7 +574,7 @@ export class QueryService {
       });
       return response;
     } catch (error: any) {
-      this.handleQueryError(error);
+      this.handleQueryError(error, database);
     }
   }
 
@@ -603,7 +604,7 @@ export class QueryService {
       }
       return rows;
     } catch (error: any) {
-      this.handleQueryError(error);
+      this.handleQueryError(error, database);
     }
   }
 
@@ -643,7 +644,7 @@ export class QueryService {
   /**
    * Centralized error handler for query methods
    */
-  private handleQueryError(error: any): never {
+  private handleQueryError(error: any, database: string): never {
     const errorMessage =
       error.response?.data?.message ||
       error.response?.data?.error ||
@@ -652,17 +653,41 @@ export class QueryService {
       error.message;
     const statusCode = error.response?.status;
     console.error(`Status: ${statusCode} \n Message: ${errorMessage}`);
+    if (/resources exhausted/i.test(String(errorMessage))) {
+      throw classifiedError(
+        `Query exceeded the server's memory budget. Narrow the query (shorter time range, fewer columns, a LIMIT, or aggregate in SQL) before retrying: ${errorMessage}`,
+        "query_resources_exhausted",
+        true,
+      );
+    }
     switch (statusCode) {
+      case 403:
+        throw classifiedError(
+          `Access denied: ${errorMessage}. The token is not authorized for database '${database}' or for this operation (a read-only token can query only the databases it was granted). Use list_databases to see what this token can read; don't retry with another query.`,
+          "access_denied",
+          false,
+        );
+      case 405:
+        if (/`query` mode/.test(String(errorMessage))) {
+          throw classifiedError(
+            `Method not allowed: this node doesn't serve data queries, only system tables. Point the MCP server's INFLUX_DB_INSTANCE_URL at a query node: ${errorMessage}`,
+            "query_node_required",
+            false,
+          );
+        }
+        throw new Error(`Method not allowed: ${errorMessage}`);
+      case 429:
+        throw classifiedError(
+          `Too many requests, retry the query after a short backoff, or narrow it: ${errorMessage}`,
+          "query_backpressure",
+          true,
+        );
       case 400:
         throw new Error(`Bad request: ${errorMessage}`);
       case 401:
         throw new Error(`Unauthorized: ${errorMessage}`);
-      case 403:
-        throw new Error(`Access denied: ${errorMessage}`);
       case 404:
         throw new Error(`Database not found: ${errorMessage}`);
-      case 405:
-        throw new Error(`Method not allowed: ${errorMessage}`);
       case 422:
         throw new Error(`Unprocessable entity: ${errorMessage}`);
       default:

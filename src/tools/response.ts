@@ -18,6 +18,7 @@ export function errorResponse(error: unknown, code = "tool_error") {
   const details = error as {
     fix?: string;
     metadata?: Record<string, unknown>;
+    retryable?: boolean;
   };
   return {
     content: [
@@ -28,7 +29,7 @@ export function errorResponse(error: unknown, code = "tool_error") {
           error: {
             code,
             message,
-            retryable: false,
+            retryable: details.retryable === true,
             ...(details.fix && { fix: details.fix }),
           },
           ...(details.metadata && { metadata: details.metadata }),

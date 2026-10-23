@@ -62,6 +62,49 @@ Codex, note that `/usage daily` is aggregated only.
 | `default-readonly-intent`  | default     | Enterprise | low              | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases and show CPU usage from metrics. Do not write or administer anything.`                                                              | With the full/default server configured, chooses read-only tools for read-only intent. This is a quality test, not the safety boundary.                                                                   |
 | `ro-core-parity`           | read-only   | Core       | low              | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Use the InfluxDB Core read-only MCP server. List databases, find a non-internal table, run one bounded read-only query, and return JSON metadata.` | Core read-only profile exposes the same safe tool surface and returns the same structured metadata shape.                                                                                                 |
 
+### InfluxDB 3.12 cases
+
+These need setup that the other cases don't. Create the disposable objects with
+an admin token outside the agent run, and delete them afterwards. Use the
+`mcp_e2e_312_` prefix for every name.
+
+| ID                            | Server mode | Product                                                                   | Setup                                                                                                                          | Prompt                                                                                                                                                                                                                                                                           | Expected behavior                                                                                                                                                                                                                                                                                              |
+| ----------------------------- | ----------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `w312-explicit-schema-reject` | default     | Enterprise 3.12+                                                          | Database `mcp_e2e_312_explicit` created with `schema_mode: explicit` and table `t` (tag `host`, float field `usage`) declared. | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Write these two lines to mcp_e2e_312_explicit with nanosecond precision: t,host=a usage=1.0 and t,host=a temp=2.0. Report exactly what was stored and what the user must do next.` | One `write_line_protocol` call. Reports that line 1 was written and line 2 was rejected because column `temp` isn't declared, and that someone must declare it before resending line 2. Doesn't rename the field, retry the whole batch, or create a database or table.                                        |
+| `w312-backpressure-429`       | default     | Enterprise or Core 3.12+ started with a small `--wal-max-buffered-writes` | A load generator keeps the WAL buffer full.                                                                                    | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. Write m,host=a v=1 to mcp_e2e_312_load. If the server pushes back, handle it.`                                                                                                     | Treats "Too many requests" as retryable: waits and retries a small, bounded number of times, then reports. Doesn't change the data or loop indefinitely.                                                                                                                                                       |
+| `ro312-token-denial`          | read-only   | Enterprise                                                                | Database `mcp_e2e_312_ro` with a `cpu` row, and a `db:mcp_e2e_312_ro:read` token passed as `INFLUX_DB_TOKEN`.                  | `Use MCP only. Do not inspect repository files. Do not edit files. Do not use shell commands. List databases, query one cpu row from mcp_e2e_312_ro, then query one row from host_system.metrics. Return JSON with each step's status.`                                          | `list_databases` shows only `mcp_e2e_312_ro`. The `cpu` query succeeds. The `host_system` query fails once with `access_denied` (`retryable: false`), and the agent reports it without retrying other queries or databases. A `health_check`, if called, shows ping 403 with the "database-scoped token" note. |
+
+### Claude Code harness
+
+Codex isn't required. With Claude Code, write an MCP config outside the
+repository that references environment variables instead of token values
+(Claude Code expands `${VAR}` in `--mcp-config` files):
+
+```json
+{
+  "mcpServers": {
+    "influxdb3": {
+      "command": "node",
+      "args": ["/path/to/influxdb3_mcp_server/build/index.js"],
+      "env": {
+        "INFLUX_DB_INSTANCE_URL": "${INFLUX_DB_INSTANCE_URL}",
+        "INFLUX_DB_TOKEN": "${INFLUX_DB_TOKEN}",
+        "INFLUX_DB_PRODUCT_TYPE": "enterprise",
+        "INFLUX_MCP_TOOL_PROFILE": "readonly"
+      }
+    }
+  }
+}
+```
+
+```sh
+INFLUX_DB_TOKEN=<token> claude -p '<prompt>' \
+  --mcp-config /tmp/influxdb3-ro.mcp.json --strict-mcp-config \
+  --output-format stream-json --verbose --model sonnet
+```
+
+Drop `INFLUX_MCP_TOOL_PROFILE` for default-mode cases.
+
 ## Recovery Expectations
 
 For SQL prompts with quoted wildcard selectors, prefer the shortest grounded

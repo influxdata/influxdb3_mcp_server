@@ -40,8 +40,7 @@ export function resolveErrorMessage(body: unknown, fallback: string): string {
     const partialData =
       data.data && typeof data.data === "object"
         ? ((Array.isArray(data.data) ? data.data[0] : data.data) as
-            | Record<string, unknown>
-            | undefined)
+            Record<string, unknown> | undefined)
         : undefined;
     if (typeof partialData?.error_message === "string") {
       return partialData.error_message;
@@ -52,6 +51,36 @@ export function resolveErrorMessage(body: unknown, fallback: string): string {
     return Object.keys(data).length === 0 ? fallback : JSON.stringify(data);
   }
 
-  if (typeof body === "string") return body;
+  if (typeof body === "string") return body || fallback;
   return fallback;
+}
+
+/**
+ * An Error carrying a stable classification code and a retryable flag, which
+ * the MCP tool layer (`errorResponse`) passes through to the agent.
+ */
+export interface ClassifiedError extends Error {
+  code: string;
+  retryable: boolean;
+}
+
+export function classifiedError(
+  message: string,
+  code: string,
+  retryable: boolean,
+): ClassifiedError {
+  return Object.assign(new Error(message), { code, retryable });
+}
+
+/**
+ * Line numbers rejected by a write, from either partial-write body shape:
+ * `data[]` (accept_partial=true) or `data` (accept_partial=false).
+ */
+export function rejectedLineNumbers(body: unknown): number[] {
+  if (!body || typeof body !== "object") return [];
+  const data = (body as Record<string, unknown>).data;
+  const entries = Array.isArray(data) ? data : data ? [data] : [];
+  return entries
+    .map((entry) => (entry as Record<string, unknown>)?.line_number)
+    .filter((n): n is number => typeof n === "number");
 }
