@@ -63,7 +63,7 @@ for product in ["core", "enterprise"]:
     (destination / f"{product}-openapi.json").write_text(json.dumps(snapshot, indent=2) + "\n")
 
 subprocess.run(
-    ["npx", "--no-install", "prettier", "--write", *[str(destination / f"{product}-openapi.json") for product in ["core", "enterprise"]]],
+    ["pnpm", "exec", "prettier", "--write", *[str(destination / f"{product}-openapi.json") for product in ["core", "enterprise"]]],
     cwd=destination.parents[2],
     check=True,
 )

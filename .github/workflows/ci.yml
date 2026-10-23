@@ -38,13 +38,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "22"
-          cache: "npm"
+          cache: "pnpm"
 
-      - run: npm ci
-      - run: npm run format:check
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run format:check
 
   test-protocol:
     name: Protocol tests
@@ -54,14 +56,16 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "22"
-          cache: "npm"
+          cache: "pnpm"
 
-      - run: npm ci
-      - run: npm run build
-      - run: npm test
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      - run: pnpm test
 
   test-integration-core:
     name: Integration tests (InfluxDB 3 Core)
@@ -71,13 +75,15 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "22"
-          cache: "npm"
+          cache: "pnpm"
 
-      - run: npm ci
-      - run: npm run build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
 
       - name: Print InfluxDB 3 Core version
         run: docker run --rm influxdb:3.11.5-core influxdb3 --version
@@ -104,7 +110,7 @@ jobs:
           exit 1
 
       - name: Integration tests
-        run: npm run test:integration
+        run: pnpm run test:integration
         env:
           INFLUX_TEST_ENABLED: "true"
           INFLUX_DB_INSTANCE_URL: "http://localhost:8181/"
@@ -136,16 +142,18 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "22"
-          cache: "npm"
+          cache: "pnpm"
 
-      - run: npm ci
-      - run: npm run build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
 
       - name: Integration tests
-        run: npm run test:integration:cloud-serverless
+        run: pnpm run test:integration:cloud-serverless
         env:
           INFLUXDB3_CLOUD_URL: ${{ secrets.INFLUXDB_CLOUD_URL }}
           INFLUXDB3_CLOUD_TOKEN: ${{ secrets.INFLUXDB_CLOUD_TOKEN }}

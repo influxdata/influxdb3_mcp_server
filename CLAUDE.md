@@ -9,10 +9,10 @@ An MCP (Model Context Protocol) server for InfluxDB 3. It exposes tools, resourc
 ## Commands
 
 ```bash
-npm run build      # compile TypeScript → build/
-npm run lint       # eslint
-npm run format     # prettier
-npm test           # protocol compliance tests (vitest, no InfluxDB needed)
+pnpm run build      # compile TypeScript → build/
+pnpm run lint       # eslint
+pnpm run format     # prettier
+pnpm test           # protocol compliance tests (vitest, no InfluxDB needed)
 ```
 
 Build before testing — tests spawn the compiled `build/index.js`.

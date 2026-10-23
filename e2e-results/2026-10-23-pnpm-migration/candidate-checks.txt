@@ -1,0 +1,41 @@
+
+> @influxdata/influxdb3-mcp-server@2.0.0 verify:candidate /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> pnpm run lint && pnpm run format:check && node scripts/check-versions.js && pnpm test
+
+
+> @influxdata/influxdb3-mcp-server@2.0.0 lint /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> eslint . --ext .ts,.js
+
+
+> @influxdata/influxdb3-mcp-server@2.0.0 format:check /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+package.json: 2.0.0
+config.ts: 2.0.0
+CHANGELOG.md: 2.0.0
+server.json: 2.0.0
+server.json npm package: 2.0.0
+All versions match: 2.0.0
+
+> @influxdata/influxdb3-mcp-server@2.0.0 pretest /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> pnpm run build
+
+
+> @influxdata/influxdb3-mcp-server@2.0.0 build /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> tsc
+
+
+> @influxdata/influxdb3-mcp-server@2.0.0 test /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> vitest run
+
+
+ RUN  v4.1.12 /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+
+
+ Test Files  24 passed | 6 skipped (30)
+      Tests  297 passed | 25 skipped (322)
+   Start at  08:49:54
+   Duration  8.07s (transform 756ms, setup 272ms, import 4.05s, tests 19.95s, environment 2ms)
+

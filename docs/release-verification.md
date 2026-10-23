@@ -4,12 +4,13 @@ Run the existing lint, formatting, version-consistency, build, and test checks
 through one command:
 
 ```sh
-npm ci
-npm run verify:candidate
+pnpm install --frozen-lockfile
+pnpm run verify:candidate
 ```
 
 `verify:candidate` uses the same commands as CI and adds the repository's lint
-check. `npm test` runs the build through its existing `pretest` hook.
+check. `pnpm test` runs the build through its existing `pretest` hook. The repository `.npmrc` enables pre/post scripts
+for pnpm so this build hook also runs locally and in CI.
 CI also validates MCP Registry metadata with `mcp-publisher`.
 Wait for all CI jobs at the exact candidate commit before starting capability evals.
 
@@ -24,10 +25,10 @@ On Docker Desktop, a host-local instance usually uses `host.docker.internal`
 instead of `127.0.0.1`.
 
 ```sh
-npm run verify:artifacts
+pnpm run verify:artifacts
 ```
 
-The command builds with `npm run build`, packs with `npm pack`, and installs the
+The command builds with `pnpm run build`, packs with `pnpm pack`, and installs the
 tarball in a temporary directory. It then builds the existing `Dockerfile` and
 checks both artifacts through the same MCP smoke script. It publishes nothing.
 The temporary package installation is removed; the local verification image is
@@ -45,8 +46,8 @@ The smoke check invokes no write or administration tools.
 You can also check an existing installation or image directly:
 
 ```sh
-npm run smoke:server -- /path/to/node_modules/.bin/influxdb-mcp-server
-npm run smoke:server -- --docker IMAGE
+pnpm run smoke:server /path/to/node_modules/.bin/influxdb-mcp-server
+pnpm run smoke:server --docker IMAGE
 ```
 
 For the direct Docker command, `INFLUX_DB_INSTANCE_URL` must already be reachable
