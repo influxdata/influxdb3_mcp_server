@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestClient, type TestClient } from "./helpers/mcp-client.js";
 import { FakeInfluxDB, startFakeInfluxDB } from "./helpers/fake-influxdb.js";
+import { expectRequestsWithinBudget } from "./helpers/request-budget.js";
 import { DISCOVERY_SCENARIOS } from "./fixtures/discovery-scenarios.js";
 import {
   expectValidEnvelope,
@@ -87,6 +88,30 @@ it("[both] every readonly tool agrees on inputs and writes one telemetry event p
     expect(args, `Add contract arguments for ${tool.name}`).toBeDefined();
     const validate = ajv.compile(tool.inputSchema);
     expect(validate(args), JSON.stringify(validate.errors)).toBe(true);
+    if (["query_sql", "query_influxql"].includes(tool.name)) {
+      // These cases come from the input contract, independently of its schema.
+      for (const missing of [
+        {},
+        { db },
+        { database: db },
+        { q },
+        { query: q },
+      ]) {
+        expect(validate(missing), JSON.stringify(missing)).toBe(false);
+        const rejected = JSON.parse((await call(tool.name, missing)).text);
+        expect(rejected.error.code).toBe("invalid_arguments");
+      }
+      for (const aliases of [
+        { database: db, query: q },
+        { db, query: q },
+        { database: db, q },
+        { db, database: db, q, query: q },
+      ]) {
+        expect(validate(aliases), JSON.stringify(validate.errors)).toBe(true);
+        expect((await call(tool.name, aliases)).result.isError).not.toBe(true);
+      }
+    }
+    const requestsBefore = fake?.requests.length ?? 0;
     const success = await call(tool.name, args);
     expect(success.result.isError, tool.name).not.toBe(true);
     if (!["get_help", "load_database_context"].includes(tool.name))
@@ -95,12 +120,15 @@ it("[both] every readonly tool agrees on inputs and writes one telemetry event p
       const investigation = JSON.parse(success.text);
       expect(investigation.sample_window.hours).toBe(24);
       expect(investigation.table_count).toBe(1);
+      expect(investigation.query_budget.max).toBe(6);
       expect(investigation.tables_truncated).toBe(
         investigation.table_total > 1,
       );
-      expect(investigation.query_budget.used).toBeLessThanOrEqual(
-        investigation.query_budget.max,
-      );
+      if (fake)
+        expectRequestsWithinBudget(
+          fake.requests.slice(requestsBefore),
+          investigation.query_budget,
+        );
     }
     const unexpected = { ...args, unexpected_argument: true };
     expect(validate(unexpected)).toBe(false);

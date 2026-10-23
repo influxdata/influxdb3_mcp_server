@@ -277,6 +277,32 @@ export const CORE_SQL_CSV_RETURNS_JSON: Scenario = {
   response: { status: 200, body: CPU_ROWS.slice(0, 2) },
 };
 
+/** Deliberate format mismatches to check decoding against response headers. */
+export const CORE_SQL_FORMAT_MISMATCHES: Scenario[] = [
+  [
+    "cpu_jsonl_only",
+    "application/x-ndjson; charset=utf-8",
+    '{"usage":1}\n{"usage":2}\n',
+  ],
+  ["cpu_csv_only", "text/csv; charset=utf-8", "usage\n1\n2\n"],
+].map(([table, contentType, body]) => ({
+  name: `core-sql-${table}`,
+  provenance: {
+    products: ["core", "enterprise"],
+    version: "unknown",
+    source: "source-inspection",
+    detail:
+      "Synthetic response-format mismatch to verify media-type decoding and row bounds; not a live product observation.",
+  },
+  request: {
+    method: "POST",
+    path: "/api/v3/query_sql",
+    db: TRUST_DB,
+    q: new RegExp(`\\bFROM\\s+${table}\\b`, "iu"),
+  },
+  response: { status: 200, headers: { "content-type": contentType }, body },
+}));
+
 /** A query that takes longer than any small client timeout. */
 export const CORE_SQL_SLOW: Scenario = {
   name: "core-sql-slow",
@@ -308,5 +334,6 @@ export const ALL_SCENARIOS: Scenario[] = [
   CORE_SQL_EMPTY_BODY,
   CORE_INFLUXQL_CPU_TABLE,
   CORE_SQL_CSV_RETURNS_JSON,
+  ...CORE_SQL_FORMAT_MISMATCHES,
   CORE_SQL_SLOW,
 ];
