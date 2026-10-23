@@ -15,7 +15,8 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 
 - **InfluxDB 3 Instance**: URL and token (Core/Enterprise/Cloud Serverless) or Cluster ID and tokens (Cloud Dedicated/Clustered)
 - **Node.js**: v20.11 or newer (for npm/npx usage)
-- **npm**: v9 or newer (for npm/npx usage)
+- **pnpm**: use the version pinned in `package.json` for local development.
+  Run `corepack enable` to activate it with Node.js 20 or 22.
 - **Docker**: (for Docker-based setup)
 
 ---
@@ -326,15 +327,15 @@ see `AGENT_E2E_TESTS.md`.
 
 ### 2. Integration with MCP Clients
 
-#### A. Local (npm install & run)
+#### A. Local (pnpm install & run)
 
 1. **Install dependencies:**
    ```bash
-   npm install
+   pnpm install
    ```
 2. **Build the server:**
    ```bash
-   npm run build
+   pnpm run build
    ```
 3. **Configure your MCP client** to use the built server. Example (see `example-local.mcp.json`):
    ```json
@@ -379,8 +380,8 @@ Before running the Docker integration, you must build the Docker image:
 ```bash
 # Option 1: Use docker compose (recommended)
 docker compose build
-# Option 2: Use npm script
-npm run docker:build
+# Option 2: Use pnpm script
+pnpm run docker:build
 ```
 
 **a) Docker with remote InfluxDB instance** (see `example-docker.mcp.json`):
@@ -481,17 +482,17 @@ process environment:
 
 ```bash
 op run --env-file ~/.config/claire/cloud-serverless.env -- \
-  npm run test:integration:cloud-serverless
+  pnpm run test:integration:cloud-serverless
 ```
 
 You can instead copy `env.cloud-serverless.example` to the ignored
 `.env.cloud-serverless.local` file and set the MCP runtime variables there.
-Then run `npm run test:integration:cloud-serverless` directly.
+Then run `pnpm run test:integration:cloud-serverless` directly.
 
 To use another plaintext credentials file, set `INFLUX_TEST_ENV_FILE`:
 
 ```bash
-INFLUX_TEST_ENV_FILE=/path/to/serverless.env npm run test:integration:cloud-serverless
+INFLUX_TEST_ENV_FILE=/path/to/serverless.env pnpm run test:integration:cloud-serverless
 ```
 
 GitHub Actions runs the same command with the existing URL and token secrets
@@ -614,7 +615,7 @@ From the release checkout, verify npm and the registry manually:
 
 ```sh
 version="$(node -p "require('./package.json').version")"
-npm view "@influxdata/influxdb3-mcp-server@$version" version mcpName
+pnpm view "@influxdata/influxdb3-mcp-server@$version" version mcpName
 docker manifest inspect "influxdata/influxdb3-mcp-server:$version"
 curl --fail --silent --show-error \
   "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.influxdata%2Finfluxdb3-mcp-server/versions/$version" \

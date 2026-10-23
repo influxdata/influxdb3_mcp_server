@@ -1,15 +1,15 @@
 # Test suite
 
-Run `npm run build` first — tests spawn the compiled `build/index.js`.
+Run `pnpm run build` first — tests spawn the compiled `build/index.js`.
 
-| Command                    | Runs                                                               |
-| -------------------------- | ------------------------------------------------------------------ |
-| `npm test`                 | Everything; live-instance tests self-skip                          |
-| `npm run test:integration` | Every file matching `integration`, with `INFLUX_TEST_ENABLED=true` |
+| Command                     | Runs                                                               |
+| --------------------------- | ------------------------------------------------------------------ |
+| `pnpm test`                 | Everything; live-instance tests self-skip                          |
+| `pnpm run test:integration` | Every file matching `integration`, with `INFLUX_TEST_ENABLED=true` |
 
 ## Basic testing requirements
 
-Install dependencies with `npm ci` and build the candidate before running tests.
+Install dependencies with `pnpm install --frozen-lockfile` and build the candidate before running tests.
 Unit and protocol tests, including scripted fake HTTP scenarios, require no
 model access or live database. Live tests require the intended product version,
 credentials, and fixtures; select tests appropriate to the credential's scope.
@@ -79,12 +79,12 @@ stubbed clients.
 To run the protocol tests against a testbench target:
 
 ```bash
-npm run build
+pnpm run build
 INFLUX_TEST_ENABLED=true \
 INFLUX_DB_INSTANCE_URL=<url> \
 INFLUX_DB_TOKEN=<token> \
 INFLUX_DB_PRODUCT_TYPE=<core|enterprise> \
-npx vitest run tests/query-completeness.test.ts tests/query-format.test.ts tests/query-safety-protocol.test.ts
+pnpm exec vitest run tests/query-completeness.test.ts tests/query-format.test.ts tests/query-safety-protocol.test.ts
 ```
 
 ## Coverage for the write-path error and packaging fixes
@@ -113,7 +113,7 @@ To run the full suite against a seeded Core or Enterprise testbench, set
 `INFLUX_DB_INSTANCE_URL`, `INFLUX_DB_TOKEN`, and `INFLUX_DB_PRODUCT_TYPE`, then run:
 
 ```sh
-INFLUX_TEST_ENABLED=true INFLUX_TEST_DATABASE=smoke npm test
+INFLUX_TEST_ENABLED=true INFLUX_TEST_DATABASE=smoke pnpm test
 ```
 
 `query-format-live.test.ts` skips when `INFLUX_TEST_DATABASE` is unset.
@@ -125,7 +125,7 @@ through the environment, then run:
 
 ```sh
 INFLUX_TEST_ENABLED=true INFLUX_TEST_DATABASE=smoke \
-npx vitest run --reporter=verbose tests/discovery-recovery-protocol.test.ts
+pnpm exec vitest run --reporter=verbose tests/discovery-recovery-protocol.test.ts
 ```
 
 Each JWT case skips independently when its credential is unset.
@@ -142,7 +142,7 @@ It revokes the app token and hard-deletes its database after each fixture.
 Core needs one free database slot; the test never deletes shared fixtures to make room.
 
 ```sh
-INFLUX_TEST_ENABLED=true npx vitest run tests/p3-metadata-live.test.ts
+INFLUX_TEST_ENABLED=true pnpm exec vitest run tests/p3-metadata-live.test.ts
 ```
 
 Set `INFLUX_TEST_P3_OBSERVATIONS` to a file path to append raw fixture metadata
@@ -151,7 +151,7 @@ Token creation responses are excluded, and supplied credentials are redacted.
 The ordinary test suite checks metadata-source fallback with the fake server.
 
 ```bash
-npm run test:infra:up
-source env.test.example && npm run test:integration
-npm run test:infra:down
+pnpm run test:infra:up
+source env.test.example && pnpm run test:integration
+pnpm run test:infra:down
 ```

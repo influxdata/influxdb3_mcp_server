@@ -1,0 +1,207 @@
+
+> @influxdata/influxdb3-mcp-server@2.0.0 verify:artifacts /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> node scripts/verify-artifacts.mjs
+
+
+> @influxdata/influxdb3-mcp-server@2.0.0 build /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> tsc
+
+Progress: resolved 0, reused 0, downloaded 1, added 0
+Packages: +166
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 166, reused 140, downloaded 26, added 145
+Progress: resolved 166, reused 140, downloaded 26, added 166, done
+
+dependencies:
++ @influxdata/influxdb3-mcp-server 2.0.0
+
+devDependencies: skipped
+
+Done in 1.3s using pnpm v10.33.4
+
+> @influxdata/influxdb3-mcp-server@2.0.0 smoke:server /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> node scripts/smoke-server.mjs /var/folders/d5/h424d4cs51z6wpn1l2pg6jpc0000gn/T/mcp-artifacts-kNijmw/installed/node_modules/.bin/influxdb-mcp-server
+
+{
+  "server": "/var/folders/d5/h424d4cs51z6wpn1l2pg6jpc0000gn/T/mcp-artifacts-kNijmw/installed/node_modules/.bin/influxdb-mcp-server",
+  "product": "core",
+  "checks": [
+    {
+      "profile": "readonly",
+      "version": "2.0.0",
+      "tool_count": 9,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "readwrite",
+      "version": "2.0.0",
+      "tool_count": 25,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "operator",
+      "version": "2.0.0",
+      "tool_count": 25,
+      "query": "passed",
+      "telemetry_events": 1
+    }
+  ]
+}
+
+> @influxdata/influxdb3-mcp-server@2.0.0 smoke:server /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> node scripts/smoke-server.mjs --docker influxdb3-mcp-server:verification-2.0.0
+
+{
+  "server": "influxdb3-mcp-server:verification-2.0.0",
+  "product": "core",
+  "checks": [
+    {
+      "profile": "readonly",
+      "version": "2.0.0",
+      "tool_count": 9,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "readwrite",
+      "version": "2.0.0",
+      "tool_count": 25,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "operator",
+      "version": "2.0.0",
+      "tool_count": 25,
+      "query": "passed",
+      "telemetry_events": 1
+    }
+  ]
+}
+{
+  "version": "2.0.0",
+  "npm_integrity": "sha512-5ZK+y4DxeRCpOI/+SU+oHs83JCv32yzqu7DvPlRM7noMuIUzizY5HpZBQc7FVvLIyJQqKk2PMaxcCzXyQQS/aw==",
+  "image": "influxdb3-mcp-server:verification-2.0.0",
+  "image_id": "sha256:9844497ded4ac5e9c991d438ac6fccc6629bf1f61733ff3f0a6442d9f849285a",
+  "checks": "passed"
+}
+#0 building with "orbstack" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 544B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 ...
+
+#3 [auth] library/node:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 DONE 0.8s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 676B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 DONE 0.0s
+
+#6 [ 1/10] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#6 resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 0.1s done
+#6 DONE 0.1s
+
+#7 [ 2/10] WORKDIR /app
+#7 CACHED
+
+#5 [internal] load build context
+#5 transferring context: 95.98kB done
+#5 DONE 0.0s
+
+#8 [ 3/10] COPY package.json pnpm-lock.yaml .npmrc ./
+#8 DONE 0.2s
+
+#9 [ 4/10] RUN corepack enable && pnpm install --frozen-lockfile
+#9 0.558 ! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-10.33.4.tgz
+#9 1.600 Lockfile is up to date, resolution step is skipped
+#9 1.623 Progress: resolved 1, reused 0, downloaded 0, added 0
+#9 1.669 Packages: +298
+#9 1.669 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+#9 2.009 
+#9 2.009    ╭───────────────────────────────────────────────╮
+#9 2.009    │                                               │
+#9 2.009    │     Update available! 10.33.4 → 12.15.0.      │
+#9 2.009    │     Changelog: https://pnpm.io/v/12.15.0      │
+#9 2.009    │   To update, run: corepack use pnpm@12.15.0   │
+#9 2.009    │                                               │
+#9 2.009    ╰───────────────────────────────────────────────╯
+#9 2.009 
+#9 2.626 Progress: resolved 298, reused 0, downloaded 175, added 42
+#9 3.626 Progress: resolved 298, reused 0, downloaded 297, added 291
+#9 3.657 Progress: resolved 298, reused 0, downloaded 298, added 298, done
+#9 4.085 
+#9 4.085 dependencies:
+#9 4.085 + @influxdata/influxdb3-client 1.4.0
+#9 4.085 + @modelcontextprotocol/sdk 1.32.0
+#9 4.085 + axios 1.20.0
+#9 4.085 + dotenv 16.6.1
+#9 4.085 + zod 3.25.76
+#9 4.085 
+#9 4.085 devDependencies:
+#9 4.085 + @eslint/js 9.39.4
+#9 4.085 + @types/node 24.12.0
+#9 4.085 + @typescript-eslint/eslint-plugin 8.57.2
+#9 4.085 + @typescript-eslint/parser 8.57.2
+#9 4.085 + ajv 8.20.0
+#9 4.085 + eslint 9.39.4
+#9 4.085 + prettier 3.8.1
+#9 4.085 + typescript 5.9.3
+#9 4.085 + vitest 4.1.12
+#9 4.085 
+#9 4.091 ╭ Warning ─────────────────────────────────────────────────────────────────────╮
+#9 4.091 │                                                                              │
+#9 4.091 │   Ignored build scripts: protobufjs@7.6.6.                                   │
+#9 4.091 │   Run "pnpm approve-builds" to pick which dependencies should be allowed     │
+#9 4.091 │   to run scripts.                                                            │
+#9 4.091 │                                                                              │
+#9 4.091 ╰──────────────────────────────────────────────────────────────────────────────╯
+#9 4.102 Done in 2.7s using pnpm v10.33.4
+#9 DONE 4.5s
+
+#10 [ 5/10] COPY src/ ./src/
+#10 DONE 0.2s
+
+#11 [ 6/10] COPY tsconfig.json ./
+#11 DONE 0.0s
+
+#12 [ 7/10] RUN pnpm run build
+#12 0.316 
+#12 0.316 > @influxdata/influxdb3-mcp-server@2.0.0 build /app
+#12 0.316 > tsc
+#12 0.316 
+#12 DONE 1.9s
+
+#13 [ 8/10] RUN chmod +x ./build/index.js
+#13 DONE 0.2s
+
+#14 [ 9/10] RUN addgroup -g 1001 -S nodejs &&     adduser -S mcp -u 1001 -G nodejs
+#14 DONE 0.2s
+
+#15 [10/10] RUN chown -R mcp:nodejs /app
+#15 DONE 0.5s
+
+#16 exporting to image
+#16 exporting layers
+#16 exporting layers 6.3s done
+#16 exporting manifest sha256:9d521ea5161518e561ba6fdbbdea27b0a7a5aa300f8b418297788eac9412d0b5 0.0s done
+#16 exporting config sha256:6a139a308345059e25e8adfbb1c8bec06b9e8f571fa72b689714aa19f06be5fb 0.0s done
+#16 exporting attestation manifest sha256:4161c70aa3001107180c46a7281c5bbb056e27fb7103ffd2aadd68eb22a78759 0.0s done
+#16 exporting manifest list sha256:9844497ded4ac5e9c991d438ac6fccc6629bf1f61733ff3f0a6442d9f849285a 0.0s done
+#16 naming to docker.io/library/influxdb3-mcp-server:verification-2.0.0 done
+#16 unpacking to docker.io/library/influxdb3-mcp-server:verification-2.0.0
+#16 unpacking to docker.io/library/influxdb3-mcp-server:verification-2.0.0 2.7s done
+#16 DONE 9.2s
+
+View build details: docker-desktop://dashboard/build/orbstack/orbstack/qgq0oitlzz79cs40xjig0493v

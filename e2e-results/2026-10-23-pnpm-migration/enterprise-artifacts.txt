@@ -1,0 +1,153 @@
+
+> @influxdata/influxdb3-mcp-server@2.0.0 verify:artifacts /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> node scripts/verify-artifacts.mjs
+
+
+> @influxdata/influxdb3-mcp-server@2.0.0 build /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> tsc
+
+Progress: resolved 0, reused 0, downloaded 1, added 0
+Packages: +166
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 166, reused 165, downloaded 1, added 139
+Progress: resolved 166, reused 165, downloaded 1, added 166, done
+
+dependencies:
++ @influxdata/influxdb3-mcp-server 2.0.0
+
+devDependencies: skipped
+
+Done in 1.3s using pnpm v10.33.4
+
+> @influxdata/influxdb3-mcp-server@2.0.0 smoke:server /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> node scripts/smoke-server.mjs /var/folders/d5/h424d4cs51z6wpn1l2pg6jpc0000gn/T/mcp-artifacts-rTR2D6/installed/node_modules/.bin/influxdb-mcp-server
+
+{
+  "server": "/var/folders/d5/h424d4cs51z6wpn1l2pg6jpc0000gn/T/mcp-artifacts-rTR2D6/installed/node_modules/.bin/influxdb-mcp-server",
+  "product": "enterprise",
+  "checks": [
+    {
+      "profile": "readonly",
+      "version": "2.0.0",
+      "tool_count": 9,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "readwrite",
+      "version": "2.0.0",
+      "tool_count": 27,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "operator",
+      "version": "2.0.0",
+      "tool_count": 27,
+      "query": "passed",
+      "telemetry_events": 1
+    }
+  ]
+}
+
+> @influxdata/influxdb3-mcp-server@2.0.0 smoke:server /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+> node scripts/smoke-server.mjs --docker influxdb3-mcp-server:verification-2.0.0
+
+{
+  "server": "influxdb3-mcp-server:verification-2.0.0",
+  "product": "enterprise",
+  "checks": [
+    {
+      "profile": "readonly",
+      "version": "2.0.0",
+      "tool_count": 9,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "readwrite",
+      "version": "2.0.0",
+      "tool_count": 27,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "operator",
+      "version": "2.0.0",
+      "tool_count": 27,
+      "query": "passed",
+      "telemetry_events": 1
+    }
+  ]
+}
+{
+  "version": "2.0.0",
+  "npm_integrity": "sha512-w4f0gYd8DxnMJG6frtpXnw6NXsx6NcOIgA3D1ILbES0/5hpb3YhDUn/V0rLXTB1XePI/E8MChgfoxXC1dLx4Ew==",
+  "image": "influxdb3-mcp-server:verification-2.0.0",
+  "image_id": "sha256:1960db2d123a129220ac967ea9c74eb4bc843c55926e79fb65940b7e915fecbe",
+  "checks": "passed"
+}
+#0 building with "orbstack" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 544B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 DONE 0.5s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 676B done
+#3 DONE 0.0s
+
+#4 [internal] load build context
+#4 DONE 0.0s
+
+#5 [ 1/10] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#5 resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 0.1s done
+#5 DONE 0.1s
+
+#4 [internal] load build context
+#4 transferring context: 2.22kB done
+#4 DONE 0.0s
+
+#6 [ 7/10] RUN pnpm run build
+#6 CACHED
+
+#7 [ 4/10] RUN corepack enable && pnpm install --frozen-lockfile
+#7 CACHED
+
+#8 [ 5/10] COPY src/ ./src/
+#8 CACHED
+
+#9 [ 9/10] RUN addgroup -g 1001 -S nodejs &&     adduser -S mcp -u 1001 -G nodejs
+#9 CACHED
+
+#10 [ 3/10] COPY package.json pnpm-lock.yaml .npmrc ./
+#10 CACHED
+
+#11 [ 2/10] WORKDIR /app
+#11 CACHED
+
+#12 [ 6/10] COPY tsconfig.json ./
+#12 CACHED
+
+#13 [ 8/10] RUN chmod +x ./build/index.js
+#13 CACHED
+
+#14 [10/10] RUN chown -R mcp:nodejs /app
+#14 CACHED
+
+#15 exporting to image
+#15 exporting layers 0.0s done
+#15 exporting manifest sha256:9d521ea5161518e561ba6fdbbdea27b0a7a5aa300f8b418297788eac9412d0b5 done
+#15 exporting config sha256:6a139a308345059e25e8adfbb1c8bec06b9e8f571fa72b689714aa19f06be5fb 0.0s done
+#15 exporting attestation manifest sha256:576fbf1778b2ddfb9857ffab9e6aa7f003daf07d710196998504d12571fc9d76
+#15 exporting attestation manifest sha256:576fbf1778b2ddfb9857ffab9e6aa7f003daf07d710196998504d12571fc9d76 0.5s done
+#15 exporting manifest list sha256:1960db2d123a129220ac967ea9c74eb4bc843c55926e79fb65940b7e915fecbe
+#15 exporting manifest list sha256:1960db2d123a129220ac967ea9c74eb4bc843c55926e79fb65940b7e915fecbe 0.0s done
+#15 naming to docker.io/library/influxdb3-mcp-server:verification-2.0.0 done
+#15 unpacking to docker.io/library/influxdb3-mcp-server:verification-2.0.0 0.0s done
+#15 DONE 0.7s
+
+View build details: docker-desktop://dashboard/build/orbstack/orbstack/cmvdbeer7k341jr5wlr6ugaud

@@ -11,7 +11,7 @@ import {
   rmSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { URL } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -20,13 +20,16 @@ const docker = process.argv[2] === "--docker";
 const entry = process.argv[docker ? 3 : 2];
 if (!entry || process.argv.length !== (docker ? 4 : 3))
   throw new Error(
-    "Usage: npm run smoke:server -- INSTALLED_SERVER_ENTRY | --docker IMAGE",
+    "Usage: pnpm run smoke:server INSTALLED_SERVER_ENTRY | --docker IMAGE",
   );
 const pkg = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 );
 if (!docker) {
-  const installedRoot = resolve(dirname(realpathSync(entry)), "..");
+  const installedRoot =
+    basename(dirname(entry)) === ".bin"
+      ? realpathSync(resolve(dirname(entry), "..", pkg.name))
+      : resolve(dirname(realpathSync(entry)), "..");
   const installed = JSON.parse(
     readFileSync(join(installedRoot, "package.json"), "utf8"),
   );
@@ -66,7 +69,7 @@ try {
       MCP_LOG_FILE: docker ? `/smoke/${profile}.jsonl` : log,
     };
     const transport = new StdioClientTransport({
-      command: docker ? "docker" : process.execPath,
+      command: docker ? "docker" : resolve(entry),
       args: docker
         ? [
             "run",
@@ -77,7 +80,7 @@ try {
             ...Object.keys(serverEnv).flatMap((name) => ["--env", name]),
             entry,
           ]
-        : [resolve(entry)],
+        : [],
       env: { ...process.env, ...serverEnv },
       stderr: "pipe",
     });
