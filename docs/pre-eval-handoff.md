@@ -22,7 +22,14 @@
   three profiles. Evidence is in `e2e-results/2026-10-23-pnpm-migration/`.
 - Recommendation remains to keep #125 open for the next release. Its older
   query-error changes overlap #140; rebase and retain only the write-path work,
-  then verify against live 3.12.1. No PR was closed or merged to `main`.
+  then verify against live 3.12.1. This session didn't close or merge #125.
+- Release criteria #137 and dependency PRs #143–#146 have now landed on `main`
+  through `5350ec5`. This branch includes that main commit, retaining pnpm
+  instructions and removal of the npm lockfile. The merge introduced no runtime,
+  dependency, Dockerfile, or verification-script changes relative to `537ead9`.
+- A separate session owns the runner's grading and other testbench fixes.
+  Wait for its handoff and pin its final runner commit before launching evals.
+  Don't duplicate that work or assume the earlier runner checkpoint is final.
 - Release version remains 2.0.0 because existing response contracts change.
   No capability evals, tags, or publishing were started.
 
