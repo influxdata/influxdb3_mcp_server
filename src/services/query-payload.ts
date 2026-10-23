@@ -6,6 +6,25 @@
 
 export type QueryFormat = "json" | "csv" | "parquet" | "jsonl" | "pretty";
 
+/** Use a recognized response media type; older endpoints may omit it. */
+export function returnedQueryFormat(
+  contentType: string | undefined,
+  requested: QueryFormat,
+): QueryFormat {
+  switch (contentType?.split(";", 1)[0].trim().toLowerCase()) {
+    case "application/json":
+      return "json";
+    case "application/jsonl":
+    case "application/ndjson":
+    case "application/x-ndjson":
+      return "jsonl";
+    case "text/csv":
+      return "csv";
+    default:
+      return requested;
+  }
+}
+
 export interface DecodedPayload {
   /** The format of the payload the server returned, which may differ from the one requested. */
   format: QueryFormat;

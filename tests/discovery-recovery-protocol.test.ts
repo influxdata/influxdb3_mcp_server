@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createTestClient, type TestClient } from "./helpers/mcp-client.js";
 import { FakeInfluxDB, startFakeInfluxDB } from "./helpers/fake-influxdb.js";
+import { expectRequestsWithinBudget } from "./helpers/request-budget.js";
 import {
   ACCESS_OUTCOMES,
   accessScenariosFor,
@@ -186,9 +187,26 @@ describe.skipIf(live)(
           /WHERE time >= '.*' AND time <= '.*' ORDER BY time DESC LIMIT 3$/,
         );
       }
-      expect(result.query_budget.used).toBeLessThanOrEqual(
-        result.query_budget.max,
+      expect(result.query_budget.max).toBe(16);
+      expectRequestsWithinBudget(fake!.requests, result.query_budget);
+    });
+    it("bounds schema-only investigation requests without sampling or history lookups", async () => {
+      const client = await connect();
+      const result = payload(
+        await client.callTool({
+          name: "investigate_database",
+          arguments: { db: "smoke", maxTables: 1, includeSamples: false },
+        }),
       );
+      expect(result.ok).toBe(true);
+      expect(result.query_budget.max).toBe(4);
+      expect(fake!.requests).toHaveLength(4);
+      expectRequestsWithinBudget(fake!.requests, result.query_budget);
+      expect(
+        fake!.requests.some((request) =>
+          request.q?.startsWith("SELECT * FROM"),
+        ),
+      ).toBe(false);
     });
     it("distinguishes empty discovery and refuses cardinality", async () => {
       const client = await connect();

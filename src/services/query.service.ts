@@ -12,7 +12,12 @@ import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js
 import { QueryLanguage, QuerySafetyService } from "./query-safety.service.js";
 import { resolveOperationError } from "./error-resolution.service.js";
 import { createRequestId } from "./telemetry.service.js";
-import { decodePayload, QueryFormat } from "./query-payload.js";
+import {
+  decodePayload,
+  returnedQueryFormat,
+  type DecodedPayload,
+  type QueryFormat,
+} from "./query-payload.js";
 import {
   assertQuerySupported,
   READ_ONLY_FORMATS,
@@ -66,35 +71,69 @@ export interface StructuredQueryResponse {
   db: string;
   q: string;
   format: QueryFormat;
-  rows: any[];
-  metadata: {
-    request_id: string;
-    query_id: string;
-    query_id_source: "local" | "system.queries.id";
-    phase?: string;
-    query_type: QueryLanguage;
-    success: boolean;
-    running?: boolean;
-    cancelled?: boolean;
-    plan_duration?: unknown;
-    permit_duration?: unknown;
-    execute_duration?: unknown;
-    end2end_duration?: unknown;
-    compute_duration?: unknown;
-    max_memory?: number;
-    duration_ms: number;
-    row_count: number;
-    /** Kept for compatibility: `completeness !== "complete"`. */
-    truncated: boolean;
-    completeness: Completeness;
-    /** The effective row bound, present when capped. */
-    cap?: number;
-    cap_source?: "server_bound" | "query_limit";
-  };
+  rows: unknown[];
+  metadata: QueryMetadata & { success: true } & SuccessfulQueryCompletion;
   warnings: Array<{ code: string; message: string }>;
 }
 
-export type Completeness = "complete" | "capped" | "interrupted";
+interface QueryMetadata {
+  request_id: string;
+  query_id: string;
+  query_id_source: "local" | "system.queries.id";
+  phase?: string;
+  query_type: QueryLanguage;
+  running?: boolean;
+  cancelled?: boolean;
+  plan_duration?: unknown;
+  permit_duration?: unknown;
+  execute_duration?: unknown;
+  end2end_duration?: unknown;
+  compute_duration?: unknown;
+  max_memory?: number;
+  duration_ms: number;
+  row_count: number;
+}
+
+type QueryCompletion =
+  | {
+      completeness: "complete";
+      truncated: false;
+      cap?: never;
+      cap_source?: never;
+    }
+  | {
+      completeness: "capped";
+      truncated: true;
+      cap: number;
+      cap_source: "server_bound" | "query_limit";
+    }
+  | {
+      completeness: "interrupted";
+      truncated: true;
+      cap?: never;
+      cap_source?: never;
+    };
+
+export type Completeness = QueryCompletion["completeness"];
+type SuccessfulQueryCompletion = Exclude<
+  QueryCompletion,
+  { completeness: "interrupted" }
+>;
+
+class InterruptedQueryError extends Error {
+  readonly code = "query_interrupted";
+  metadata?: QueryMetadata & { success: false } & Extract<
+      QueryCompletion,
+      { completeness: "interrupted" }
+    >;
+
+  constructor(
+    public rows: unknown[],
+    reason: string,
+  ) {
+    super(`Query interrupted after ${rows.length} rows: ${reason}`);
+  }
+}
 
 interface QueryHistoryMetadata {
   id: string;
@@ -222,7 +261,7 @@ export class QueryService {
         { format, timeoutMs: options.timeoutMs },
         READ_ONLY_FORMATS,
       );
-      const raw = await this.executeReadOnlyQuery(
+      const payload = await this.executeReadOnlyQuery(
         language,
         safety.executedQuery,
         database,
@@ -232,22 +271,30 @@ export class QueryService {
           timeoutMs: options.timeoutMs,
         },
       );
-      const payload = decodePayload(raw, format);
       const serverCapped = payload.records.length > maxRows;
       const kept = serverCapped
         ? payload.records.slice(0, maxRows)
         : payload.records;
       // Filling the caller's own LIMIT does not prove more rows exist, so it
       // is reported as capped with a "may" warning rather than asserted.
+      const queryLimit = safety.queryLimit;
       const limitReached =
-        !serverCapped &&
-        safety.queryLimit !== undefined &&
-        kept.length >= safety.queryLimit;
-      const bound = serverCapped
-        ? { cap: maxRows, cap_source: "server_bound" as const }
+        !serverCapped && queryLimit !== undefined && kept.length >= queryLimit;
+      const completion: SuccessfulQueryCompletion = serverCapped
+        ? {
+            completeness: "capped",
+            truncated: true,
+            cap: maxRows,
+            cap_source: "server_bound",
+          }
         : limitReached
-          ? { cap: safety.queryLimit, cap_source: "query_limit" as const }
-          : undefined;
+          ? {
+              completeness: "capped",
+              truncated: true,
+              cap: queryLimit,
+              cap_source: "query_limit",
+            }
+          : { completeness: "complete", truncated: false };
       const warnings = [...safety.warnings];
       if (limitReached) {
         warnings.push({
@@ -280,12 +327,10 @@ export class QueryService {
           query_id_source: history ? "system.queries.id" : "local",
           phase: history?.phase,
           query_type: language,
-          success: history?.success ?? true,
+          success: true,
           duration_ms: duration,
           row_count: kept.length,
-          truncated: bound !== undefined,
-          completeness: bound ? "capped" : "complete",
-          ...bound,
+          ...completion,
           ...(history?.running !== undefined && { running: history.running }),
           ...(history?.cancelled !== undefined && {
             cancelled: history.cancelled,
@@ -313,7 +358,7 @@ export class QueryService {
       };
     } catch (error: any) {
       const duration = Date.now() - started;
-      if (error.code === "query_interrupted") {
+      if (error instanceof InterruptedQueryError) {
         error.rows = error.rows.slice(0, maxRows);
         error.metadata = {
           request_id: requestId,
@@ -386,16 +431,32 @@ export class QueryService {
       params?: Record<string, unknown> | unknown[];
       timeoutMs?: number;
     },
-  ): Promise<any> {
+  ): Promise<DecodedPayload> {
+    this.baseService.validateDataCapabilities();
+    const product = this.baseService.getConnectionInfo().type;
+    if (
+      product === InfluxProductType.Core ||
+      product === InfluxProductType.Enterprise
+    ) {
+      const response = await this.requestV3Query(
+        language === "sql" ? "/api/v3/query_sql" : "/api/v3/query_influxql",
+        query,
+        database,
+        options,
+      );
+      return decodePayload(response.data, response.format);
+    }
     if (language === "sql") {
-      return this.executeQuery(query, database, {
+      const raw = await this.executeQuery(query, database, {
         format: options.format,
         params: options.params,
         timeoutMs: options.timeoutMs,
       });
+      return decodePayload(raw, options.format);
     }
 
-    return this.executeInfluxqlQuery(query, database, options);
+    const raw = await this.executeInfluxqlQuery(query, database, options);
+    return decodePayload(raw, options.format);
   }
 
   private async findQueryHistoryMetadata(
@@ -491,7 +552,9 @@ export class QueryService {
       timeoutMs?: number;
     },
   ): Promise<any> {
-    return this.postV3Query("/api/v3/query_sql", query, database, options);
+    return (
+      await this.requestV3Query("/api/v3/query_sql", query, database, options)
+    ).data;
   }
 
   private async executeCoreEnterpriseInfluxqlQuery(
@@ -503,13 +566,15 @@ export class QueryService {
       timeoutMs?: number;
     },
   ): Promise<any> {
-    return this.postV3Query("/api/v3/query_influxql", query, database, {
-      ...options,
-      format: options.format ?? "json",
-    });
+    return (
+      await this.requestV3Query("/api/v3/query_influxql", query, database, {
+        ...options,
+        format: options.format ?? "json",
+      })
+    ).data;
   }
 
-  private async postV3Query(
+  private async requestV3Query(
     path: "/api/v3/query_sql" | "/api/v3/query_influxql",
     query: string,
     database: string,
@@ -518,21 +583,21 @@ export class QueryService {
       params?: Record<string, unknown> | unknown[];
       timeoutMs?: number;
     },
-  ): Promise<any> {
-    const format = options.format;
+  ): Promise<{ data: unknown; format: QueryFormat }> {
+    const requestedFormat = options.format;
     let response: Awaited<ReturnType<HttpClientService["postText"]>>;
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
       const payload = {
         db: database,
         q: query,
-        format,
+        format: requestedFormat,
         ...(options.params !== undefined && { params: options.params }),
       };
       response = await httpClient.postText(path, payload, {
         headers: {
           "Content-Type": "application/json",
-          Accept: this.acceptHeader(format),
+          Accept: this.acceptHeader(requestedFormat),
         },
         ...(options.timeoutMs !== undefined && { timeout: options.timeoutMs }),
       });
@@ -540,11 +605,12 @@ export class QueryService {
       this.handleQueryError(error);
     }
 
+    const format = returnedQueryFormat(response.contentType, requestedFormat);
     if (format !== "json") {
       if (response.interruption) {
-        throw this.interruptedError([], response.interruption.message);
+        throw new InterruptedQueryError([], response.interruption.message);
       }
-      return response.text;
+      return { data: response.text, format };
     }
 
     // A JSON body that does not parse, or a stream that failed, means the
@@ -553,25 +619,16 @@ export class QueryService {
     // never report the partial result as a successful one.
     if (!response.interruption) {
       try {
-        return JSON.parse(response.text);
+        return { data: JSON.parse(response.text), format };
       } catch {
         // Fall through to the interrupted result.
       }
     }
-    throw this.interruptedError(
+    throw new InterruptedQueryError(
       completeArrayElements(response.text),
       response.interruption?.message ??
         "the response ended before the result was complete",
     );
-  }
-
-  private interruptedError(rows: any[], reason: string): Error {
-    const error = new Error(
-      `Query interrupted after ${rows.length} rows: ${reason}`,
-    );
-    (error as any).code = "query_interrupted";
-    (error as any).rows = rows;
-    return error;
   }
 
   private acceptHeader(format: string): string {

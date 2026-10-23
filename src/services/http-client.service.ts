@@ -87,7 +87,7 @@ export class HttpClientService {
     url: string,
     data?: any,
     config?: any,
-  ): Promise<{ text: string; interruption?: Error }> {
+  ): Promise<{ text: string; contentType?: string; interruption?: Error }> {
     let response: any;
     try {
       response = await this.axiosInstance.post(url, data, {
@@ -102,7 +102,10 @@ export class HttpClientService {
       throw error;
     }
 
-    return readStream(response.data);
+    return {
+      ...(await readStream(response.data)),
+      contentType: response.headers["content-type"],
+    };
   }
 
   /**
