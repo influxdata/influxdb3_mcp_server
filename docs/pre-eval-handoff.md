@@ -1,5 +1,34 @@
 # Pre-eval checkpoint: October 22, 2026
 
+## October 23 housekeeping update
+
+- Migrated local commands, CI, release packaging, Docker, and maintained
+  contributor instructions to pnpm 10.33.4, pinned in `package.json`.
+  Imported `pnpm-lock.yaml` without changing resolved dependency versions and
+  removed `package-lock.json`. Registry identity and consumer npx support remain.
+- Preserved the pre-test build hook with `enable-pre-post-scripts=true`.
+  Adapted the existing artifact checker to pnpm's pack output and executable
+  wrappers. No additional runtime contract change was introduced.
+- SDK 1.32.0 and Hono 4.13.13 were already integrated. Source inspection found
+  no Hono imports in the application, tests, or scripts. No deprecated `.mount()`
+  calls were found there or in the installed SDK JavaScript.
+  No mount migration is applicable here.
+  The server uses stdio; SDK HTTP-client redirect and HTTP bearer-auth changes
+  don't require changing this transport or enabling new optional limits.
+- `pnpm run verify:candidate` passed: 297 tests passed, 25 skipped, with lint,
+  formatting, version consistency, and the pre-test build also passing.
+  `pnpm audit` reported no vulnerabilities. `pnpm run verify:artifacts` passed
+  on both live 3.12.1 products, including the pnpm-built Docker image and all
+  three profiles. Evidence is in `e2e-results/2026-10-23-pnpm-migration/`.
+- Recommendation remains to keep #125 open for the next release. Its older
+  query-error changes overlap #140; rebase and retain only the write-path work,
+  then verify against live 3.12.1. No PR was closed or merged to `main`.
+- Release version remains 2.0.0 because existing response contracts change.
+  No capability evals, tags, or publishing were started.
+
+The October 22 commands below are historical records. Use the pnpm commands in
+[Release verification](release-verification.md) for the current candidate.
+
 Work is paused before capability evals. No release was tagged or published.
 PR #140 remains a draft. Use this checkpoint's commit as the next candidate,
 subject to CI and runner preflights.

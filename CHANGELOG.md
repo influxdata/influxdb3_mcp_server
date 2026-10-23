@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Development, CI, Docker builds, and release packaging use the pinned pnpm
+  version and `pnpm-lock.yaml`. Packages continue to publish to the npm registry.
 - Core and Enterprise table descriptions and investigations report observed
   column roles from `system.influxdb_schema`. When the credential can read
   `_internal`, they also report schema mode and deletion flags with catalog

@@ -2,13 +2,13 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copy package files and install dependencies
-COPY package*.json ./
-RUN npm ci
+COPY package.json pnpm-lock.yaml .npmrc ./
+RUN corepack enable && pnpm install --frozen-lockfile
 
 # Copy source and build
 COPY src/ ./src/
 COPY tsconfig.json ./
-RUN npm run build
+RUN pnpm run build
 RUN chmod +x ./build/index.js
 
 # Create non-root user

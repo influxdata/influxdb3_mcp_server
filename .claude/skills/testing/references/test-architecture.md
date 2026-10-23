@@ -51,7 +51,7 @@ Live test files check `INFLUX_TEST_ENABLED` before executing their live cases.
 Some tests also require a specific credential mode or fixture. Inspect each
 file's gate before selecting a live run. Vitest transforms test files but does
 not type-check them; skipped cases do not establish runtime correctness.
-`npm run build` checks the TypeScript files included by `tsconfig.json`.
+`pnpm run build` checks the TypeScript files included by `tsconfig.json`.
 
 ### Agent evals add model and evidence requirements
 
@@ -153,7 +153,7 @@ The CI workflow at `.github/workflows/ci.yml` has two jobs:
 
 ### `test-protocol` (always runs, no InfluxDB)
 
-Runs `npm ci`, `npm run build`, `npm test`. Gates every PR and push to main.
+Runs `pnpm install --frozen-lockfile`, `pnpm run build`, `pnpm test`. Gates every PR and push to main.
 The protocol tests catch dependency breakage within seconds.
 
 ### `test-integration-core` (InfluxDB 3 Core)
@@ -167,7 +167,7 @@ The job:
 1. Checks out the repo (which includes `tests/fixtures/admin-token.json`)
 2. Bind-mounts the token file into the container at `/run/secrets/admin-token`
 3. Polls `/ping` until Core is ready (up to 30 seconds)
-4. Runs `npm run test:integration` with the static test token
+4. Runs `pnpm run test:integration` with the static test token
 5. Stops the container in an `if: always()` cleanup step
 
 ### Future: Enterprise

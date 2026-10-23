@@ -21,8 +21,8 @@ use and final answer through a real harness.
 Build before testing — tests spawn the compiled `build/index.js`, not source:
 
 ```bash
-npm ci
-npm run build
+pnpm install --frozen-lockfile
+pnpm run build
 ```
 
 ### Agent eval prerequisites
@@ -45,7 +45,7 @@ criteria.
 ### Protocol tests (no InfluxDB needed)
 
 ```bash
-npm test
+pnpm test
 ```
 
 Runs the configured Vitest suite. Live tests self-skip unless enabled; the
@@ -63,7 +63,7 @@ exercise data operations against the local fake endpoint.
 Start InfluxDB 3 Core via the provided Docker Compose file:
 
 ```bash
-npm run test:infra:up
+pnpm run test:infra:up
 ```
 
 This starts an ephemeral Core container on port `8181` using a static admin
@@ -73,13 +73,13 @@ token from `tests/fixtures/admin-token.json` (Docker secrets pattern,
 Run integration tests against it:
 
 ```bash
-source env.test.example && npm run test:integration
+source env.test.example && pnpm run test:integration
 ```
 
 Tear down when done:
 
 ```bash
-npm run test:infra:down
+pnpm run test:infra:down
 ```
 
 For a custom InfluxDB instance (different port, Enterprise, etc.), set the
@@ -90,7 +90,7 @@ INFLUX_TEST_ENABLED=true \
 INFLUX_DB_INSTANCE_URL=http://localhost:8281/ \
 INFLUX_DB_TOKEN=<your_token> \
 INFLUX_DB_PRODUCT_TYPE=enterprise \
-npm run test:integration
+pnpm run test:integration
 ```
 
 Tests call `health_check`, `list_databases`, and `execute_query` through the
@@ -99,7 +99,7 @@ MCP protocol.
 ### Watch mode
 
 ```bash
-npm run test:watch
+pnpm run test:watch
 ```
 
 Reruns on file changes. Useful during development.
@@ -133,7 +133,7 @@ them into this skill.
 To find the current count, start the server briefly and check stderr:
 
 ```bash
-npm run build && INFLUX_DB_INSTANCE_URL=http://localhost:19999/ \
+pnpm run build && INFLUX_DB_INSTANCE_URL=http://localhost:19999/ \
 INFLUX_DB_TOKEN=fake INFLUX_DB_PRODUCT_TYPE=core \
 node build/index.js &
 sleep 1 && kill $!
@@ -143,14 +143,14 @@ Look for: `[MCP] Server initialized with N tools, N resources, N prompts`
 
 ### "build/index.js not found"
 
-Run `npm run build` first. The `tests/setup.ts` guard fails fast with this
+Run `pnpm run build` first. The `tests/setup.ts` guard fails fast with this
 message if the build artifact is missing.
 
 ### Initialize handshake timeout
 
 The server process failed to start. Common causes:
 
-- Build is stale after source changes — rebuild with `npm run build`
+- Build is stale after source changes — rebuild with `pnpm run build`
 - Missing or invalid env vars — protocol tests use a fake config internally,
   so this usually means `createTestClient` was called with bad overrides
 
@@ -238,7 +238,7 @@ docker run -d --name mcp-it-core -p 8383:8181 \
 
 INFLUX_TEST_ENABLED=true INFLUX_DB_INSTANCE_URL=http://localhost:8383/ \
 INFLUX_DB_TOKEN=apiv3_test INFLUX_DB_PRODUCT_TYPE=core \
-npx vitest run tests/integration.test.ts
+pnpm exec vitest run tests/integration.test.ts
 
 docker rm -f mcp-it-core
 ```

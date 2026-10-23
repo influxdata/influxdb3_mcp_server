@@ -5,7 +5,7 @@ description: >-
   "run the server", "set up for InfluxDB Core", "set up for InfluxDB Enterprise",
   "configure the server", "start the MCP server", "run with Docker",
   "test the MCP server connection", "use the MCP inspector",
-  "set up .env", "what npm commands are available",
+  "set up .env", "what pnpm commands are available",
   or needs to build, configure, run, or troubleshoot this MCP server against
   InfluxDB 3 Core or InfluxDB 3 Enterprise.
 version: 0.1.0
@@ -18,7 +18,7 @@ InfluxDB 3 Core or Enterprise instances.
 
 ## Prerequisites
 
-- Node.js and npm (see `engines` in `package.json` for minimum version)
+- Node.js and pnpm (see `engines` in `package.json` for minimum version)
 - A running InfluxDB 3 Core or Enterprise instance (default port: `8181`).
   When running both Core and Enterprise on the same host for testing, each
   needs a distinct port (e.g., Core on `8181`, Enterprise on `8281`).
@@ -55,10 +55,10 @@ applications.
 ## Build & Run
 
 ```bash
-npm install        # install dependencies
-npm run build      # compile TypeScript → build/
-npm start          # run the server (requires build/)
-npm run dev        # build + run in one step
+pnpm install        # install dependencies
+pnpm run build      # compile TypeScript → build/
+pnpm start          # run the server (requires build/)
+pnpm run dev        # build + run in one step
 ```
 
 The server communicates over stdio (stdin/stdout). All diagnostic output goes
@@ -67,7 +67,7 @@ to stderr. Do not use `console.log` — it would corrupt the MCP transport.
 ### Verify the server starts
 
 ```bash
-npm run dev 2>&1 | head -5
+pnpm run dev 2>&1 | head -5
 ```
 
 Look for: `[MCP] Server initialized with N tools, N resources, N prompts`
@@ -78,10 +78,10 @@ Build and run via Docker when isolating the server from the host environment
 or deploying remotely.
 
 ```bash
-npm run docker:build    # build Docker image
-npm run docker:up       # start (reads .env file)
-npm run docker:down     # stop
-npm run docker:logs     # tail logs
+pnpm run docker:build    # build Docker image
+pnpm run docker:up       # start (reads .env file)
+pnpm run docker:down     # stop
+pnpm run docker:logs     # tail logs
 ```
 
 When InfluxDB runs on the host machine, use `host.docker.internal` as the
@@ -107,7 +107,7 @@ smoke check establishes MCP connectivity, not agent-eval success.
 The MCP Inspector provides an interactive UI for testing tool calls:
 
 ```bash
-npm run "MCP inspector"   # quotes required (space in script name)
+pnpm run "MCP inspector"   # quotes required (space in script name)
 ```
 
 This launches the inspector connected to the built server. Use it to:

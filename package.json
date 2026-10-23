@@ -24,23 +24,23 @@
     "lint": "eslint . --ext .ts,.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify:candidate": "npm run lint && npm run format:check && node scripts/check-versions.js && npm test",
+    "verify:candidate": "pnpm run lint && pnpm run format:check && node scripts/check-versions.js && pnpm test",
     "verify:artifacts": "node scripts/verify-artifacts.mjs",
     "smoke:server": "node scripts/smoke-server.mjs",
-    "prepublishOnly": "npm run clean && npm run build",
-    "pretest": "npm run build",
+    "prepublishOnly": "pnpm run clean && pnpm run build",
+    "pretest": "pnpm run build",
     "test": "vitest run",
     "test:integration": "INFLUX_TEST_ENABLED=true vitest run integration",
     "test:integration:cloud-serverless": "node scripts/test-cloud-serverless.js",
     "test:watch": "vitest",
     "test:infra:up": "docker compose -f docker-compose.test.yml up -d --wait",
     "test:infra:down": "docker compose -f docker-compose.test.yml down",
-    "MCP inspector": "npx @modelcontextprotocol/inspector node build/index.js",
+    "MCP inspector": "pnpm dlx @modelcontextprotocol/inspector node build/index.js",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:build": "docker compose build",
     "docker:logs": "docker compose logs -f",
-    "docker:inspector": "npx @modelcontextprotocol/inspector docker run --rm -i --env-file .env.docker --add-host=host.docker.internal:host-gateway influxdb-mcp-server"
+    "docker:inspector": "pnpm dlx @modelcontextprotocol/inspector docker run --rm -i --env-file .env.docker --add-host=host.docker.internal:host-gateway influxdb-mcp-server"
   },
   "files": [
     "build",
@@ -82,5 +82,6 @@
     "prettier": "3.8.1",
     "typescript": "5.9.3",
     "vitest": "4.1.12"
-  }
+  },
+  "packageManager": "pnpm@10.33.4"
 }
