@@ -82,21 +82,24 @@ The fixture requested immediate hard deletion of its databases; physical storage
 
 ## Reproduce
 
+Use the pinned pnpm version for the current checkout.
+The npm commands in the results table record the original run before the pnpm migration.
+
 Configure `INFLUX_DB_INSTANCE_URL`, `INFLUX_DB_PRODUCT_TYPE`, and an admin
 `INFLUX_DB_TOKEN` for one test target, without printing the credential.
 Core needs one free database slot.
 The fixture uses unique names, creates an expiring app token, and cleans up its own resources.
 
 ```sh
-npm ci
-npm run build
+pnpm install --frozen-lockfile
+pnpm run build
 INFLUX_TEST_ENABLED=true \
 INFLUX_TEST_P3_OBSERVATIONS=/tmp/p3-observations.jsonl \
-npx vitest run --reporter=verbose tests/p3-metadata-live.test.ts
+pnpm exec vitest run --reporter=verbose tests/p3-metadata-live.test.ts
 ```
 
 Repeat for the other product.
-For the full live suite, also set `INFLUX_TEST_DATABASE=smoke` and run `npm test`.
+For the full live suite, also set `INFLUX_TEST_DATABASE=smoke` and run `pnpm test`.
 
 ## Completion record
 
