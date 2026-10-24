@@ -22,6 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   follow-redirects 1.16.1, and Vite 8.3.5. Vitest 4.1.12 and
   ip-address 10.7.4 resolve the remaining dependency audit findings.
 
+### Deprecated
+
+- `execute_query` is deprecated in 2.0.0. Use `query_sql` for bounded,
+  read-only SQL queries with structured results and completeness metadata.
+  `execute_query` remains available with unchanged behavior for existing clients.
+  Removal requires a future major release after at least 90 days or two
+  InfluxDB 3 minor releases, whichever is longer.
+
 ### Changed
 
 - Development, CI, Docker builds, and release packaging use the pinned pnpm
@@ -85,6 +93,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `query_sql` and `query_influxql` advertise input schemas without top-level
+  combinators so Claude Code can load both tools.
+  Both canonical and alias argument names remain accepted.
+  Runtime validation rejects missing or conflicting alias pairs before querying.
 - The read-only safety check no longer refuses queries whose string literals
   or quoted identifiers contain a write keyword or a semicolon, for example
   `SELECT 'DROP TABLE metrics' AS note`. A `--` inside a string literal no

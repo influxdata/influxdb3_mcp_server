@@ -32,11 +32,11 @@ function readOnlyQueryInputSchema(queryDescription: string) {
       db: {
         type: "string",
         description:
-          "Database name to query. Canonical name; database is an alias.",
+          "Database name to query. Provide db or database; if both are present, they must agree.",
       },
       q: {
         type: "string",
-        description: queryDescription,
+        description: `${queryDescription}. Provide q or query; if both are present, they must agree.`,
       },
       database: {
         type: "string",
@@ -63,11 +63,8 @@ function readOnlyQueryInputSchema(queryDescription: string) {
         minimum: 1,
       },
     },
+    // Claude hosts reject root combinators. Enforce alias pairs in superRefine.
     required: [],
-    allOf: [
-      { anyOf: [{ required: ["db"] }, { required: ["database"] }] },
-      { anyOf: [{ required: ["q"] }, { required: ["query"] }] },
-    ],
     additionalProperties: false,
   };
 }
@@ -324,7 +321,9 @@ export function createQueryTools(
 
     {
       name: "execute_query",
-      description: `Execute a SQL query against an InfluxDB database (all versions). Returns results in the specified format (defaults to JSON). On Cloud Dedicated, Cloud Serverless, and Clustered, this tool supports only JSON output. For bounded reads that report completeness, use query_sql.
+      description: `Deprecated since 2.0.0. Use query_sql for SQL queries. execute_query remains available for compatibility with existing clients.
+
+Execute a SQL query against an InfluxDB database (all versions). Returns results in the specified format (defaults to JSON). On Cloud Dedicated, Cloud Serverless, and Clustered, this tool supports only JSON output. For bounded reads that report completeness, use query_sql.
 
 Large Dataset Warning: InfluxDB might contain massive time-series data. Always use COUNT(*) first to check size, then LIMIT/OFFSET for large results (>1000 rows).
 
