@@ -146,7 +146,7 @@ Complete these checks before declaring `v1.4.2` fully published:
 - [ ] Before tagging, pass CI's metadata validation and version checks.
 - [ ] **npm:** Verify `@influxdata/influxdb3-mcp-server@1.4.2` is public and
       includes `mcpName: io.github.influxdata/influxdb3-mcp-server` with
-      `npm view @influxdata/influxdb3-mcp-server@1.4.2 version mcpName`.
+      `pnpm view @influxdata/influxdb3-mcp-server@1.4.2 version mcpName`.
 - [ ] **Docker Hub:** Verify the `influxdata/influxdb3-mcp-server:1.4.2` image
       is available with
       `docker manifest inspect influxdata/influxdb3-mcp-server:1.4.2`.
