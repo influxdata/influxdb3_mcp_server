@@ -181,9 +181,10 @@ describe.skipIf(live)(
         r.q?.startsWith("SELECT * FROM"),
       );
       expect(sampleQueries).toHaveLength(2);
+      // A sample of 2 asks for one row more, to tell whether it was capped.
       for (const request of sampleQueries) {
         expect(request.q).toMatch(
-          /WHERE time >= '.*' AND time <= '.*' ORDER BY time DESC LIMIT 2/,
+          /WHERE time >= '.*' AND time <= '.*' ORDER BY time DESC LIMIT 3$/,
         );
       }
       expect(result.query_budget.max).toBe(16);
