@@ -79,6 +79,15 @@ describe("MCP protocol compliance", () => {
       expect(names).not.toContain("create_resource_token");
     });
 
+    it("advertises tool schemas without root combinators for Claude compatibility", async () => {
+      const result = await testClient.client.listTools();
+      for (const tool of result.tools) {
+        for (const keyword of ["allOf", "anyOf", "oneOf"]) {
+          expect(tool.inputSchema, tool.name).not.toHaveProperty(keyword);
+        }
+      }
+    });
+
     it("advertises Enterprise resource tokens and named-admin expiry", async () => {
       const enterpriseClient = await createTestClient({
         INFLUX_DB_PRODUCT_TYPE: "enterprise",

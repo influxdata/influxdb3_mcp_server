@@ -150,7 +150,7 @@ logging full query text by default.
 | `create_database`             | Create a new database (with cloud-specific config options)                                            | All versions              |
 | `update_database`             | Update database configuration (retention for all; maxTables/maxColumns for Cloud Dedicated/Clustered) | All versions              |
 | `delete_database`             | Delete a database by name (irreversible)                                                              | All versions              |
-| `execute_query`               | Run a SQL query against a database (supports multiple formats)                                        | All versions              |
+| `execute_query`               | Deprecated since 2.0.0. Use `query_sql`. Retained for compatibility                                   | All versions              |
 | `query_sql`                   | Run bounded read-only SQL with structured response metadata                                           | All versions              |
 | `query_influxql`              | Run bounded read-only InfluxQL with structured response metadata                                      | All versions              |
 | `get_measurements`            | List all measurements (tables) in a database                                                          | All versions              |

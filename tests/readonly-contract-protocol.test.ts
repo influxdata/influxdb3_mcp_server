@@ -22,7 +22,7 @@ afterEach(async () => {
   if (directory) rmSync(directory, { recursive: true, force: true });
 });
 
-it("[both] every readonly tool agrees on inputs and writes one telemetry event per successful or invalid call", async () => {
+it("[both] every readonly tool accepts advertised inputs, validates query alias pairs, and writes one telemetry event per call", async () => {
   directory = mkdtempSync(join(tmpdir(), "mcp-contract-"));
   const log = join(directory, "telemetry.jsonl");
   const env: Record<string, string> = {
@@ -97,9 +97,28 @@ it("[both] every readonly tool agrees on inputs and writes one telemetry event p
         { q },
         { query: q },
       ]) {
-        expect(validate(missing), JSON.stringify(missing)).toBe(false);
-        const rejected = JSON.parse((await call(tool.name, missing)).text);
+        // The portable schema leaves alias pairs optional; runtime requires both.
+        expect(validate(missing), JSON.stringify(missing)).toBe(true);
+        const requestsBefore = fake?.requests.length ?? 0;
+        const response = await call(tool.name, missing);
+        expect(response.result.isError).toBe(true);
+        const rejected = JSON.parse(response.text);
+        expectValidEnvelope(rejected);
         expect(rejected.error.code).toBe("invalid_arguments");
+        if (fake) expect(fake.requests).toHaveLength(requestsBefore);
+      }
+      for (const conflicting of [
+        { db, database: `${db}-other`, q },
+        { db, q, query: `${q} OFFSET 1` },
+      ]) {
+        expect(validate(conflicting)).toBe(true);
+        const requestsBefore = fake?.requests.length ?? 0;
+        const response = await call(tool.name, conflicting);
+        expect(response.result.isError).toBe(true);
+        const rejected = JSON.parse(response.text);
+        expectValidEnvelope(rejected);
+        expect(rejected.error.code).toBe("invalid_arguments");
+        if (fake) expect(fake.requests).toHaveLength(requestsBefore);
       }
       for (const aliases of [
         { database: db, query: q },

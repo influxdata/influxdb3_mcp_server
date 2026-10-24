@@ -1,5 +1,25 @@
 # Pre-eval checkpoint: October 22, 2026
 
+## October 24 Claude tool-loading fix
+
+- The `tb-ro-forced-alias-ent-ro-claude-r1` initialization transcripts list
+  `query_sql` and `query_influxql` for `2026-10-24-v1.4.2-f1733015`.
+  Both tools are absent for `2026-10-24-pr140-5522037-2702e792`, although the
+  MCP server reports connected.
+- Removed the query tools' root-level `allOf` to support Claude tool loading.
+  The advertised schema accepts canonical and alias names as optional fields.
+  Runtime validation still requires a database and query, rejects conflicting
+  aliases, and returns `invalid_arguments` before making a database request.
+- The new stdio schema regression test failed before the fix and passed after it.
+  Local verification passed: build, type checks, lint, formatting, and the full
+  test suite (307 passed, 25 skipped).
+- An isolated Claude host preflight loaded all nine readonly tools, including
+  both query tools, and returned `OK` from `claude-sonnet-5-5`.
+  It used Claude Code 2.1.307; the failing candidate transcript used 2.1.300.
+  The check used a test credential and made no database calls.
+  These checks don't establish Claude task success; rerun the pinned Claude
+  candidate cases against the corrected build before comparing capability scores.
+
 ## October 23 housekeeping update
 
 - Migrated local commands, CI, release packaging, Docker, and maintained
@@ -104,4 +124,6 @@ the recorded live checks; later changes consolidated verification scripts.
 Server timeout/backpressure classifications still need live observations.
 Partial per-table denial and failures after streaming begins retain fake-only
 coverage. Keep those limits explicit; no speculative classifications were added.
-Write-path #125 and execute_query deprecation #142 remain deferred.
+Write-path #125 remains deferred.
+`execute_query` deprecation (#142) is included in 2.0.0.
+The tool remains available for compatibility; new SQL queries should use `query_sql`.
