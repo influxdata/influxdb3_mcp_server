@@ -28,7 +28,7 @@ jobs:
           TAG_NAME: ${{ github.event.release.tag_name }}
         run: node scripts/check-versions.js
 
-      - name: npm publish
+      - name: Publish package with pnpm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |

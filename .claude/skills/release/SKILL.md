@@ -13,12 +13,12 @@ version: 0.1.0
 Decide whether to release, and which version number, using
 `docs/release-criteria.md`. This skill covers only the mechanics.
 
-npm publish and Docker Hub publish are automated by
+Publishing to npm and Docker Hub is automated by
 `.github/workflows/release-publish.yml`, triggered when a GitHub release is
 published. Both jobs are gated behind a protected GitHub Environment
 (`npm-publish`, `docker-publish`) — nothing publishes until the assigned
 reviewer approves that job in the Actions tab. There are no manual
-`npm publish` / `docker push` steps; don't run them by hand.
+`pnpm publish` / `docker push` steps; don't run them by hand.
 
 ## Steps
 
