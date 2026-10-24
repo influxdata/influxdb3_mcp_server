@@ -1,0 +1,24 @@
+{
+  "base_commit": "f7d19b64ff2773b6fca8a980cb4ab8b08544b0f5",
+  "revision": "working tree, not committed",
+  "source_sha256": {
+    "src/services/query.service.ts": "ffcab60857c40338d27a2538284ceadc0d78bc1a9466efa1e063b5c81a47ac98",
+    "src/services/investigation.service.ts": "454858d71c2948f0655ee5d585a02860bf9b0b14b849c14aaf043a26b58e3590",
+    "tests/helpers/p3-fixture.ts": "41cdefa8e91b040e338e361e255198f79e8af123fcb2ae68a3ba0bbc9638b892",
+    "tests/p3-metadata-live.test.ts": "bc57e679cfbaf83cc7334fbbfa4494772c51282fdc33dcb54cca93c42c4ff625",
+    "tests/p3-metadata-protocol.test.ts": "0a2f222ee77987bea74aca663c3960e767326165d6dc754fd32d59dc9dade6ae",
+    "tests/fixtures/p3-metadata-scenarios.ts": "7060c81e8b55f015d5f1e85c23bb618cee3ec7cb1e884c547b5e5b73588e4312",
+    "tests/phase1-readonly-live.test.ts": "f6bf42b2d2adfe78f30286964e944553488f8b4d6fe2c23f9fae7e0161c09acd",
+    "tests/scenario-contract.test.ts": "469c22ff8163dcffd8d8826c0e344a61ac472b5f6e5794d2e680764db2fef5ef",
+    "tests/discovery-recovery-protocol.test.ts": "26cad3d403845c2376c0f2590ac130c5233b56023ed580feba2e50182c10bb76",
+    "vitest.config.ts": "5bf77d4f73559a1305ba3b24d5ad4f3aea9cae2e71ba428ba3baddae4f477526",
+    "package-lock.json": "08f1bd00597246df2846a22bd4aea8285a26cda23db5fcde872a7e907878b10b"
+  },
+  "output_sha256": {
+    "core-live-suite.txt": "954066785ddb92eff33daed6308f8c9f7fc24d9819ae2a86e942f6f2f7b58466",
+    "enterprise-observations.jsonl": "4b0fd73a5f5a8bc75ea9f1faf5860eeeac2539732eb96275096e8b07c84ec322",
+    "cleanup.json": "e9acb87e3af2e233d97356805b4e713c5d7c0ac0f4c531a178a44ec4ba0524d2",
+    "enterprise-live-suite.txt": "0c11aaffeb42f9520441a29a0d12ec1c8c5025f47f632e5eae86a3fa63e25465",
+    "core-observations.jsonl": "0b6589548390381f4bfde407195a42a0646df08b95098a7cd1529ad5dd70eb7d"
+  }
+}

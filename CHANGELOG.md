@@ -5,6 +5,114 @@ All notable changes to the official InfluxDB 3 MCP Server will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0]
+
+### Migration
+
+- Version 2.0.0 is a major release because it changes existing tool response
+  contracts, including query result envelopes, health-check output, and
+  validation errors. Clients that parse these responses must adapt to the
+  structured results and [read-only output contract](docs/read-only-output-contract.md).
+  Telemetry consumers must also adapt to the changed event fields described below.
+  These breaking contract changes require a major version under Semantic
+  Versioning. InfluxDB 3.12.1 compatibility alone would not require a major release.
+- Read-only query results report completeness and caps. A successful request
+  does not by itself establish a complete answer.
+- Dependency updates include MCP SDK 1.32.0, Hono 4.13.13,
+  follow-redirects 1.16.1, and Vite 8.3.5. Vitest 4.1.12 and
+  ip-address 10.7.4 resolve the remaining dependency audit findings.
+
+### Deprecated
+
+- `execute_query` is deprecated in 2.0.0. Use `query_sql` for bounded,
+  read-only SQL queries with structured results and completeness metadata.
+  `execute_query` remains available with unchanged behavior for existing clients.
+  Removal requires a future major release after at least 90 days or two
+  InfluxDB 3 minor releases, whichever is longer.
+
+### Changed
+
+- Development, CI, Docker builds, and release packaging use the pinned pnpm
+  version and `pnpm-lock.yaml`. Packages continue to publish to the npm registry.
+- Core and Enterprise table descriptions and investigations report observed
+  column roles from `system.influxdb_schema`. When the credential can read
+  `_internal`, they also report schema mode and deletion flags with catalog
+  provenance. Unavailable metadata remains `unknown`. Tombstone warnings
+  recognize the observed `-YYYYMMDDTHHMMSS` suffix and remain advisory.
+  Investigation reserves up to three schema requests per table.
+- `query_sql` and `query_influxql` report `metadata.completeness` as
+  `complete`, `capped`, or `interrupted`. A capped result also carries `cap`
+  and `cap_source` (`server_bound` or `query_limit`). `truncated` remains and
+  equals `completeness !== "complete"`.
+- A result cut by `maxRows` is now reported as capped. The server asks for
+  one row more than `maxRows` to detect it. Before, a capped result always
+  read as complete.
+- A response that ends before the result is complete now returns
+  `ok: false` with the `query_interrupted` code, plus the whole rows received
+  for JSON. This includes a connection dropped right after the `200`
+  headers, which Core and Enterprise 3.11.7 do when a query runs out of
+  memory, and an empty JSON body. Before, a response cut off mid-row could
+  return `ok: true` with no rows.
+- The `format` field reports the format the server returned. A
+  `format_mismatch` warning says when it differs from the one requested.
+- The read-only query tools return `json`, `jsonl`, or `csv` on Core and
+  Enterprise, and `json` elsewhere. Other formats are refused before the
+  query runs with `unsupported_query_format` and a `supported_formats` list.
+  CSV and JSONL results are bounded and counted by record.
+- `query_influxql` on Cloud Serverless, Cloud Dedicated, and Clustered
+  refuses non-JSON formats instead of returning JSON labeled with the
+  requested format (#84).
+- `timeoutMs` on Flight SQL queries, and Flight parameters the client can't
+  send, are refused with `unsupported_query_option`.
+- `get_help` gains a "READING QUERY RESULTS" section, and the query tool
+  descriptions point to it (#131).
+- The `query_influxql` description shows the regex field form the parser
+  accepts, `SELECT /pattern/ FROM m`. A type suffix such as
+  `/pattern/::field` fails to parse on 3.11.7 and 3.12.1.
+- Query and discovery errors retain structured access and recovery outcomes.
+  A `403` reports `not_found_or_denied`, because a token without access gets
+  `403` whether or not the database exists. A `404` reports `not_found`. A
+  SQL query that names an unknown table (`400`) reports
+  `recovery: fix_reference`. A query sent to an Enterprise ingest-only node reports
+  `recovery: change_endpoint`. A query that runs out of server memory
+  (`500` on Core 3.12.1, `429` on Enterprise) reports `recovery: narrow`,
+  with a hint to shorten the time range, select fewer columns, or
+  aggregate. Health checks return JSON and distinguish
+  credential denial from endpoint failure. SDK initialization alone no
+  longer establishes server health.
+- Telemetry events log `completeness` and `cap_source` in place of
+  `truncated`, so a result that filled its own `LIMIT` no longer reads as
+  cut off.
+- Investigation preserves per-table failures, reports table truncation and a
+  request budget, and samples the newest rows within a configurable time window.
+  Unknown metadata remains explicit; possible tombstones stay visible with a
+  warning. Cardinality estimation returns `unsupported_option`.
+- Read-only query tools accept `database` and `query` aliases. Argument
+  validation returns structured, logged `invalid_arguments` tool errors.
+- `EXPLAIN ANALYZE` applies query bounds and reports that it executes the query.
+
+### Fixed
+
+- `query_sql` and `query_influxql` advertise input schemas without top-level
+  combinators so Claude Code can load both tools.
+  Both canonical and alias argument names remain accepted.
+  Runtime validation rejects missing or conflicting alias pairs before querying.
+- The read-only safety check no longer refuses queries whose string literals
+  or quoted identifiers contain a write keyword or a semicolon, for example
+  `SELECT 'DROP TABLE metrics' AS note`. A `--` inside a string literal no
+  longer hides the rest of the line from the check.
+- An error response with an empty body, such as a 3.12.1 `403`, now carries
+  the HTTP client's message instead of an empty one.
+
+### Verification limits
+
+- Other server failures report `recovery: none` until each one's recovery
+  is classified.
+- User JWT roles and catalog metadata were verified on Enterprise and Core
+  3.12.1 as applicable. Server timeout/backpressure classifications, partial
+  per-table denial, and failures after streaming begins retain their documented
+  verification limits. Synthetic protocol cases establish contracts only.
+
 ## [1.4.2] - 2026-09-28
 
 ### Fixed
@@ -38,7 +146,7 @@ Complete these checks before declaring `v1.4.2` fully published:
 - [ ] Before tagging, pass CI's metadata validation and version checks.
 - [ ] **npm:** Verify `@influxdata/influxdb3-mcp-server@1.4.2` is public and
       includes `mcpName: io.github.influxdata/influxdb3-mcp-server` with
-      `npm view @influxdata/influxdb3-mcp-server@1.4.2 version mcpName`.
+      `pnpm view @influxdata/influxdb3-mcp-server@1.4.2 version mcpName`.
 - [ ] **Docker Hub:** Verify the `influxdata/influxdb3-mcp-server:1.4.2` image
       is available with
       `docker manifest inspect influxdata/influxdb3-mcp-server:1.4.2`.

@@ -1,3 +1,4 @@
+import { resolveOperationError } from "./error-resolution.service.js";
 /**
  * InfluxDB Database Management Service
  *
@@ -217,7 +218,7 @@ export class DatabaseManagementService {
         }
       });
     } catch (error: any) {
-      this.handleDatabaseError(error, "list databases");
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -366,7 +367,7 @@ export class DatabaseManagementService {
         }
       });
     } catch (error: any) {
-      this.handleDatabaseError(error, "list databases");
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -519,7 +520,7 @@ export class DatabaseManagementService {
           }
         });
     } catch (error: any) {
-      this.handleDatabaseError(error, "list databases (buckets)");
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 

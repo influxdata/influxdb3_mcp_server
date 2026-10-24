@@ -1,0 +1,42 @@
+
+ RUN  v4.1.12 /Users/ja/.local/share/claire/dev-sessions/mcp-influxql-query-91-eval/influxdb3_mcp_server
+
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves invalid credential on queries and discovery
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves denied or absent on queries and discovery
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves not found on queries and discovery
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > passes the server's error text through with the token redacted
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > reports denied health as reachable and unconfirmed
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > keeps successful tables, stable truncation, recent bounded samples, and warnings
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > distinguishes empty discovery and refuses cardinality
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > accepts both alias pairs and logs validation failures once
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 405-no-wait without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 405-retry-after without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 429-no-wait without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 429-retry-after without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 503-no-wait without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 503-retry-after without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 504-no-wait without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > preserves 504-retry-after without inventing a recovery classification
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > tells the caller to send a query for an ingest-only node to a query node
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > asks the caller to narrow a query that ran out of memory (Core 500)
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > asks the caller to narrow a query that ran out of memory (Enterprise 429)
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > does not let a denied database poison successful discovery
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > keeps schema when sampling is denied and labels an empty window accurately
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > runs EXPLAIN ANALYZE through query bounds and labels execution
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] discovery/recovery protocol, scripted access states need fixtures on live targets > distinguishes an actual HTTP client timeout from a server HTTP timeout response
+ ↓ tests/discovery-recovery-protocol.test.ts > [live-only] Enterprise 3.12.1 user JWT reads > member: INFLUX_TEST_JWT_MEMBER
+ ↓ tests/discovery-recovery-protocol.test.ts > [live-only] Enterprise 3.12.1 user JWT reads > auditor: INFLUX_TEST_JWT_AUDITOR
+ ↓ tests/discovery-recovery-protocol.test.ts > [live-only] Enterprise 3.12.1 user JWT reads > smoke-reader (preview): INFLUX_TEST_JWT_SMOKE
+ ✓ tests/discovery-recovery-protocol.test.ts > [live-only] Enterprise 3.12.1 user JWT reads > expired: INFLUX_TEST_JWT_EXPIRED 250ms
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] Enterprise 3.12.1 JWT responses > classifies an Auditor denial as not found or denied, with no recovery
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] Enterprise 3.12.1 JWT responses > answers a denied database and a missing one alike
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] Enterprise 3.12.1 JWT responses > keeps a 401 for a expired JWT as credential_invalid
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] Enterprise 3.12.1 JWT responses > keeps a 401 for a malformed JWT as credential_invalid
+ ↓ tests/discovery-recovery-protocol.test.ts > [fake-only] Enterprise 3.12.1 JWT responses > keeps a 401 for a wrongNode JWT as credential_invalid
+ ↓ tests/discovery-recovery-protocol.test.ts > [P4] live-only server timeout and backpressure, not yet observed on 3.12.1 > records server-timeout and Retry-After backpressure bodies before classifying recovery
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 32 skipped (33)
+   Start at  14:01:37
+   Duration  499ms (transform 37ms, setup 12ms, import 130ms, tests 251ms, environment 0ms)
+

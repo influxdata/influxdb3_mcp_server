@@ -61,6 +61,7 @@ export class InfluxDBMasterService {
    */
   async ping(): Promise<{
     ok: boolean;
+    outcome?: "ok" | "unreachable" | "credential_cannot_check";
     version?: string;
     build?: string;
     message?: string;
@@ -71,7 +72,9 @@ export class InfluxDBMasterService {
   /**
    * Get health status
    */
-  async getHealthStatus(): Promise<{ status: string; checks?: any[] }> {
+  async getHealthStatus(): ReturnType<
+    BaseConnectionService["getHealthStatus"]
+  > {
     return this.baseConnection.getHealthStatus();
   }
 

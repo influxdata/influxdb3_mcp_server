@@ -9,6 +9,59 @@ Do not store token values in config files, output files, or transcripts.
 Export credentials in the parent shell or pass them inline when running a
 single command.
 
+## Prerequisites and preflight
+
+Complete these checks before starting agent evals. An installed CLI, a successful
+build, and a reachable database establish different things; record each result
+separately.
+
+1. **Verify model access.** Run a minimal model request through the intended
+   harness and confirm that it returns an answer. Check authentication and
+   network access to the provider's required endpoints. Record the client
+   version, model identity, and reasoning effort where supported. CLI installation
+   or a credential variable alone does not establish working model access.
+2. **Verify the MCP runner.** Install dependencies, build the candidate, and
+   configure the harness to launch that local `build/index.js` over stdio.
+   Complete MCP initialization and list the tools to confirm the intended
+   `INFLUX_MCP_TOOL_PROFILE`. Set the database URL, product type, and credential
+   through the environment. Configure non-interactive tool approvals, a writable
+   working directory, and run time and tool-call budgets. Preserve injected
+   credentials, proxy settings, and CA trust in managed environments.
+3. **Prepare fixtures and grading criteria.** Pin the prompt and acceptance
+   criteria for each case, the fixture data and time range, and the repeat count.
+   Confirm the database version and the credential's required access with a
+   representative permitted read. Scoped-token and JWT cases require their own
+   authentication fixtures. A denied health endpoint does not establish that
+   permitted reads are unavailable. Use disposable fixtures for mutation cases.
+4. **Verify evidence capture.** Give each run a separate output directory and
+   telemetry file. Set `MCP_LOG_TOOL_CALLS=true`, `MCP_LOG_BACKEND=file`, and
+   `MCP_LOG_FILE` to a writable path passed to the MCP child process. Run one
+   MCP tool call and confirm that its telemetry event is saved. Capture the
+   prompt, transcript, MCP calls, final answer, and telemetry, then check the
+   output for credentials before retaining or sharing it.
+
+Record the tested MCP commit and build identity. For uncommitted candidates,
+retain the local diff or an artifact fingerprint alongside the base commit so
+that the tested build can be reproduced. The recording template below lists
+the per-run evidence. Grade each run against the pinned acceptance criteria and
+save the reviewed verdict and rationale; process completion alone is not a pass.
+Record unavailable checks and their blockers as unverified.
+
+### Choose the execution environment
+
+- **Direct CLI evals:** the agent CLI needs working model access and the MCP
+  configuration above. It can launch the Node server directly; this path does
+  not require Docker or the full testbench checkout.
+- **Shared testbench:** also provide its repository checkout, dependencies,
+  configured runner, and any required container images, Docker daemon access,
+  mounts, networking, and credential forwarding. Verify these in the actual
+  execution environment rather than assuming that a cloud session cannot run
+  them. Follow any explicit operator handoff assigned to the particular task.
+
+Deterministic protocol tests against the fake endpoint exercise MCP behavior
+without model access or a live database. They complement agent evals and do not
+establish final-answer quality or compatibility with a live product version.
+
 ## MCP-Only Prompt Discipline
 
 These E2E cases test the MCP server through an agent harness, not the agent's
@@ -32,8 +85,11 @@ For each run, record:
 
 - Test ID
 - Harness name and configuration
+- Client version, MCP commit and build identity, and prompt/criteria version
 - Server mode and product
+- Database version, fixture identity and time range, and authentication mode
 - Model and reasoning effort, if the harness exposes them
+- Repeat index and planned repeat count
 - Prompt
 - Tool calls used
 - Failed tool calls
@@ -42,6 +98,7 @@ For each run, record:
 - Wall-clock time
 - Visible token stats, if the harness exposes them
 - Telemetry log lines
+- Reviewed pass, fail, or unverified verdict, reviewer, and rationale
 
 Codex does not currently expose raw per-run token usage. If a harness provides
 a visible stats line, copy it into the run notes. If not, record `null`; for

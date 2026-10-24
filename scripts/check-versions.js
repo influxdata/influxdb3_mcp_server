@@ -8,9 +8,17 @@ const read = (path) => readFileSync(resolve(root, path), "utf8");
 const pkg = JSON.parse(read("package.json"));
 const server = JSON.parse(read("server.json"));
 
+// CHANGELOG_PATH lets the check run against a fixture changelog in tests.
+const changelog = process.env.CHANGELOG_PATH
+  ? readFileSync(resolve(process.env.CHANGELOG_PATH), "utf8")
+  : read("CHANGELOG.md");
+const headings = [...changelog.matchAll(/^## \[([^\]]+)\]/gm)].map((m) => m[1]);
+
 const versions = {
   "config.ts": read("src/config.ts").match(/version: "([^"]+)"/)?.[1],
-  "CHANGELOG.md": read("CHANGELOG.md").match(/^## \[([^\]]+)\]/m)?.[1],
+  // Keep a Changelog puts "[Unreleased]" above the latest release and it has
+  // no version number, so the version is the first numbered heading.
+  "CHANGELOG.md": headings.find((h) => h !== "Unreleased"),
   "server.json": server.version,
 };
 
@@ -33,6 +41,10 @@ for (const [file, version] of Object.entries(versions)) {
 }
 
 if (process.env.TAG_NAME) {
+  assert.ok(
+    !headings.includes("Unreleased"),
+    "CHANGELOG.md must not have an [Unreleased] section in a release; move it into a numbered section",
+  );
   assert.equal(
     process.env.TAG_NAME,
     `v${pkg.version}`,

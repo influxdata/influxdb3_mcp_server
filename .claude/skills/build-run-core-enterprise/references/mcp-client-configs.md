@@ -5,7 +5,7 @@ Cursor, VS Code, etc.). Replace placeholder values with actual credentials.
 
 ## Local (built from source)
 
-After `npm install && npm run build`, point the client at the built entry point:
+After `pnpm install && pnpm run build`, point the client at the built entry point:
 
 ```json
 {
@@ -49,7 +49,7 @@ to npm first:
 
 ## Docker (InfluxDB on same host)
 
-Build the image first: `npm run docker:build`
+Build the image first: `pnpm run docker:build`
 
 Use `host.docker.internal` to reach InfluxDB running on the Docker host:
 

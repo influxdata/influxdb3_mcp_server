@@ -78,7 +78,7 @@ releases, whichever is longer.
 Every release must pass all of these.
 
 1. CI is green on `main`, including the version-consistency check.
-2. Protocol tests pass (`npm test`), including `EXPECTED_TOOL_COUNT`.
+2. Protocol tests pass (`pnpm test`), including `EXPECTED_TOOL_COUNT`.
 3. For Core and Enterprise changes, integration tests pass against a live
    InfluxDB 3 instance. See `.claude/skills/testing/`.
 4. **Capability evals:** task success is measured per client (for example,

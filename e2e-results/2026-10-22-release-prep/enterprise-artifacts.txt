@@ -1,0 +1,139 @@
+
+> @influxdata/influxdb3-mcp-server@2.0.0 verify:artifacts
+> node scripts/verify-artifacts.mjs
+
+
+> @influxdata/influxdb3-mcp-server@2.0.0 build
+> tsc
+
+
+added 167 packages in 1s
+
+> @influxdata/influxdb3-mcp-server@2.0.0 smoke:server
+> node scripts/smoke-server.mjs /var/folders/d5/h424d4cs51z6wpn1l2pg6jpc0000gn/T/mcp-artifacts-EfM8d4/installed/node_modules/.bin/influxdb-mcp-server
+
+{
+  "server": "/var/folders/d5/h424d4cs51z6wpn1l2pg6jpc0000gn/T/mcp-artifacts-EfM8d4/installed/node_modules/.bin/influxdb-mcp-server",
+  "product": "enterprise",
+  "checks": [
+    {
+      "profile": "readonly",
+      "version": "2.0.0",
+      "tool_count": 9,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "readwrite",
+      "version": "2.0.0",
+      "tool_count": 27,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "operator",
+      "version": "2.0.0",
+      "tool_count": 27,
+      "query": "passed",
+      "telemetry_events": 1
+    }
+  ]
+}
+
+> @influxdata/influxdb3-mcp-server@2.0.0 smoke:server
+> node scripts/smoke-server.mjs --docker influxdb3-mcp-server:verification-2.0.0
+
+{
+  "server": "influxdb3-mcp-server:verification-2.0.0",
+  "product": "enterprise",
+  "checks": [
+    {
+      "profile": "readonly",
+      "version": "2.0.0",
+      "tool_count": 9,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "readwrite",
+      "version": "2.0.0",
+      "tool_count": 27,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "operator",
+      "version": "2.0.0",
+      "tool_count": 27,
+      "query": "passed",
+      "telemetry_events": 1
+    }
+  ]
+}
+{
+  "version": "2.0.0",
+  "npm_integrity": "sha512-fH3GJQCXl7FiNNG1a0Unn5n4Wb/upVmVakQrMrHKLq4N47kSINe1Rv9pOTcRE8/JQvC09BwhXZkgm7gNE8Wrjg==",
+  "image": "influxdb3-mcp-server:verification-2.0.0",
+  "image_id": "sha256:4c2c5d7245c08065f9abbe55c8831abef7e52d32271d62463fc34b79b2a9b385",
+  "checks": "passed"
+}
+#0 building with "orbstack" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 479B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 DONE 0.4s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 676B done
+#3 DONE 0.0s
+
+#4 [ 1/10] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#4 resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 0.0s done
+#4 DONE 0.1s
+
+#5 [internal] load build context
+#5 transferring context: 2.20kB 0.0s done
+#5 DONE 0.0s
+
+#6 [ 4/10] RUN npm ci
+#6 CACHED
+
+#7 [ 8/10] RUN chmod +x ./build/index.js
+#7 CACHED
+
+#8 [ 9/10] RUN addgroup -g 1001 -S nodejs &&     adduser -S mcp -u 1001 -G nodejs
+#8 CACHED
+
+#9 [ 5/10] COPY src/ ./src/
+#9 CACHED
+
+#10 [ 6/10] COPY tsconfig.json ./
+#10 CACHED
+
+#11 [ 7/10] RUN npm run build
+#11 CACHED
+
+#12 [ 3/10] COPY package*.json ./
+#12 CACHED
+
+#13 [ 2/10] WORKDIR /app
+#13 CACHED
+
+#14 [10/10] RUN chown -R mcp:nodejs /app
+#14 CACHED
+
+#15 exporting to image
+#15 exporting layers done
+#15 exporting manifest sha256:050c42fa51d7538d4b59006c6d997dfbc54ee29abc88a708bd23946e7bf17b4e done
+#15 exporting config sha256:b488f79d233cb9cdbfa812585afd914b7326ceb441b29aa84d10815d64f39e83 done
+#15 exporting attestation manifest sha256:748dc8d235d141ed317c549425fe222b5ab4ccea9368cc47106183acd26dbd98
+#15 exporting attestation manifest sha256:748dc8d235d141ed317c549425fe222b5ab4ccea9368cc47106183acd26dbd98 0.1s done
+#15 exporting manifest list sha256:4c2c5d7245c08065f9abbe55c8831abef7e52d32271d62463fc34b79b2a9b385 0.0s done
+#15 naming to docker.io/library/influxdb3-mcp-server:verification-2.0.0 done
+#15 unpacking to docker.io/library/influxdb3-mcp-server:verification-2.0.0 0.0s done
+#15 DONE 0.2s
+
+View build details: docker-desktop://dashboard/build/orbstack/orbstack/2wu2qdzbxurg4435adq80k3t6

@@ -79,6 +79,15 @@ describe("MCP protocol compliance", () => {
       expect(names).not.toContain("create_resource_token");
     });
 
+    it("advertises tool schemas without root combinators for Claude compatibility", async () => {
+      const result = await testClient.client.listTools();
+      for (const tool of result.tools) {
+        for (const keyword of ["allOf", "anyOf", "oneOf"]) {
+          expect(tool.inputSchema, tool.name).not.toHaveProperty(keyword);
+        }
+      }
+    });
+
     it("advertises Enterprise resource tokens and named-admin expiry", async () => {
       const enterpriseClient = await createTestClient({
         INFLUX_DB_PRODUCT_TYPE: "enterprise",
@@ -116,6 +125,59 @@ describe("MCP protocol compliance", () => {
       expect(toolsByName.get("describe_table")).toContain(
         "quoted wildcard or unknown-field selectors",
       );
+    });
+
+    it("describes aliases, output, and formats the same way on both query tools", async () => {
+      const result = await testClient.client.listTools();
+      for (const name of ["query_sql", "query_influxql"]) {
+        const description =
+          result.tools.find((tool) => tool.name === name)?.description ?? "";
+        for (const sentence of [
+          "Accepts database as an alias for db and query as an alias for q; differing pairs are rejected.",
+          "Defaults to JSON output and returns structured rows, warnings, and query metadata.",
+          "Core and Enterprise also return jsonl or csv; Cloud Dedicated, Cloud Serverless, and Clustered return only JSON.",
+        ]) {
+          expect(description, name).toContain(sentence);
+        }
+      }
+    });
+
+    it("points execute_query at query_sql for bounded reads", async () => {
+      const result = await testClient.client.listTools();
+      const description =
+        result.tools.find((tool) => tool.name === "execute_query")
+          ?.description ?? "";
+
+      expect(description).toContain(
+        "For bounded reads that report completeness, use query_sql.",
+      );
+    });
+
+    it("shows the InfluxQL regex field form the parser accepts", async () => {
+      const result = await testClient.client.listTools();
+      const description =
+        result.tools.find((tool) => tool.name === "query_influxql")
+          ?.description ?? "";
+
+      expect(description).toContain("SELECT /pattern/ FROM m");
+      expect(description).toContain("/pattern/::field fails to parse");
+    });
+
+    it("points query tools at the output contract in get_help (#131)", async () => {
+      const result = await testClient.client.listTools();
+      for (const name of ["query_sql", "query_influxql"]) {
+        const description =
+          result.tools.find((tool) => tool.name === name)?.description ?? "";
+        expect(description).toContain("metadata.completeness");
+        expect(description).toContain("READING QUERY RESULTS in get_help");
+      }
+
+      const help = await testClient.client.callTool({
+        name: "get_help",
+        arguments: {},
+      });
+      const text = (help.content as Array<{ text: string }>)[0]?.text;
+      expect(text).toContain("=== READING QUERY RESULTS ===");
     });
 
     it("advertises only read-only tools in readonly profile", async () => {

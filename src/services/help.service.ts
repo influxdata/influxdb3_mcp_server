@@ -17,6 +17,24 @@ export class HelpService {
 const INFLUXDB_HELP_CONTENT = `
 INFLUXDB 3 MCP SERVER HELP
 
+Capability evidence: supported routes below describe configured product behavior,
+not the current credential's permissions. Query and metadata permissions are
+unknown until the corresponding call succeeds. A health or ping denial does not
+mean that permitted database reads are unavailable.
+
+Recovery: inspect error.code and error.recovery. Renew invalid credentials;
+use describe_table or list_tables for schema reference failures. Retry the same
+call only when retryable is true. Unverified server error signatures retain
+recovery=none. EXPLAIN inspects a SQL plan; EXPLAIN ANALYZE executes the query
+with the normal bounds. query_sql and query_influxql accept database/db and
+query/q aliases; differing values are invalid_arguments.
+
+Enterprise user JWTs: a 401 does not distinguish an expired or malformed JWT
+from a node that does not accept it. Check the credential and use the node
+that issued it before signing in again. Listing databases does not prove
+query permission: the Auditor role can list databases but cannot query them,
+and list_tables requires query permission. A 403 alone does not identify a role.
+
 === LINE PROTOCOL WRITING ===
 
 Line Protocol Format:
@@ -81,6 +99,25 @@ Performance Tips:
 - Index on tags for filtering, not fields
 - Use LIMIT for large datasets to avoid memory issues
 - Test with COUNT(*) first to check data size before complex queries
+
+=== READING QUERY RESULTS ===
+
+query_sql and query_influxql return rows, warnings, and metadata. Carry these
+into your answer:
+- metadata.completeness: "complete", "capped", or "interrupted". Say when a
+  result is capped or interrupted; never present it as the whole data set.
+- metadata.cap and metadata.cap_source when capped: the row bound, and
+  whether it came from the server's bound (raise maxRows or narrow the query)
+  or the query's own LIMIT (raise the LIMIT).
+- metadata.row_count: the rows the answer is based on.
+- warnings: for example limit_added, limit_reached (more rows may exist),
+  missing_time_predicate, format_mismatch.
+- Errors: say the query failed and why. A failure is never "no data", and an
+  empty successful result means no rows matched.
+- An interrupted result returns ok: false with the rows received. Use them
+  only as partial results, and say so.
+Leave out request and query IDs and timings unless asked. Answer
+conversationally; return raw JSON, with its metadata intact, only when asked.
 
 === TOKEN MANAGEMENT ===
 
@@ -221,7 +258,7 @@ Health Check Notes:
 - Different InfluxDB product types support different endpoints
 - Cloud Dedicated does not have /health endpoint available
 - Different tokens may have not access to certain endpoints
-- If ANY check passes (connection, /health, /ping), instance is considered operational
+- If /health or /ping passes, the instance is considered operational. SDK initialization is configured evidence only. A credential denied both checks leaves health unknown.
 
 Authentication Errors:
 - Token expired or invalid

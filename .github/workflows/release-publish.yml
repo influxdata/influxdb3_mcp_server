@@ -14,27 +14,29 @@ jobs:
         with:
           persist-credentials: false
 
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
 
       - name: Verify release tag and all package versions match
         env:
           TAG_NAME: ${{ github.event.release.tag_name }}
         run: node scripts/check-versions.js
 
-      - name: npm publish
+      - name: Publish package with pnpm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           version="$(node -p "require('./package.json').version")"
           if [[ "$version" == *-* ]]; then
-            npm publish --tag prerelease
+            pnpm publish --no-git-checks --tag prerelease
           else
-            npm publish
+            pnpm publish --no-git-checks
           fi
 
   mcp-registry-publish:

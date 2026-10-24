@@ -1,0 +1,166 @@
+
+> @influxdata/influxdb3-mcp-server@2.0.0 verify:artifacts
+> node scripts/verify-artifacts.mjs
+
+
+> @influxdata/influxdb3-mcp-server@2.0.0 build
+> tsc
+
+
+added 167 packages in 3s
+
+> @influxdata/influxdb3-mcp-server@2.0.0 smoke:server
+> node scripts/smoke-server.mjs /var/folders/d5/h424d4cs51z6wpn1l2pg6jpc0000gn/T/mcp-artifacts-dc1Vj4/installed/node_modules/.bin/influxdb-mcp-server
+
+{
+  "server": "/var/folders/d5/h424d4cs51z6wpn1l2pg6jpc0000gn/T/mcp-artifacts-dc1Vj4/installed/node_modules/.bin/influxdb-mcp-server",
+  "product": "core",
+  "checks": [
+    {
+      "profile": "readonly",
+      "version": "2.0.0",
+      "tool_count": 9,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "readwrite",
+      "version": "2.0.0",
+      "tool_count": 25,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "operator",
+      "version": "2.0.0",
+      "tool_count": 25,
+      "query": "passed",
+      "telemetry_events": 1
+    }
+  ]
+}
+
+> @influxdata/influxdb3-mcp-server@2.0.0 smoke:server
+> node scripts/smoke-server.mjs --docker influxdb3-mcp-server:verification-2.0.0
+
+{
+  "server": "influxdb3-mcp-server:verification-2.0.0",
+  "product": "core",
+  "checks": [
+    {
+      "profile": "readonly",
+      "version": "2.0.0",
+      "tool_count": 9,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "readwrite",
+      "version": "2.0.0",
+      "tool_count": 25,
+      "query": "passed",
+      "telemetry_events": 1
+    },
+    {
+      "profile": "operator",
+      "version": "2.0.0",
+      "tool_count": 25,
+      "query": "passed",
+      "telemetry_events": 1
+    }
+  ]
+}
+{
+  "version": "2.0.0",
+  "npm_integrity": "sha512-fH3GJQCXl7FiNNG1a0Unn5n4Wb/upVmVakQrMrHKLq4N47kSINe1Rv9pOTcRE8/JQvC09BwhXZkgm7gNE8Wrjg==",
+  "image": "influxdb3-mcp-server:verification-2.0.0",
+  "image_id": "sha256:78f2d4280e0af016c77e85dcb850c9f99cf5af96de69356cf65a144972bc706c",
+  "checks": "passed"
+}
+#0 building with "orbstack" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 479B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 ...
+
+#3 [auth] library/node:pull token for registry-1.docker.io
+#3 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:20-alpine
+#2 DONE 0.7s
+
+#4 [internal] load .dockerignore
+#4 transferring context: 676B done
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 DONE 0.0s
+
+#6 [ 1/10] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293
+#6 resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293 0.0s done
+#6 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 4.94kB 0.0s done
+#5 DONE 0.0s
+
+#7 [ 2/10] WORKDIR /app
+#7 CACHED
+
+#8 [ 3/10] COPY package*.json ./
+#8 DONE 0.3s
+
+#9 [ 4/10] RUN npm ci
+#9 28.84 
+#9 28.84 added 309 packages, and audited 310 packages in 28s
+#9 28.84 npm notice
+#9 28.84 npm notice New major version of npm available! 10.8.2 -> 12.2.1
+#9 28.84 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+#9 28.84 npm notice To update run: npm install -g npm@12.2.1
+#9 28.84 npm notice
+#9 28.84 
+#9 28.84 90 packages are looking for funding
+#9 28.84   run `npm fund` for details
+#9 28.84 
+#9 28.84 found 0 vulnerabilities
+#9 DONE 29.8s
+
+#10 [ 5/10] COPY src/ ./src/
+#10 DONE 0.2s
+
+#11 [ 6/10] COPY tsconfig.json ./
+#11 DONE 0.1s
+
+#12 [ 7/10] RUN npm run build
+#12 0.212 
+#12 0.212 > @influxdata/influxdb3-mcp-server@2.0.0 build
+#12 0.212 > tsc
+#12 0.212 
+#12 DONE 1.9s
+
+#13 [ 8/10] RUN chmod +x ./build/index.js
+#13 DONE 0.2s
+
+#14 [ 9/10] RUN addgroup -g 1001 -S nodejs &&     adduser -S mcp -u 1001 -G nodejs
+#14 DONE 0.2s
+
+#15 [10/10] RUN chown -R mcp:nodejs /app
+#15 DONE 0.4s
+
+#16 exporting to image
+#16 exporting layers
+#16 exporting layers 3.5s done
+#16 exporting manifest sha256:050c42fa51d7538d4b59006c6d997dfbc54ee29abc88a708bd23946e7bf17b4e
+#16 exporting manifest sha256:050c42fa51d7538d4b59006c6d997dfbc54ee29abc88a708bd23946e7bf17b4e 0.0s done
+#16 exporting config sha256:b488f79d233cb9cdbfa812585afd914b7326ceb441b29aa84d10815d64f39e83 0.0s done
+#16 exporting attestation manifest sha256:99657d8c0027c493cc39457418aa82874939b5143237fb66547a4ec146cb3b84 0.0s done
+#16 exporting manifest list sha256:78f2d4280e0af016c77e85dcb850c9f99cf5af96de69356cf65a144972bc706c 0.0s done
+#16 naming to docker.io/library/influxdb3-mcp-server:verification-2.0.0 done
+#16 unpacking to docker.io/library/influxdb3-mcp-server:verification-2.0.0
+#16 unpacking to docker.io/library/influxdb3-mcp-server:verification-2.0.0 2.1s done
+#16 DONE 5.8s
+
+View build details: docker-desktop://dashboard/build/orbstack/orbstack/k8fpplr6tislh6bxqnbd07nyj

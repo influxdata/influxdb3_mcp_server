@@ -5,10 +5,24 @@
  */
 
 import { BaseConnectionService } from "./base-connection.service.js";
+import type { HttpClientService } from "./http-client.service.js";
 import type { QParamType } from "@influxdata/influxdb3-client";
+import { z } from "zod";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import { QueryLanguage, QuerySafetyService } from "./query-safety.service.js";
+import { resolveOperationError } from "./error-resolution.service.js";
 import { createRequestId } from "./telemetry.service.js";
+import {
+  decodePayload,
+  returnedQueryFormat,
+  type DecodedPayload,
+  type QueryFormat,
+} from "./query-payload.js";
+import {
+  assertQuerySupported,
+  READ_ONLY_FORMATS,
+  unsupportedOption,
+} from "./query-capabilities.js";
 
 export interface QueryResult {
   results?: any[];
@@ -20,17 +34,29 @@ export interface MeasurementInfo {
 }
 
 export interface SchemaInfo {
+  schema_mode?:
+    | {
+        value: "implicit" | "explicit";
+        source: "server";
+        catalog: "system.databases";
+      }
+    | { value: "unknown"; source: "unknown" };
+  deletion?:
+    | { value: boolean; source: "server"; catalog: "system.tables" }
+    | { value: "unknown"; source: "unknown" };
+  warnings?: Array<{ code: string; message: string }>;
   columns: Array<{
     name: string;
     type: string;
     category: "time" | "tag" | "field" | "unknown";
+    source?: "server" | "inferred" | "unknown";
     categoryConfidence?: "high" | "low";
     nullable?: boolean;
     warnings?: string[];
   }>;
 }
 
-export type QueryFormat = "json" | "csv" | "parquet" | "jsonl" | "pretty";
+export type { QueryFormat };
 
 export interface ReadOnlyQueryOptions {
   format?: QueryFormat;
@@ -41,30 +67,72 @@ export interface ReadOnlyQueryOptions {
 
 export interface StructuredQueryResponse {
   ok: true;
+  access_outcome: "data" | "empty";
   db: string;
   q: string;
   format: QueryFormat;
-  rows: any[];
-  metadata: {
-    request_id: string;
-    query_id: string;
-    query_id_source: "local" | "system.queries.id";
-    phase?: string;
-    query_type: QueryLanguage;
-    success: boolean;
-    running?: boolean;
-    cancelled?: boolean;
-    plan_duration?: unknown;
-    permit_duration?: unknown;
-    execute_duration?: unknown;
-    end2end_duration?: unknown;
-    compute_duration?: unknown;
-    max_memory?: number;
-    duration_ms: number;
-    row_count: number;
-    truncated: boolean;
-  };
+  rows: unknown[];
+  metadata: QueryMetadata & { success: true } & SuccessfulQueryCompletion;
   warnings: Array<{ code: string; message: string }>;
+}
+
+interface QueryMetadata {
+  request_id: string;
+  query_id: string;
+  query_id_source: "local" | "system.queries.id";
+  phase?: string;
+  query_type: QueryLanguage;
+  running?: boolean;
+  cancelled?: boolean;
+  plan_duration?: unknown;
+  permit_duration?: unknown;
+  execute_duration?: unknown;
+  end2end_duration?: unknown;
+  compute_duration?: unknown;
+  max_memory?: number;
+  duration_ms: number;
+  row_count: number;
+}
+
+type QueryCompletion =
+  | {
+      completeness: "complete";
+      truncated: false;
+      cap?: never;
+      cap_source?: never;
+    }
+  | {
+      completeness: "capped";
+      truncated: true;
+      cap: number;
+      cap_source: "server_bound" | "query_limit";
+    }
+  | {
+      completeness: "interrupted";
+      truncated: true;
+      cap?: never;
+      cap_source?: never;
+    };
+
+export type Completeness = QueryCompletion["completeness"];
+type SuccessfulQueryCompletion = Exclude<
+  QueryCompletion,
+  { completeness: "interrupted" }
+>;
+
+class InterruptedQueryError extends Error {
+  readonly code = "query_interrupted";
+  metadata?: QueryMetadata & { success: false } & Extract<
+      QueryCompletion,
+      { completeness: "interrupted" }
+    >;
+
+  constructor(
+    public rows: unknown[],
+    reason: string,
+  ) {
+    super(`Query interrupted after ${rows.length} rows: ${reason}`);
+  }
 }
 
 interface QueryHistoryMetadata {
@@ -117,15 +185,13 @@ export class QueryService {
 
     const format = options.format ?? "json";
     const connectionInfo = this.baseService.getConnectionInfo();
+    assertQuerySupported(connectionInfo.type, "sql", options);
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
-        this.assertSqlFormatSupported(connectionInfo.type, format);
         return this.executeCloudDedicatedQuery(query, database, options);
       case InfluxProductType.Clustered:
-        this.assertSqlFormatSupported(connectionInfo.type, format);
         return this.executeClusteredQuery(query, database, options);
       case InfluxProductType.CloudServerless:
-        this.assertSqlFormatSupported(connectionInfo.type, format);
         return this.executeCloudServerlessQuery(query, database, options);
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
@@ -139,19 +205,6 @@ export class QueryService {
           `Unsupported InfluxDB product type: ${connectionInfo.type}`,
         );
     }
-  }
-
-  private assertSqlFormatSupported(
-    productType: InfluxProductType,
-    format: QueryFormat,
-  ): void {
-    if (format === "json") return;
-
-    const error = new Error(
-      `Query format '${format}' is not supported by this MCP SQL query path for ${productType}; use 'json'`,
-    );
-    (error as any).code = "unsupported_query_format";
-    throw error;
   }
 
   async querySqlReadOnly(
@@ -183,7 +236,7 @@ export class QueryService {
     const format = options.format ?? "json";
     const safety = this.safetyService.validate(query, language, maxRows);
 
-    if (!safety.ok || !safety.normalizedQuery) {
+    if (!safety.ok || !safety.normalizedQuery || !safety.executedQuery) {
       const duration = Date.now() - started;
       const error = new Error(safety.message || "Query rejected");
       (error as any).code = safety.code;
@@ -202,9 +255,15 @@ export class QueryService {
     }
 
     try {
-      const raw = await this.executeReadOnlyQuery(
+      assertQuerySupported(
+        this.baseService.getConnectionInfo().type,
         language,
-        safety.normalizedQuery,
+        { format, timeoutMs: options.timeoutMs },
+        READ_ONLY_FORMATS,
+      );
+      const payload = await this.executeReadOnlyQuery(
+        language,
+        safety.executedQuery,
         database,
         {
           format,
@@ -212,31 +271,66 @@ export class QueryService {
           timeoutMs: options.timeoutMs,
         },
       );
-      const rows = this.normalizeRows(raw, format);
-      const truncated = rows.length > maxRows;
-      const outputRows = truncated ? rows.slice(0, maxRows) : rows;
+      const serverCapped = payload.records.length > maxRows;
+      const kept = serverCapped
+        ? payload.records.slice(0, maxRows)
+        : payload.records;
+      // Filling the caller's own LIMIT does not prove more rows exist, so it
+      // is reported as capped with a "may" warning rather than asserted.
+      const queryLimit = safety.queryLimit;
+      const limitReached =
+        !serverCapped && queryLimit !== undefined && kept.length >= queryLimit;
+      const completion: SuccessfulQueryCompletion = serverCapped
+        ? {
+            completeness: "capped",
+            truncated: true,
+            cap: maxRows,
+            cap_source: "server_bound",
+          }
+        : limitReached
+          ? {
+              completeness: "capped",
+              truncated: true,
+              cap: queryLimit,
+              cap_source: "query_limit",
+            }
+          : { completeness: "complete", truncated: false };
+      const warnings = [...safety.warnings];
+      if (limitReached) {
+        warnings.push({
+          code: "limit_reached",
+          message: `Returned ${kept.length} rows, the query's own LIMIT ${safety.queryLimit}; more rows may exist.`,
+        });
+      }
+      if (payload.format !== format) {
+        warnings.push({
+          code: "format_mismatch",
+          message: `Requested ${format} but the server returned ${payload.format}.`,
+        });
+      }
       const duration = Date.now() - started;
       const history = await this.findQueryHistoryMetadata(
-        safety.normalizedQuery,
+        safety.executedQuery,
         language,
       );
 
       return {
         ok: true,
+        access_outcome: kept.length ? "data" : "empty",
         db: database,
         q: safety.normalizedQuery,
-        format,
-        rows: outputRows,
+        format: payload.format,
+        rows: payload.render(kept),
         metadata: {
           request_id: requestId,
           query_id: history?.id || queryId,
           query_id_source: history ? "system.queries.id" : "local",
           phase: history?.phase,
           query_type: language,
-          success: history?.success ?? true,
+          success: true,
           duration_ms: duration,
-          row_count: outputRows.length,
-          truncated,
+          row_count: kept.length,
+          ...completion,
           ...(history?.running !== undefined && { running: history.running }),
           ...(history?.cancelled !== undefined && {
             cancelled: history.cancelled,
@@ -260,10 +354,24 @@ export class QueryService {
             max_memory: history.max_memory,
           }),
         },
-        warnings: safety.warnings,
+        warnings,
       };
     } catch (error: any) {
       const duration = Date.now() - started;
+      if (error instanceof InterruptedQueryError) {
+        error.rows = error.rows.slice(0, maxRows);
+        error.metadata = {
+          request_id: requestId,
+          query_id: queryId,
+          query_id_source: "local",
+          query_type: language,
+          success: false,
+          duration_ms: duration,
+          row_count: error.rows.length,
+          truncated: true,
+          completeness: "interrupted",
+        };
+      }
       if (!error.metadata) {
         error.metadata = {
           request_id: requestId,
@@ -323,16 +431,32 @@ export class QueryService {
       params?: Record<string, unknown> | unknown[];
       timeoutMs?: number;
     },
-  ): Promise<any> {
+  ): Promise<DecodedPayload> {
+    this.baseService.validateDataCapabilities();
+    const product = this.baseService.getConnectionInfo().type;
+    if (
+      product === InfluxProductType.Core ||
+      product === InfluxProductType.Enterprise
+    ) {
+      const response = await this.requestV3Query(
+        language === "sql" ? "/api/v3/query_sql" : "/api/v3/query_influxql",
+        query,
+        database,
+        options,
+      );
+      return decodePayload(response.data, response.format);
+    }
     if (language === "sql") {
-      return this.executeQuery(query, database, {
+      const raw = await this.executeQuery(query, database, {
         format: options.format,
         params: options.params,
         timeoutMs: options.timeoutMs,
       });
+      return decodePayload(raw, options.format);
     }
 
-    return this.executeInfluxqlQuery(query, database, options);
+    const raw = await this.executeInfluxqlQuery(query, database, options);
+    return decodePayload(raw, options.format);
   }
 
   private async findQueryHistoryMetadata(
@@ -376,8 +500,9 @@ export class QueryService {
           format: "json",
         },
       );
-      const rows = this.normalizeRows(result, "json");
-      return rows[0];
+      return decodePayload(result, "json").records[0] as
+        | QueryHistoryMetadata
+        | undefined;
     } catch {
       return undefined;
     }
@@ -395,6 +520,7 @@ export class QueryService {
     this.baseService.validateDataCapabilities();
 
     const connectionInfo = this.baseService.getConnectionInfo();
+    assertQuerySupported(connectionInfo.type, "influxql", options);
     switch (connectionInfo.type) {
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
@@ -426,26 +552,9 @@ export class QueryService {
       timeoutMs?: number;
     },
   ): Promise<any> {
-    try {
-      const httpClient = this.baseService.getInfluxHttpClient();
-      const format = options.format;
-      const payload = {
-        db: database,
-        q: query,
-        format,
-        ...(options.params !== undefined && { params: options.params }),
-      };
-      const response = await httpClient.post("/api/v3/query_sql", payload, {
-        headers: {
-          "Content-Type": "application/json",
-          Accept: this.acceptHeader(format),
-        },
-        ...(options.timeoutMs !== undefined && { timeout: options.timeoutMs }),
-      });
-      return response;
-    } catch (error: any) {
-      this.handleQueryError(error);
-    }
+    return (
+      await this.requestV3Query("/api/v3/query_sql", query, database, options)
+    ).data;
   }
 
   private async executeCoreEnterpriseInfluxqlQuery(
@@ -457,32 +566,69 @@ export class QueryService {
       timeoutMs?: number;
     },
   ): Promise<any> {
+    return (
+      await this.requestV3Query("/api/v3/query_influxql", query, database, {
+        ...options,
+        format: options.format ?? "json",
+      })
+    ).data;
+  }
+
+  private async requestV3Query(
+    path: "/api/v3/query_sql" | "/api/v3/query_influxql",
+    query: string,
+    database: string,
+    options: {
+      format: QueryFormat;
+      params?: Record<string, unknown> | unknown[];
+      timeoutMs?: number;
+    },
+  ): Promise<{ data: unknown; format: QueryFormat }> {
+    const requestedFormat = options.format;
+    let response: Awaited<ReturnType<HttpClientService["postText"]>>;
     try {
-      const format = options.format ?? "json";
       const httpClient = this.baseService.getInfluxHttpClient();
       const payload = {
         db: database,
         q: query,
-        format,
+        format: requestedFormat,
         ...(options.params !== undefined && { params: options.params }),
       };
-      const response = await httpClient.post(
-        "/api/v3/query_influxql",
-        payload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Accept: this.acceptHeader(format),
-          },
-          ...(options.timeoutMs !== undefined && {
-            timeout: options.timeoutMs,
-          }),
+      response = await httpClient.postText(path, payload, {
+        headers: {
+          "Content-Type": "application/json",
+          Accept: this.acceptHeader(requestedFormat),
         },
-      );
-      return response;
+        ...(options.timeoutMs !== undefined && { timeout: options.timeoutMs }),
+      });
     } catch (error: any) {
       this.handleQueryError(error);
     }
+
+    const format = returnedQueryFormat(response.contentType, requestedFormat);
+    if (format !== "json") {
+      if (response.interruption) {
+        throw new InterruptedQueryError([], response.interruption.message);
+      }
+      return { data: response.text, format };
+    }
+
+    // A JSON body that does not parse, or a stream that failed, means the
+    // server began a result it did not finish. An empty result is `[]`, so
+    // an empty body is unfinished too. Keep the rows that arrived whole;
+    // never report the partial result as a successful one.
+    if (!response.interruption) {
+      try {
+        return { data: JSON.parse(response.text), format };
+      } catch {
+        // Fall through to the interrupted result.
+      }
+    }
+    throw new InterruptedQueryError(
+      completeArrayElements(response.text),
+      response.interruption?.message ??
+        "the response ended before the result was complete",
+    );
   }
 
   private acceptHeader(format: string): string {
@@ -494,30 +640,6 @@ export class QueryService {
       default:
         return "application/json";
     }
-  }
-
-  private normalizeRows(raw: any, format: QueryFormat): any[] {
-    if (format !== "json" && format !== "pretty") {
-      return Array.isArray(raw) ? raw : [{ value: raw }];
-    }
-
-    if (Array.isArray(raw)) {
-      return raw;
-    }
-
-    if (Array.isArray(raw?.rows)) {
-      return raw.rows;
-    }
-
-    if (Array.isArray(raw?.data)) {
-      return raw.data;
-    }
-
-    if (raw && typeof raw === "object") {
-      return [raw];
-    }
-
-    return [];
   }
 
   /**
@@ -609,16 +731,9 @@ export class QueryService {
 
   private flightParams(options: {
     params?: Record<string, unknown> | unknown[];
-    timeoutMs?: number;
   }): Record<string, QParamType> | undefined {
-    if (options.timeoutMs !== undefined) {
-      throw new Error(
-        "timeoutMs is not supported for Flight queries; configure the client query timeout instead",
-      );
-    }
-
     if (Array.isArray(options.params)) {
-      throw new Error(
+      throw unsupportedOption(
         "Array query params are not supported for Flight queries; use a named parameter object instead",
       );
     }
@@ -632,7 +747,7 @@ export class QueryService {
           typeof value !== "boolean",
       )
     ) {
-      throw new Error(
+      throw unsupportedOption(
         "Flight query params must be strings, numbers, or booleans",
       );
     }
@@ -644,30 +759,7 @@ export class QueryService {
    * Centralized error handler for query methods
    */
   private handleQueryError(error: any): never {
-    const errorMessage =
-      error.response?.data?.message ||
-      error.response?.data?.error ||
-      (typeof error.response?.data === "string" ? error.response.data : null) ||
-      error.response?.statusText ||
-      error.message;
-    const statusCode = error.response?.status;
-    console.error(`Status: ${statusCode} \n Message: ${errorMessage}`);
-    switch (statusCode) {
-      case 400:
-        throw new Error(`Bad request: ${errorMessage}`);
-      case 401:
-        throw new Error(`Unauthorized: ${errorMessage}`);
-      case 403:
-        throw new Error(`Access denied: ${errorMessage}`);
-      case 404:
-        throw new Error(`Database not found: ${errorMessage}`);
-      case 405:
-        throw new Error(`Method not allowed: ${errorMessage}`);
-      case 422:
-        throw new Error(`Unprocessable entity: ${errorMessage}`);
-      default:
-        throw new Error(`Query failed: ${errorMessage}`);
-    }
+    throw resolveOperationError(error);
   }
 
   /**
@@ -723,7 +815,7 @@ export class QueryService {
 
       return [];
     } catch (error: any) {
-      throw new Error(`Failed to get measurements: ${error.message}`);
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -755,7 +847,7 @@ export class QueryService {
 
       return [];
     } catch (error: any) {
-      throw new Error(`Failed to get measurements: ${error.message}`);
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -777,7 +869,7 @@ export class QueryService {
       }
       return result;
     } catch (error: any) {
-      throw new Error(`Failed to get measurements: ${error.message}`);
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -806,7 +898,7 @@ export class QueryService {
       }
       return [];
     } catch (error: any) {
-      throw new Error(`Failed to get measurements: ${error.message}`);
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -851,14 +943,14 @@ export class QueryService {
       const fieldKeysResponse = await httpClient.get("/query", {
         params: {
           db: database,
-          q: `SHOW FIELD KEYS FROM ${measurement}`,
+          q: `SHOW FIELD KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
         },
       });
 
       const tagKeysResponse = await httpClient.get("/query", {
         params: {
           db: database,
-          q: `SHOW TAG KEYS FROM ${measurement}`,
+          q: `SHOW TAG KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
         },
       });
       const columns: {
@@ -913,17 +1005,7 @@ export class QueryService {
 
       return { columns };
     } catch (error: any) {
-      if (
-        error.response?.status === 404 ||
-        error.message.includes("not found")
-      ) {
-        throw new Error(
-          `Measurement '${measurement}' does not exist in database '${database}'`,
-        );
-      }
-      throw new Error(
-        `Failed to get schema for measurement '${measurement}': ${error.message}`,
-      );
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -940,14 +1022,14 @@ export class QueryService {
       const fieldKeysResponse = await httpClient.get("/query", {
         params: {
           db: database,
-          q: `SHOW FIELD KEYS FROM ${measurement}`,
+          q: `SHOW FIELD KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
         },
       });
 
       const tagKeysResponse = await httpClient.get("/query", {
         params: {
           db: database,
-          q: `SHOW TAG KEYS FROM ${measurement}`,
+          q: `SHOW TAG KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
         },
       });
       const columns: {
@@ -1002,17 +1084,7 @@ export class QueryService {
 
       return { columns };
     } catch (error: any) {
-      if (
-        error.response?.status === 404 ||
-        error.message.includes("not found")
-      ) {
-        throw new Error(
-          `Measurement '${measurement}' does not exist in database '${database}'`,
-        );
-      }
-      throw new Error(
-        `Failed to get schema for measurement '${measurement}': ${error.message}`,
-      );
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -1024,44 +1096,124 @@ export class QueryService {
     database: string,
   ): Promise<SchemaInfo> {
     try {
-      const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${measurement}' AND table_schema = 'iox'`;
+      const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${measurement.replace(/'/gu, "''")}' AND table_schema = 'iox'`;
       const result = await this.executeQuery(query, database, {
         format: "json",
       });
 
       if (Array.isArray(result)) {
-        const columns = result.map((row: any) => {
-          let category: "time" | "tag" | "field" | "unknown" = "unknown";
-          let categoryConfidence: "high" | "low" = "low";
-
-          if (row.column_name === "time") {
-            category = "time";
-            categoryConfidence = "high";
+        // Observed on Core and Enterprise 3.12.1. These optional sources may
+        // be absent on older servers or denied to a database-scoped credential.
+        const columnRows = z
+          .array(z.object({ column_name: z.string(), data_type: z.string() }))
+          .safeParse(result);
+        if (!columnRows.success)
+          throw new Error("Column metadata has an unexpected shape");
+        const roles = new Map<string, string>();
+        const metadata: Pick<
+          SchemaInfo,
+          "schema_mode" | "deletion" | "warnings"
+        > = { warnings: [] };
+        if (result.length) {
+          try {
+            const response = await this.executeQuery(
+              "SELECT key, data_type FROM system.influxdb_schema WHERE measurement = $table",
+              database,
+              { format: "json", params: { table: measurement } },
+            );
+            const parsed = z
+              .array(z.object({ key: z.string(), data_type: z.string() }))
+              .safeParse(response);
+            if (parsed.success) {
+              for (const row of parsed.data) roles.set(row.key, row.data_type);
+            }
+          } catch {
+            // Keep the information_schema columns when role metadata is unavailable.
           }
+          try {
+            const response = await this.executeQuery(
+              "SELECT t.deleted, d.schema_mode FROM system.tables t JOIN system.databases d ON t.database_name = d.database_name WHERE t.database_name = $db AND t.table_name = $table",
+              "_internal",
+              { format: "json", params: { db: database, table: measurement } },
+            );
+            const parsed = z
+              .array(
+                z.object({
+                  deleted: z.boolean(),
+                  schema_mode: z.enum(["implicit", "explicit"]),
+                }),
+              )
+              .length(1)
+              .safeParse(response);
+            if (parsed.success) {
+              metadata.schema_mode = {
+                value: parsed.data[0].schema_mode,
+                source: "server",
+                catalog: "system.databases",
+              };
+              metadata.deletion = {
+                value: parsed.data[0].deleted,
+                source: "server",
+                catalog: "system.tables",
+              };
+            }
+          } catch {
+            // The same credential must authorize _internal; never substitute an admin token.
+          }
+          if (!metadata.schema_mode)
+            metadata.warnings?.push({
+              code: "catalog_metadata_unavailable",
+              message:
+                "Schema mode and deletion status are unknown because the internal catalog is unavailable to this credential.",
+            });
+        }
+        const fieldTypes = new Set([
+          "float",
+          "integer",
+          "uinteger",
+          "boolean",
+          "string",
+        ]);
+        const columns = columnRows.data.map(
+          (row): SchemaInfo["columns"][number] => {
+            let category: "time" | "tag" | "field" | "unknown" = "unknown";
+            let categoryConfidence: "high" | "low" = "low";
+            let source: "server" | "inferred" | "unknown" = "unknown";
+            const role = roles.get(row.column_name);
 
-          return {
-            name: row.column_name,
-            type: row.data_type,
-            category,
-            categoryConfidence,
-            warnings:
-              category === "unknown"
-                ? ["Tag versus field role is not available from metadata."]
-                : undefined,
-          };
-        });
-        return { columns };
+            if (
+              role === "tag" ||
+              role === "time" ||
+              (role && fieldTypes.has(role))
+            ) {
+              category =
+                role === "tag" ? "tag" : role === "time" ? "time" : "field";
+              categoryConfidence = "high";
+              source = "server";
+            } else if (row.column_name === "time") {
+              category = "time";
+              categoryConfidence = "high";
+              source = "inferred";
+            }
+
+            return {
+              name: row.column_name,
+              type: row.data_type,
+              category,
+              source,
+              categoryConfidence,
+              warnings:
+                category === "unknown"
+                  ? ["Tag versus field role is not available from metadata."]
+                  : undefined,
+            };
+          },
+        );
+        return { columns, ...metadata };
       }
       return result;
     } catch (error: any) {
-      if (error.message.includes("not found")) {
-        throw new Error(
-          `Table '${measurement}' does not exist in database '${database}'`,
-        );
-      }
-      throw new Error(
-        `Failed to get schema for measurement '${measurement}': ${error.message}`,
-      );
+      throw resolveOperationError(error, "metadata_unavailable");
     }
   }
 
@@ -1074,14 +1226,14 @@ export class QueryService {
     database: string,
   ): Promise<SchemaInfo> {
     try {
-      const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${measurement}' AND table_schema = 'iox'`;
+      const query = `SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '${measurement.replace(/'/gu, "''")}' AND table_schema = 'iox'`;
       const result = await this.executeQuery(query, database, {
         format: "json",
       });
 
       if (Array.isArray(result)) {
         const columns = result
-          .map((row: any) => {
+          .map((row: any): SchemaInfo["columns"][number] => {
             const columnName = row._fields?.column_name?.[1];
             const dataType = row._fields?.data_type?.[1];
 
@@ -1100,6 +1252,7 @@ export class QueryService {
               name: columnName,
               type: dataType,
               category,
+              source: category === "unknown" ? "unknown" : "inferred",
               categoryConfidence,
               warnings:
                 category === "unknown"
@@ -1112,14 +1265,41 @@ export class QueryService {
       }
       return { columns: [] };
     } catch (error: any) {
-      if (error.message.includes("not found")) {
-        throw new Error(
-          `Table '${measurement}' does not exist in database '${database}'`,
-        );
-      }
-      throw new Error(
-        `Failed to get schema for measurement '${measurement}': ${error.message}`,
-      );
+      throw resolveOperationError(error, "metadata_unavailable");
     }
+  }
+}
+
+/**
+ * Return the elements of a JSON array that arrived whole, from a body that
+ * may stop partway through an element.
+ */
+function completeArrayElements(text: string): any[] {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let lastElementEnd = -1;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') inString = false;
+    } else if (character === '"') {
+      inString = true;
+    } else if (character === "{" || character === "[") {
+      depth += 1;
+    } else if (character === "}" || character === "]") {
+      depth -= 1;
+      if (depth === 1) lastElementEnd = index;
+    }
+  }
+
+  if (lastElementEnd === -1) return [];
+  try {
+    return JSON.parse(`${text.slice(0, lastElementEnd + 1)}]`);
+  } catch {
+    return [];
   }
 }

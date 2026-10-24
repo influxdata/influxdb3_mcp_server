@@ -15,18 +15,78 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 
 - **InfluxDB 3 Instance**: URL and token (Core/Enterprise/Cloud Serverless) or Cluster ID and tokens (Cloud Dedicated/Clustered)
 - **Node.js**: v20.11 or newer (for npm/npx usage)
-- **npm**: v9 or newer (for npm/npx usage)
+- **pnpm**: use the version pinned in `package.json` for local development.
+  Run `corepack enable` to activate it with Node.js 20 or 22.
 - **Docker**: (for Docker-based setup)
 
 ---
 
+## Migrating to 2.0
+
+Version 2.0 changes query result envelopes, health-check output, argument errors,
+and telemetry. Clients that parse these responses must follow the
+[read-only output contract](docs/read-only-output-contract.md).
+Read `metadata.completeness`, caps, and warnings before treating query results
+as a complete answer. Discovery metadata states its source and leaves
+unavailable values unknown. Tool names and configured profiles remain available.
+
 ## Read-only Agent Workflows
 
-Set `INFLUX_MCP_TOOL_PROFILE=readonly` when you want an MCP client to explore
-and query InfluxDB 3 data without exposing write, admin, token-management, or
-host-level tools. In Enterprise deployments that use preview user auth, the
-same read-only flow works when the configured bearer credential is a JWT instead
-of an `apiv3_` token.
+Set `INFLUX_MCP_TOOL_PROFILE=readonly` to give an MCP client tools that explore
+and query data. The profile leaves out every tool that writes data, administers
+databases, manages tokens, or runs on the host.
+
+### Credentials
+
+Set `INFLUX_DB_TOKEN` to an admin token, a scoped token, or an Enterprise
+user-authentication JWT. The server sends it in a `Bearer` header without
+inspecting it, so the token's permissions decide which databases the tools can
+read.
+
+### Query arguments
+
+`query_sql` and `query_influxql` accept `database` for `db` and `query` for `q`.
+A call that gives both names with different values fails with
+`invalid_arguments`. Every argument error is a structured tool error and is
+recorded in telemetry.
+
+### Discovery
+
+`list_databases` returns what the server lists, with `visibility: "unknown"`,
+because a listed database might still be unreadable. `health_check` returns JSON
+with separate health and ping outcomes. A scoped token can be denied both checks
+and still read its databases.
+
+`investigate_database` keeps each table's result even when another table fails,
+and reports how many tables it saw and whether it stopped early. Samples come
+from a time window, 24 hours by default; set `sampleWindowHours` to change it.
+An empty window doesn't mean the table is empty.
+On Core and Enterprise, `describe_table` and investigation use
+`system.influxdb_schema` for authoritative column roles.
+They also read schema mode and deletion status from the `_internal` catalog
+when the same credential permits it, reporting `source: "server"` and the
+catalog table name. Unavailable values stay `unknown`; catalog denial does
+not discard readable column metadata or samples.
+Without authoritative deletion metadata, a table name with a timestamp-shaped
+suffix gets an advisory `possibly_deleted` warning and stays listed.
+Cardinality estimates aren't supported yet.
+
+### Errors
+
+When a call fails, read `error.code`, `error.recovery`, and `error.retryable`:
+
+- A `403` is `not_found_or_denied`. A token without access gets `403` whether
+  or not the database exists.
+- A `404` is `not_found`.
+- A SQL query that names an unknown table has `recovery: "fix_reference"`.
+  Call `list_tables` or `describe_table` for the right name.
+- A query that runs out of server memory has `recovery: "narrow"`.
+- A query sent to an Enterprise ingest-only node has
+  `recovery: "change_endpoint"`.
+- Other server failures have `recovery: "none"`.
+
+`EXPLAIN ANALYZE` runs the query within the same bounds and adds a
+`diagnostic_execution` warning.
 
 ### Analyst explores an unfamiliar database
 
@@ -90,7 +150,7 @@ logging full query text by default.
 | `create_database`             | Create a new database (with cloud-specific config options)                                            | All versions              |
 | `update_database`             | Update database configuration (retention for all; maxTables/maxColumns for Cloud Dedicated/Clustered) | All versions              |
 | `delete_database`             | Delete a database by name (irreversible)                                                              | All versions              |
-| `execute_query`               | Run a SQL query against a database (supports multiple formats)                                        | All versions              |
+| `execute_query`               | Deprecated since 2.0.0. Use `query_sql`. Retained for compatibility                                   | All versions              |
 | `query_sql`                   | Run bounded read-only SQL with structured response metadata                                           | All versions              |
 | `query_influxql`              | Run bounded read-only InfluxQL with structured response metadata                                      | All versions              |
 | `get_measurements`            | List all measurements (tables) in a database                                                          | All versions              |
@@ -267,15 +327,15 @@ see `AGENT_E2E_TESTS.md`.
 
 ### 2. Integration with MCP Clients
 
-#### A. Local (npm install & run)
+#### A. Local (pnpm install & run)
 
 1. **Install dependencies:**
    ```bash
-   npm install
+   pnpm install
    ```
 2. **Build the server:**
    ```bash
-   npm run build
+   pnpm run build
    ```
 3. **Configure your MCP client** to use the built server. Example (see `example-local.mcp.json`):
    ```json
@@ -320,8 +380,8 @@ Before running the Docker integration, you must build the Docker image:
 ```bash
 # Option 1: Use docker compose (recommended)
 docker compose build
-# Option 2: Use npm script
-npm run docker:build
+# Option 2: Use pnpm script
+pnpm run docker:build
 ```
 
 **a) Docker with remote InfluxDB instance** (see `example-docker.mcp.json`):
@@ -422,17 +482,17 @@ process environment:
 
 ```bash
 op run --env-file ~/.config/claire/cloud-serverless.env -- \
-  npm run test:integration:cloud-serverless
+  pnpm run test:integration:cloud-serverless
 ```
 
 You can instead copy `env.cloud-serverless.example` to the ignored
 `.env.cloud-serverless.local` file and set the MCP runtime variables there.
-Then run `npm run test:integration:cloud-serverless` directly.
+Then run `pnpm run test:integration:cloud-serverless` directly.
 
 To use another plaintext credentials file, set `INFLUX_TEST_ENV_FILE`:
 
 ```bash
-INFLUX_TEST_ENV_FILE=/path/to/serverless.env npm run test:integration:cloud-serverless
+INFLUX_TEST_ENV_FILE=/path/to/serverless.env pnpm run test:integration:cloud-serverless
 ```
 
 GitHub Actions runs the same command with the existing URL and token secrets
@@ -555,7 +615,7 @@ From the release checkout, verify npm and the registry manually:
 
 ```sh
 version="$(node -p "require('./package.json').version")"
-npm view "@influxdata/influxdb3-mcp-server@$version" version mcpName
+pnpm view "@influxdata/influxdb3-mcp-server@$version" version mcpName
 docker manifest inspect "influxdata/influxdb3-mcp-server:$version"
 curl --fail --silent --show-error \
   "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.influxdata%2Finfluxdb3-mcp-server/versions/$version" \

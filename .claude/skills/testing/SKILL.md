@@ -5,46 +5,65 @@ description: >-
   suite", "check test results", "why are tests failing", "debug test failures",
   "add a test", "write a test", "update EXPECTED_TOOL_COUNT",
   "run protocol tests", "run integration tests", "test against InfluxDB",
+  "run agent evals", "prepare eval prerequisites",
   or needs to run, analyze, extend, or troubleshoot the MCP server test suite.
 version: 0.1.0
 ---
 
 # Testing the InfluxDB MCP Server
 
-Two-layer test suite using vitest. Protocol tests run without InfluxDB.
-Integration tests require a live instance and are gated behind an env var.
+Vitest covers unit tests, MCP protocol tests, scripted fake HTTP scenarios,
+and gated live-instance tests. Agent evals additionally exercise a model's tool
+use and final answer through a real harness.
 
 ## Prerequisites
 
 Build before testing — tests spawn the compiled `build/index.js`, not source:
 
 ```bash
-npm run build
+pnpm install --frozen-lockfile
+pnpm run build
 ```
+
+### Agent eval prerequisites
+
+When preparing or running agent evals, read
+[`AGENT_E2E_TESTS.md`, prerequisites and preflight](../../../AGENT_E2E_TESTS.md#prerequisites-and-preflight)
+before launching the harness. Follow all four checks: model access, MCP runner
+configuration, fixtures and grading criteria, and evidence capture. Record which
+checks succeeded and which remain unverified. Select direct CLI execution or the
+shared testbench according to its actual environment requirements; honor any
+explicit operator handoff assigned to the task.
+
+Run deterministic tests first to catch protocol failures without spending model
+calls. Passing those tests does not complete the agent eval. Complete the eval
+only when its evidence is saved and its outcome is reviewed against the pinned
+criteria.
 
 ## Running Tests
 
 ### Protocol tests (no InfluxDB needed)
 
 ```bash
-npm test
+pnpm test
 ```
 
-Runs `tests/protocol.test.ts` only. Integration tests are skipped
-automatically. Expected runtime: <1 second.
+Runs the configured Vitest suite. Live tests self-skip unless enabled; the
+scripted fake HTTP scenarios run locally without a live database or model.
 
-These tests spawn the real server as a child process using the MCP SDK's
+Protocol tests spawn the real server as a child process using the MCP SDK's
 `StdioClientTransport`, perform the `initialize` handshake, and assert on
-protocol responses. No InfluxDB connection is made — protocol requests
+protocol responses. Registration requests
 (`tools/list`, `resources/list`, `prompts/list`, `ping`) are answered
-entirely from the server's in-memory registrations.
+entirely from the server's in-memory registrations. Scripted HTTP scenarios also
+exercise data operations against the local fake endpoint.
 
 ### Integration tests (live InfluxDB)
 
 Start InfluxDB 3 Core via the provided Docker Compose file:
 
 ```bash
-npm run test:infra:up
+pnpm run test:infra:up
 ```
 
 This starts an ephemeral Core container on port `8181` using a static admin
@@ -54,13 +73,13 @@ token from `tests/fixtures/admin-token.json` (Docker secrets pattern,
 Run integration tests against it:
 
 ```bash
-source env.test.example && npm run test:integration
+source env.test.example && pnpm run test:integration
 ```
 
 Tear down when done:
 
 ```bash
-npm run test:infra:down
+pnpm run test:infra:down
 ```
 
 For a custom InfluxDB instance (different port, Enterprise, etc.), set the
@@ -71,7 +90,7 @@ INFLUX_TEST_ENABLED=true \
 INFLUX_DB_INSTANCE_URL=http://localhost:8281/ \
 INFLUX_DB_TOKEN=<your_token> \
 INFLUX_DB_PRODUCT_TYPE=enterprise \
-npm run test:integration
+pnpm run test:integration
 ```
 
 Tests call `health_check`, `list_databases`, and `execute_query` through the
@@ -80,7 +99,7 @@ MCP protocol.
 ### Watch mode
 
 ```bash
-npm run test:watch
+pnpm run test:watch
 ```
 
 Reruns on file changes. Useful during development.
@@ -102,19 +121,19 @@ Reruns on file changes. Useful during development.
 
 ## Analyzing Failures
 
-### `EXPECTED_TOOL_COUNT` mismatch
+### Expected tool count mismatch
 
-The most common failure after code changes. The constant in
-`tests/protocol.test.ts` (line 7) must match the actual tool count.
+Check the expected counts in `tests/protocol.test.ts` against the tools
+advertised for the configured product and profile.
 
-**After adding or removing a tool**, update the constant and comment in
-`tests/protocol.test.ts` (the source of truth). Then update the breakdown
-below for documentation.
+After adding or removing a tool, update the affected assertions and comments in
+`tests/protocol.test.ts`. Keep the count expectations there rather than copying
+them into this skill.
 
 To find the current count, start the server briefly and check stderr:
 
 ```bash
-npm run build && INFLUX_DB_INSTANCE_URL=http://localhost:19999/ \
+pnpm run build && INFLUX_DB_INSTANCE_URL=http://localhost:19999/ \
 INFLUX_DB_TOKEN=fake INFLUX_DB_PRODUCT_TYPE=core \
 node build/index.js &
 sleep 1 && kill $!
@@ -122,44 +141,40 @@ sleep 1 && kill $!
 
 Look for: `[MCP] Server initialized with N tools, N resources, N prompts`
 
-The tool count breakdown by category file:
-
-- `help.tools.ts` (2) + `write.tools.ts` (1) + `database.tools.ts` (4)
-- `query.tools.ts` (3) + `token.tools.ts` (6) + `cloud-token.tools.ts` (5)
-- `health.tools.ts` (1) = **22 total**
-- `schema.tools.ts` (4 tools, currently disabled — commented out in
-  `src/tools/index.ts`)
-
 ### "build/index.js not found"
 
-Run `npm run build` first. The `tests/setup.ts` guard fails fast with this
+Run `pnpm run build` first. The `tests/setup.ts` guard fails fast with this
 message if the build artifact is missing.
 
 ### Initialize handshake timeout
 
 The server process failed to start. Common causes:
 
-- Build is stale after source changes — rebuild with `npm run build`
+- Build is stale after source changes — rebuild with `pnpm run build`
 - Missing or invalid env vars — protocol tests use a fake config internally,
   so this usually means `createTestClient` was called with bad overrides
 
-### Integration test: "HEALTHY" not found
+### Health check does not confirm health
 
-InfluxDB instance is unreachable or unhealthy. Verify:
+Inspect the JSON health and ping outcomes. If an endpoint returns
+`credential_cannot_check`, verify a permitted database read before judging
+availability. SDK initialization alone does not establish server health. Check:
 
 1. Instance is running: `curl http://localhost:8181/ping`
 2. Token is valid
 3. `INFLUX_DB_PRODUCT_TYPE` matches the actual instance type
 
-### Two error paths in the server
+### Tool call error paths
 
-When diagnosing tool call failures, note the server has two distinct error
-paths (defined in `src/server/index.ts`):
+When diagnosing tool call failures, distinguish these paths in
+`src/server/index.ts`:
 
 - **Unknown tool name** → `throw new Error(...)` → SDK converts to `McpError`
   → client sees a rejected promise
-- **Known tool, handler failure** → caught in try/catch → returns
-  `{ content: [{ type: "text", text: "Error: ..." }], isError: true }`
+- **Known tool, validation failure** → returns a structured `invalid_arguments`
+  tool result and one failed telemetry event
+- **Known tool, handler failure** → returns `isError: true`; read-only query and
+  discovery errors include structured access and recovery fields
 
 Protocol tests assert the thrown error path. Integration tests assert the
 content-based error path.
@@ -204,13 +219,14 @@ Gotchas that have already bitten this repo:
   with `retention_period` as a duration string (`"60d"`) — not `PATCH`, not
   `retention_period_ns`.
 - Core can update retention since v3.2.0 (static docs wrongly say it's immutable).
-- `/ping` and `/health` use `Token` auth even for core/enterprise (v1/v2 compat);
-  the admin client uses `Bearer`. Both are intentional.
+- Core/Enterprise use `Bearer` auth for data, ping, and health calls. Credentials
+  stay opaque; verify JWT behavior separately from API-token behavior.
 
 ### Exercise it against a real instance
 
-Admin endpoints (`/api/v3/configure/*`) need an admin token; `health_check`
-does not, so a passing `health_check` does not prove the token works. Run a
+Admin endpoints (`/api/v3/configure/*`) need appropriate admin access. A passing
+`health_check` does not establish authorization to read data or administer the
+instance. Run a
 self-contained Core for an admin-path test on a free port:
 
 ```bash
@@ -222,7 +238,7 @@ docker run -d --name mcp-it-core -p 8383:8181 \
 
 INFLUX_TEST_ENABLED=true INFLUX_DB_INSTANCE_URL=http://localhost:8383/ \
 INFLUX_DB_TOKEN=apiv3_test INFLUX_DB_PRODUCT_TYPE=core \
-npx vitest run tests/integration.test.ts
+pnpm exec vitest run tests/integration.test.ts
 
 docker rm -f mcp-it-core
 ```

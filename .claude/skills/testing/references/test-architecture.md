@@ -47,9 +47,20 @@ The count also appears in the server's stderr init message:
 
 ### Integration tests gated by env var
 
-`describe.skipIf(!process.env.INFLUX_TEST_ENABLED)` ensures integration tests
-never run accidentally. The vitest file is always compiled (catching type
-errors) but executes 0 tests unless the gate is set.
+Live test files check `INFLUX_TEST_ENABLED` before executing their live cases.
+Some tests also require a specific credential mode or fixture. Inspect each
+file's gate before selecting a live run. Vitest transforms test files but does
+not type-check them; skipped cases do not establish runtime correctness.
+`pnpm run build` checks the TypeScript files included by `tsconfig.json`.
+
+### Agent evals add model and evidence requirements
+
+Before running a real agent harness, complete the
+[prerequisites and preflight](../../../../AGENT_E2E_TESTS.md#prerequisites-and-preflight).
+The runbook defines model access checks, MCP runner configuration, fixture and
+grading requirements, and evidence capture. Protocol-test success establishes
+the tested MCP behavior; agent-eval success also requires a reviewed tool-use
+and final-answer verdict.
 
 ## Test File Responsibilities
 
@@ -142,7 +153,7 @@ The CI workflow at `.github/workflows/ci.yml` has two jobs:
 
 ### `test-protocol` (always runs, no InfluxDB)
 
-Runs `npm ci`, `npm run build`, `npm test`. Gates every PR and push to main.
+Runs `pnpm install --frozen-lockfile`, `pnpm run build`, `pnpm test`. Gates every PR and push to main.
 The protocol tests catch dependency breakage within seconds.
 
 ### `test-integration-core` (InfluxDB 3 Core)
@@ -156,7 +167,7 @@ The job:
 1. Checks out the repo (which includes `tests/fixtures/admin-token.json`)
 2. Bind-mounts the token file into the container at `/run/secrets/admin-token`
 3. Polls `/ping` until Core is ready (up to 30 seconds)
-4. Runs `npm run test:integration` with the static test token
+4. Runs `pnpm run test:integration` with the static test token
 5. Stops the container in an `if: always()` cleanup step
 
 ### Future: Enterprise
