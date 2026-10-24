@@ -316,7 +316,7 @@ export class QueryService {
 
       return {
         ok: true,
-        access_outcome: outputRows.length ? "data" : "empty",
+        access_outcome: kept.length ? "data" : "empty",
         db: database,
         q: safety.normalizedQuery,
         format: payload.format,
