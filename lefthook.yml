@@ -1,0 +1,6 @@
+# Install the hooks once with: lefthook install
+# Configuration reference: https://lefthook.dev/configuration/
+pre-commit:
+  jobs:
+    - name: claim policy
+      run: node scripts/check-claim-policy.js
