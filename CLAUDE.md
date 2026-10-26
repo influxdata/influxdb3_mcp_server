@@ -16,9 +16,6 @@ pnpm test           # protocol compliance tests (vitest, no InfluxDB needed)
 node scripts/check-claim-policy.js   # no claim IDs in runtime text, no research/ paths
 ```
 
-Install [lefthook](https://lefthook.dev/) and run `lefthook install` once to run the claim-policy check before each commit. CI runs it regardless.
-Runtime text (`src/`, `context/`, `schemas/`, `README.md`, shipped docs) states facts with edition and version and never carries a claim ID. Cite claim IDs only in `CHANGELOG.md`, `docs/adr/`, and e2e results.
-
 Build before testing — tests spawn the compiled `build/index.js`.
 For full testing workflow, see `.claude/skills/testing/`.
 
