@@ -13,6 +13,7 @@ pnpm run build      # compile TypeScript → build/
 pnpm run lint       # eslint
 pnpm run format     # prettier
 pnpm test           # protocol compliance tests (vitest, no InfluxDB needed)
+node scripts/check-claim-policy.js   # no claim IDs in runtime text, no research/ paths
 ```
 
 Build before testing — tests spawn the compiled `build/index.js`.
