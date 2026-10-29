@@ -14,14 +14,17 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 ## Prerequisites
 
 - **InfluxDB 3 Instance**: URL and token (Core/Enterprise/Cloud Serverless) or Cluster ID and tokens (Cloud Dedicated/Clustered)
-- **Node.js**: v20.11 or newer (for npm/npx usage)
+- **Node.js**: 22.23.4 or a later 22.x, 24.22.1 or a later 24.x, or 26.12.1 or
+  newer (for npm/npx usage)
 - **pnpm**: use the version pinned in `package.json` for local development.
-  Run `corepack enable` to activate it with Node.js 20 or 22.
+  Run `corepack enable` to activate it.
 - **Docker**: (for Docker-based setup)
 
-The 2.0.1 Docker candidate uses Node.js 22.23.4 for its compromised-certificate
-protections. npm/npx installations use your local Node.js runtime; update it to
-a patched, supported release as well.
+Node.js verifies TLS servers with a root certificate store built into the
+`node` binary. Earlier releases include roots that chain to compromised
+eMudhra/emSign intermediate CAs. The Docker image uses Node.js 22.23.4.
+npm/npx installations use your local Node.js, so update it to a release listed
+above. Node.js 20 is end of life and has no fixed release.
 
 ---
 
