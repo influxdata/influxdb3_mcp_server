@@ -22,7 +22,7 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
 
 Node.js verifies TLS servers with a root certificate store built into the
 `node` binary. Earlier releases include roots that chain to compromised
-eMudhra/emSign intermediate CAs. The Docker image uses Node.js 22.23.4.
+eMudhra/emSign intermediate CAs. The Docker image uses Node.js 24.22.1.
 npm/npx installations use your local Node.js, so update it to a release listed
 above. Node.js 20 is end of life and has no fixed release.
 
