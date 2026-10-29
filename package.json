@@ -1,6 +1,6 @@
 {
   "name": "@influxdata/influxdb3-mcp-server",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "mcpName": "io.github.influxdata/influxdb3-mcp-server",
   "description": "Official InfluxDB 3 MCP server for Model Context Protocol integration",
   "license": "(Apache-2.0 OR MIT)",
@@ -71,7 +71,7 @@
     "@modelcontextprotocol/sdk": "1.32.0",
     "axios": "1.20.0",
     "dotenv": "16.6.1",
-    "zod": "3.25.76"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "@eslint/js": "9.39.4",

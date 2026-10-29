@@ -19,6 +19,10 @@ Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, 
   Run `corepack enable` to activate it with Node.js 20 or 22.
 - **Docker**: (for Docker-based setup)
 
+The 2.0.1 Docker candidate uses Node.js 22.23.4 for its compromised-certificate
+protections. npm/npx installations use your local Node.js runtime; update it to
+a patched, supported release as well.
+
 ---
 
 ## Migrating to 2.0
