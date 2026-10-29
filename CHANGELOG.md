@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Upgrade Zod to 4.6.6 for GHSA-mrhx-c7xc-m3w5 and use its explicit string-key
   record schema for read-only query parameters.
+- Update MCP SDK transitive dependencies for audit advisories: body-parser
+  2.4.0 (GHSA-27r3-jxmh-p828), qs 6.17.1, fast-uri 3.1.9, and
+  @hono/node-server 2.1.5. The server uses only the stdio transport and does
+  not load the affected HTTP code.
 - Base the Docker image on `node:24-alpine`. Node.js 24.22.1 and later update
   the built-in root store to NSS 3.131.1. The update removes "emSign ECC Root
   CA - G3" and "AAA Certificate Services", the roots that chain to eight
