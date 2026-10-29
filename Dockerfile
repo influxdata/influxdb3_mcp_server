@@ -1,4 +1,4 @@
-# Node 22.23.4 includes the eMudhra/emSign compromised-intermediate SPKI blocklist.
+# Node 22.23.4 removes roots for compromised eMudhra/emSign intermediates (NSS 3.131.1).
 FROM node:22.23.4-alpine
 WORKDIR /app
 

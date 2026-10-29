@@ -11,8 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Upgrade Zod to 4.6.6 for GHSA-mrhx-c7xc-m3w5 and use its explicit string-key
   record schema for read-only query parameters.
-- Use Node 22.23.4 in the Docker image. This runtime includes the blocklist for
-  compromised eMudhra/emSign intermediate public keys.
+- Use Node.js 22.23.4 in the Docker image. This release updates the built-in
+  root store to NSS 3.131.1. The update removes "emSign ECC Root CA - G3" and
+  "AAA Certificate Services", the roots that chain to eight eMudhra/emSign
+  intermediate CAs with compromised keys. It also rejects chains that contain
+  those intermediates' public keys.
+- Require Node.js 22.23.4 or a later 22.x, 24.22.1 or a later 24.x, or 26.12.1
+  or newer in `engines`. Node.js 20 is end of life and has no fixed release.
+  npm/npx users must update their local Node.js.
 
 ## [2.0.0]
 
