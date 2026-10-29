@@ -139,10 +139,14 @@ it("[both] every readonly tool accepts advertised inputs, validates query alias 
           [],
           ["a", 2, true, null],
         ]) {
+          const requestsBefore = fake?.requests.length ?? 0;
           const response = await call(tool.name, { db, q, params });
           expect(response.result.isError).not.toBe(true);
           expect(JSON.parse(response.text).format).toBe("json");
-          const request = fake?.requests.at(-1);
+          // A system.queries lookup on _internal follows the query; skip it.
+          const request = fake?.requests
+            .slice(requestsBefore)
+            .find((candidate) => candidate.db === db);
           expect(request?.body).toMatchObject({ params });
         }
       }
