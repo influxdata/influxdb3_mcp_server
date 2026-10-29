@@ -1,4 +1,5 @@
-FROM node:20-alpine
+# Node 22.23.4 includes the eMudhra/emSign compromised-intermediate SPKI blocklist.
+FROM node:22.23.4-alpine
 WORKDIR /app
 
 # Copy package files and install dependencies

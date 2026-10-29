@@ -75,7 +75,9 @@ const readOnlyQueryZodSchema = z
     database: z.string().optional(),
     q: z.string().optional(),
     query: z.string().optional(),
-    params: z.union([z.record(z.unknown()), z.array(z.unknown())]).optional(),
+    params: z
+      .union([z.record(z.string(), z.unknown()), z.array(z.unknown())])
+      .optional(),
     format: queryFormatSchema,
     maxRows: z.number().int().min(1).max(5000).optional(),
     timeoutMs: z.number().int().min(1).optional(),

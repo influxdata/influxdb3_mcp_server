@@ -129,6 +129,33 @@ it("[both] every readonly tool accepts advertised inputs, validates query alias 
         expect(validate(aliases), JSON.stringify(validate.errors)).toBe(true);
         expect((await call(tool.name, aliases)).result.isError).not.toBe(true);
       }
+      // Exercise both parameter representations through the real MCP boundary.
+      // Synthetic values are for schema compatibility, not live query semantics.
+      if (!live) {
+        for (const params of [
+          {},
+          { host: "a", count: 2, enabled: true, missing: null },
+          { nested: { values: [1, "two", null] } },
+          [],
+          ["a", 2, true, null],
+        ]) {
+          const response = await call(tool.name, { db, q, params });
+          expect(response.result.isError).not.toBe(true);
+          expect(JSON.parse(response.text).format).toBe("json");
+          const request = fake?.requests.at(-1);
+          expect(request?.body).toMatchObject({ params });
+        }
+      }
+      for (const params of [null, "private-param-sentinel", 42, true]) {
+        const requestsBefore = fake?.requests.length ?? 0;
+        const response = await call(tool.name, { db, q, params });
+        expect(response.result.isError).toBe(true);
+        const rejected = JSON.parse(response.text);
+        expectValidEnvelope(rejected);
+        expect(rejected.error.code).toBe("invalid_arguments");
+        expect(response.text).not.toContain("private-param-sentinel");
+        if (fake) expect(fake.requests).toHaveLength(requestsBefore);
+      }
     }
     const requestsBefore = fake?.requests.length ?? 0;
     const success = await call(tool.name, args);
