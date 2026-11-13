@@ -24,7 +24,7 @@
     "lint": "eslint . --ext .ts,.js",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify:candidate": "pnpm run lint && pnpm run format:check && node scripts/check-versions.js && pnpm test",
+    "verify:candidate": "pnpm run lint && pnpm run format:check && node scripts/check-versions.js && node scripts/check-claim-policy.js && pnpm test",
     "verify:artifacts": "node scripts/verify-artifacts.mjs",
     "smoke:server": "node scripts/smoke-server.mjs",
     "prepublishOnly": "pnpm run clean && pnpm run build",
