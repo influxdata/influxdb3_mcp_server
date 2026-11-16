@@ -2,11 +2,12 @@
   "mcpServers": {
     "influxdb": {
       "command": "npx",
-      "args": ["-y", "@influxdata/influxdb3-mcp-server"],
+      "args": ["-y", "@influxdata/influxdb3-mcp-server@2.0.1"],
       "env": {
-        "INFLUX_DB_INSTANCE_URL": "http://localhost:8086/",
+        "INFLUX_DB_INSTANCE_URL": "http://localhost:8181/",
         "INFLUX_DB_TOKEN": "<YOUR_INFLUXDB_OPERATOR_TOKEN>",
-        "INFLUX_DB_PRODUCT_TYPE": "core"
+        "INFLUX_DB_PRODUCT_TYPE": "core",
+        "INFLUX_MCP_TOOL_PROFILE": "readonly"
       }
     }
   }

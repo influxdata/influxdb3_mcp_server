@@ -1,0 +1,17 @@
+services:
+  influxdb3-core:
+    image: influxdb:3-core
+    ports:
+      - "8181:8181"
+    command:
+      - influxdb3
+      - serve
+      - --node-id=sensor-demo
+      - --object-store=memory
+      - --admin-token-file=/run/secrets/admin-token
+    secrets:
+      - admin-token
+
+secrets:
+  admin-token:
+    file: admin-token.json
