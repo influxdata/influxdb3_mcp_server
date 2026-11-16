@@ -118,6 +118,9 @@ With the read-only profile, the agent can:
 The user gets a grounded answer and a reusable query while the agent explores
 and queries data without access to mutation or administration tools.
 
+For a reproducible local version of this example, see
+[the sensor-temperature demo](examples/sensor-temperature/README.md).
+
 ### Operator investigates an InfluxQL dashboard query
 
 An operator can troubleshoot an existing InfluxQL dashboard panel and ask:
@@ -350,11 +353,12 @@ see `AGENT_E2E_TESTS.md`.
      "mcpServers": {
        "influxdb": {
          "command": "node",
-         "args": ["/path/to/influx-mcp-standalone/build/index.js"],
+         "args": ["/absolute/path/to/influxdb3_mcp_server/build/index.js"],
          "env": {
            "INFLUX_DB_INSTANCE_URL": "http://localhost:8181/",
            "INFLUX_DB_TOKEN": "<YOUR_INFLUXDB_TOKEN>",
-           "INFLUX_DB_PRODUCT_TYPE": "core"
+           "INFLUX_DB_PRODUCT_TYPE": "core",
+           "INFLUX_MCP_TOOL_PROFILE": "readonly"
          }
        }
      }
@@ -363,17 +367,18 @@ see `AGENT_E2E_TESTS.md`.
 
 #### B. Local (npx, no install/build required)
 
-1. **Run directly with npx** (after publishing to npm, won't work yet):
+1. **Run the published 2.0.1 release with npx:**
    ```json
    {
      "mcpServers": {
        "influxdb": {
          "command": "npx",
-         "args": ["-y", "@influxdata/influxdb3-mcp-server"],
+         "args": ["-y", "@influxdata/influxdb3-mcp-server@2.0.1"],
          "env": {
            "INFLUX_DB_INSTANCE_URL": "http://localhost:8181/",
            "INFLUX_DB_TOKEN": "<YOUR_INFLUXDB_TOKEN>",
-           "INFLUX_DB_PRODUCT_TYPE": "core"
+           "INFLUX_DB_PRODUCT_TYPE": "core",
+           "INFLUX_MCP_TOOL_PROFILE": "readonly"
          }
        }
      }

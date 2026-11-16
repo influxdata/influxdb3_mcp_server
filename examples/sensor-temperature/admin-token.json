@@ -1,0 +1,5 @@
+{
+  "token": "apiv3_sensor_demo",
+  "name": "admin",
+  "description": "Disposable local demo token; never use for a persistent or remote instance"
+}
