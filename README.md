@@ -121,6 +121,9 @@ and queries data without access to mutation or administration tools.
 For a reproducible local version of this example, see
 [the sensor-temperature demo](examples/sensor-temperature/README.md).
 
+For live battery telemetry, a visual MCP App, and an agent that chooses its own
+queries, see [the BESS MCP App example](examples/bess-mcp-app/README.md).
+
 ### Operator investigates an InfluxQL dashboard query
 
 An operator can troubleshoot an existing InfluxQL dashboard panel and ask:

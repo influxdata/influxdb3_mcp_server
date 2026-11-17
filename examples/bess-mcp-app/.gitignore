@@ -1,0 +1,7 @@
+.secrets/
+.runtime/
+connection.json
+node_modules
+dist
+__pycache__/
+simulator/__pycache__/

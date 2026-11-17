@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BESS MCP App</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #f8f9ff;
+        color: #020a47;
+        font:
+          17px/1.45 system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1100px;
+        margin: auto;
+        padding: 38px 28px;
+      }
+      h1 {
+        font-size: 40px;
+        line-height: 1.1;
+        margin: 8px 0 16px;
+        letter-spacing: -1px;
+      }
+      h2 {
+        font-size: 23px;
+        margin: 0 0 12px;
+      }
+      .eyebrow {
+        color: #68359d;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .context,
+      .meta {
+        color: #626b88;
+        font-size: 14px;
+      }
+      .packs {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin: 24px 0;
+      }
+      .pack {
+        border: 1px solid #c9cbdd;
+        border-radius: 10px;
+        padding: 13px 17px;
+        background: white;
+      }
+      .pack strong {
+        display: block;
+        font-size: 30px;
+      }
+      .pack.hot {
+        border-color: #d30971;
+        color: #d30971;
+      }
+      .panel {
+        background: white;
+        border: 1px solid #dfe1ec;
+        border-radius: 12px;
+        padding: 23px;
+        margin: 20px 0;
+      }
+      .snapshot {
+        display: flex;
+        align-items: center;
+        gap: 30px;
+      }
+      .heatmap {
+        display: grid;
+        grid-template-columns: repeat(16, 1fr);
+        grid-template-rows: repeat(12, 1fr);
+        gap: 3px;
+        width: 256px;
+        height: 192px;
+        flex: none;
+      }
+      .cell {
+        border-radius: 2px;
+      }
+      .prompt {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      textarea {
+        font: inherit;
+        width: 100%;
+        min-height: 90px;
+        border: 1px solid #c9cbdd;
+        border-radius: 8px;
+        padding: 12px;
+        resize: vertical;
+        color: #020a47;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+        border: 0;
+        border-radius: 8px;
+        padding: 13px 22px;
+        background: linear-gradient(90deg, #d30971, #9b2aff);
+        color: white;
+        white-space: nowrap;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      button.secondary {
+        padding: 7px 0;
+        background: none;
+        color: #68359d;
+        text-decoration: underline;
+        font-size: 14px;
+      }
+      button:focus-visible,
+      textarea:focus-visible,
+      summary:focus-visible {
+        outline: 3px solid #9394ff;
+        outline-offset: 4px;
+      }
+      .answer {
+        white-space: pre-wrap;
+        overflow: auto;
+        max-height: 360px;
+      }
+      .error {
+        color: #a51659;
+      }
+      .meta:empty,
+      .error:empty {
+        display: none;
+      }
+      pre {
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 12px;
+        max-height: 300px;
+        overflow: auto;
+        padding: 15px;
+        background: #f5f5ff;
+        border-radius: 8px;
+      }
+      summary {
+        cursor: pointer;
+        margin-top: 15px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 700px) {
+        main {
+          padding: 24px 18px;
+        }
+        h1 {
+          font-size: 32px;
+        }
+        .packs {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .snapshot,
+        .prompt {
+          align-items: stretch;
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="eyebrow">InfluxDB 3 MCP server · BESS example</span>
+      <h1>Ask the battery data.</h1>
+      <p id="connection" class="context">Connecting to MCP…</p>
+      <div id="packs" class="packs"></div>
+      <section class="panel">
+        <div class="snapshot">
+          <div id="heatmap" class="heatmap"></div>
+          <div>
+            <h2 id="finding">Reading live telemetry…</h2>
+            <p id="location"></p>
+            <p id="coverage" class="meta"></p>
+            <button class="secondary" id="refresh" disabled>
+              Refresh telemetry
+            </button>
+          </div>
+        </div>
+        <p class="meta">
+          Simulated telemetry · 4 packs × 192 cells · Demo threshold: above 70°C
+        </p>
+        <details>
+          <summary>Dashboard SQL &amp; response metadata</summary>
+          <pre id="snapshot-evidence"></pre>
+        </details>
+        <p id="snapshot-error" class="error" role="alert"></p>
+      </section>
+      <section class="panel">
+        <h2>Ask an agent to investigate</h2>
+        <div class="prompt">
+          <textarea id="prompt" aria-label="Question for the agent"></textarea
+          ><button id="ask" disabled>Connecting…</button>
+        </div>
+        <p class="meta">
+          The agent chooses its tools and SQL. The telemetry panel above is a
+          separate dashboard query.
+        </p>
+        <p id="status" class="meta" role="status"></p>
+        <div id="answer" class="answer" aria-label="Agent answer"></div>
+        <details id="agent-evidence" hidden>
+          <summary>Agent tool calls &amp; SQL</summary>
+          <pre id="trace"></pre>
+        </details>
+        <p id="agent-error" class="error" role="alert"></p>
+      </section>
+      <p class="meta">
+        The optional readonly profile selects the MCP tools. Database
+        credentials enforce access separately.
+      </p>
+    </main>
+    <script type="module">
+      /*APP_SCRIPT*/
+    </script>
+  </body>
+</html>

@@ -5,6 +5,32 @@ import tsparser from "@typescript-eslint/parser";
 export default [
   js.configs.recommended,
   {
+    files: ["examples/bess-mcp-app/*.mjs"],
+    ignores: [
+      "examples/bess-mcp-app/app.mjs",
+      "examples/bess-mcp-app/host.mjs",
+    ],
+    languageOptions: {
+      globals: {
+        process: "readonly",
+        console: "readonly",
+        URL: "readonly",
+        setTimeout: "readonly",
+        clearTimeout: "readonly",
+      },
+    },
+  },
+  {
+    files: ["examples/bess-mcp-app/app.mjs", "examples/bess-mcp-app/host.mjs"],
+    languageOptions: {
+      globals: {
+        document: "readonly",
+        fetch: "readonly",
+        setTimeout: "readonly",
+      },
+    },
+  },
+  {
     files: ["**/*.ts", "**/*.js"],
     languageOptions: {
       parser: tsparser,

@@ -1,0 +1,5 @@
+{
+  "host": "http://127.0.0.1:8482",
+  "database": "bess",
+  "product": "enterprise"
+}

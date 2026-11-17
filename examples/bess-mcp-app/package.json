@@ -1,0 +1,15 @@
+{
+  "name": "influxdb3-bess-mcp-app-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node preview.mjs",
+    "verify": "node verify.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "2.0.4",
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "esbuild": "0.25.12"
+  }
+}
