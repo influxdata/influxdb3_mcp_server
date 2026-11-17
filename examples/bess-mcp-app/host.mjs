@@ -65,3 +65,56 @@ await bridge.connect(
   new PostMessageTransport(frame.contentWindow, frame.contentWindow),
 );
 frame.srcdoc = await (await fetch("/resource")).text();
+
+let refreshTimer;
+for (const action of ["heat", "reset"]) {
+  document.getElementById(action).onclick = async () => {
+    const status = document.getElementById("scenario-status");
+    const buttons = ["heat", "reset"].map((id) => document.getElementById(id));
+    buttons.forEach((button) => {
+      button.disabled = true;
+    });
+    clearTimeout(refreshTimer);
+    try {
+      const response = await fetch("/scenario", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw Error(result.error || "Scenario change failed");
+      status.textContent =
+        action === "heat"
+          ? "Heating pack-0 / mod-3 / cell-5 to 80°C. Refreshing in 12 seconds. Active for 10 minutes."
+          : "Returning to normal temperatures. Refreshing telemetry…";
+      refreshTimer = setTimeout(
+        async () => {
+          try {
+            const snapshot = await bridge.oncalltool({
+              name: "read_bess_snapshot",
+              arguments: {},
+            });
+            await bridge.sendToolResult(snapshot);
+            if (snapshot.isError)
+              throw Error(
+                "Telemetry refresh failed. Check the simulator and refresh manually.",
+              );
+            status.textContent =
+              action === "heat"
+                ? "Hot-cell scenario selected. Check the telemetry, then ask the agent to investigate. Resets automatically after 10 minutes."
+                : "Normal scenario selected. Check the telemetry, then ask the agent again.";
+          } catch (error) {
+            status.textContent = error.message;
+          }
+        },
+        action === "heat" ? 12000 : 1500,
+      );
+    } catch (error) {
+      status.textContent = error.message;
+    } finally {
+      buttons.forEach((button) => {
+        button.disabled = false;
+      });
+    }
+  };
+}

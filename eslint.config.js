@@ -27,6 +27,7 @@ export default [
         document: "readonly",
         fetch: "readonly",
         setTimeout: "readonly",
+        clearTimeout: "readonly",
       },
     },
   },

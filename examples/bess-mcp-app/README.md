@@ -104,7 +104,16 @@ time. If the agent cannot run or finish, the App displays the failure.
 
 ### Trigger a repeatable event
 
-While the simulator runs:
+In the included browser host, click **Trigger hot cell**. The view refreshes
+after the cell heats up. Click **Ask agent** to investigate, then **Reset scenario**
+to return to normal temperatures and compare the agent's answer. The button's
+heating event lasts ten minutes and resets automatically. Keep the simulator running.
+
+These host controls update only the local simulator scenario file. They do not
+write directly to the database or add tools to the agent. Other MCP Apps hosts
+can use the terminal controls instead.
+
+To trigger an event from a terminal while the simulator runs:
 
 ```sh
 python3 simulate.py heat --duration 180

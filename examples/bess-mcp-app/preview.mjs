@@ -1,6 +1,7 @@
 import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { root, port } from "./config.mjs";
@@ -36,6 +37,26 @@ http
             return json(413, { error: "Request too large" });
         }
         const input = JSON.parse(body);
+        if (url.pathname === "/scenario") {
+          if (!["heat", "reset"].includes(input.action))
+            return json(400, { error: "Choose heat or reset." });
+          const scenario = {
+            mode: input.action === "heat" ? "heat" : "normal",
+            started_at: Date.now() / 1000,
+            duration_s: input.action === "heat" ? 600 : 0,
+          };
+          const directory = path.join(root, ".runtime");
+          await fs.mkdir(directory, { recursive: true, mode: 0o700 });
+          const temporary = path.join(
+            directory,
+            `scenario-${randomUUID()}.tmp`,
+          );
+          await fs.writeFile(temporary, JSON.stringify(scenario), {
+            mode: 0o600,
+          });
+          await fs.rename(temporary, path.join(directory, "scenario.json"));
+          return json(200, scenario);
+        }
         if (url.pathname === "/agent")
           return json(202, startAgent(input.prompt));
         if (url.pathname === "/tool") {
