@@ -179,6 +179,14 @@
       <span class="eyebrow">InfluxDB 3 MCP server · BESS example</span>
       <h1>Ask the battery data.</h1>
       <p id="connection" class="context">Connecting to MCP…</p>
+      <section class="panel" aria-label="Simulator controls">
+        <button id="heat" disabled>Trigger hot cell</button>
+        <button id="reset" class="secondary" disabled>Reset scenario</button>
+        <p id="scenario-status" class="meta" role="status">
+          Keep the simulator running. These controls change its scenario, not
+          the agent's database permissions.
+        </p>
+      </section>
       <div id="packs" class="packs"></div>
       <section class="panel">
         <div class="snapshot">
@@ -209,14 +217,10 @@
         </div>
         <p class="meta">
           The agent chooses its tools and SQL. The telemetry panel above is a
-          separate dashboard query.
+          separate dashboard query. The answer and tool calls appear in your
+          agent client’s chat.
         </p>
         <p id="status" class="meta" role="status"></p>
-        <div id="answer" class="answer" aria-label="Agent answer"></div>
-        <details id="agent-evidence" hidden>
-          <summary>Agent tool calls &amp; SQL</summary>
-          <pre id="trace"></pre>
-        </details>
         <p id="agent-error" class="error" role="alert"></p>
       </section>
       <p class="meta">

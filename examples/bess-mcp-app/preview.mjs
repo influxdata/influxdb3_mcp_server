@@ -1,21 +1,32 @@
 import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { root, port } from "./config.mjs";
-import { startAgent, getAgent } from "./agent.mjs";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { createServer } from "./server.mjs";
+import { client as databaseClient } from "./data.mjs";
 
 const client = new Client({ name: "bess-browser-host", version: "1.0.0" });
 await client.connect(
   new StdioClientTransport({
     command: process.execPath,
-    args: [path.join(root, "server.mjs")],
+    args: [path.join(root, "stdio.mjs")],
     stderr: "pipe",
   }),
 );
 const origin = `http://127.0.0.1:${port}`;
+const publicUrl = process.env.BESS_PUBLIC_URL
+  ? new URL(process.env.BESS_PUBLIC_URL)
+  : null;
+if (
+  publicUrl &&
+  (publicUrl.protocol !== "https:" || publicUrl.username || publicUrl.password)
+)
+  throw Error("BESS_PUBLIC_URL must be an HTTPS origin without credentials.");
+const hosts = [new URL(origin).host, ...(publicUrl ? [publicUrl.host] : [])];
+const origins = [origin, ...(publicUrl ? [publicUrl.origin] : [])];
 http
   .createServer(async (req, res) => {
     const json = (status, value) => {
@@ -27,6 +38,29 @@ http
     };
     try {
       const url = new URL(req.url, origin);
+      if (!hosts.includes(req.headers.host))
+        return json(403, { error: "Host rejected" });
+      if (req.headers.origin && !origins.includes(req.headers.origin))
+        return json(403, { error: "Origin rejected" });
+      if (url.pathname === "/mcp") {
+        if (req.method !== "POST")
+          return json(405, { error: "Use POST for stateless MCP." });
+        const server = await createServer();
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: undefined,
+          enableJsonResponse: true,
+        });
+        res.on("close", () => {
+          void transport.close();
+          void server.close();
+        });
+        await server.connect(transport);
+        await transport.handleRequest(req, res);
+        return;
+      }
+      // Preview routes are local-only, even when /mcp is tunneled.
+      if (req.headers.host !== new URL(origin).host)
+        return json(404, { error: "Not found" });
       if (req.method === "POST") {
         if (req.headers.origin !== origin)
           return json(403, { error: "Origin rejected" });
@@ -37,40 +71,21 @@ http
             return json(413, { error: "Request too large" });
         }
         const input = JSON.parse(body);
-        if (url.pathname === "/scenario") {
-          if (!["heat", "reset"].includes(input.action))
-            return json(400, { error: "Choose heat or reset." });
-          const scenario = {
-            mode: input.action === "heat" ? "heat" : "normal",
-            started_at: Date.now() / 1000,
-            duration_s: input.action === "heat" ? 600 : 0,
-          };
-          const directory = path.join(root, ".runtime");
-          await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-          const temporary = path.join(
-            directory,
-            `scenario-${randomUUID()}.tmp`,
-          );
-          await fs.writeFile(temporary, JSON.stringify(scenario), {
-            mode: 0o600,
-          });
-          await fs.rename(temporary, path.join(directory, "scenario.json"));
-          return json(200, scenario);
-        }
-        if (url.pathname === "/agent")
-          return json(202, startAgent(input.prompt));
         if (url.pathname === "/tool") {
-          if (!["open_bess", "read_bess_snapshot"].includes(input.name)) {
+          if (
+            ![
+              "open_bess",
+              "read_bess_snapshot",
+              "heat_bess",
+              "reset_bess",
+            ].includes(input.name)
+          ) {
             return json(400, { error: "Tool not allowed" });
           }
           return json(200, await client.callTool(input));
         }
       }
       if (req.method !== "GET") return json(404, { error: "Not found" });
-      if (url.pathname.startsWith("/agent/")) {
-        const run = getAgent(url.pathname.slice(7));
-        return json(run ? 200 : 404, run || { error: "Run not found" });
-      }
       if (url.pathname === "/resource") {
         const resource = await client.readResource({
           uri: "ui://influxdb3/bess.html",
@@ -99,5 +114,11 @@ http
   .listen(port, "127.0.0.1", () => console.log(`BESS MCP App: ${origin}`));
 
 for (const signal of ["SIGTERM", "SIGINT"]) {
-  process.on(signal, () => void client.close().finally(() => process.exit(0)));
+  process.on(
+    signal,
+    () =>
+      void Promise.all([client.close(), databaseClient.close()]).finally(() =>
+        process.exit(0),
+      ),
+  );
 }

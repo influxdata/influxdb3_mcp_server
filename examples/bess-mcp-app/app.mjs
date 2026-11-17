@@ -9,8 +9,9 @@ function renderSnapshot(data) {
   $("connection").textContent = `${connection.database} · ${connection.host}`;
   if (!initialized) {
     initialized = true;
-    $("prompt").value =
-      `In ${connection.database}, which battery pack needs attention? Inspect the schema and fresh cell readings. Show the SQL and result completeness. Keep the answer under 120 words.`;
+    if (!$("prompt").value.trim())
+      $("prompt").value =
+        `In ${connection.database}, which battery pack needs attention using the demo threshold above 70°C? Inspect the schema and fresh cell readings. Show the SQL and result completeness. Keep the answer under 120 words.`;
   }
   const rows = result.rows || [];
   const packs = new Map();
@@ -79,24 +80,6 @@ app.ontoolresult = (raw) => {
   }
   const data = raw.structuredContent;
   if (data?.kind === "snapshot") renderSnapshot(data);
-  if (data?.kind === "agent") {
-    $("ask").disabled = data.status === "running";
-    $("status").textContent =
-      data.status === "running"
-        ? `Agent investigating… ${(data.events || []).map((e) => e.tool).join(" → ")}`
-        : data.status === "completed"
-          ? "Agent finished."
-          : "Agent could not finish.";
-    $("answer").textContent = data.answer || "";
-    $("agent-evidence").hidden = !data.events?.length;
-    $("trace").textContent = (data.events || [])
-      .map(
-        (e) =>
-          `${e.tool} · ${e.status}\n${JSON.stringify(e.arguments, null, 2)}`,
-      )
-      .join("\n\n");
-    $("agent-error").textContent = data.error || "";
-  }
 };
 await app.connect();
 $("refresh").disabled = false;
@@ -117,7 +100,7 @@ $("ask").textContent = "Ask agent";
 $("ask").disabled = !messaging;
 if (!messaging)
   $("status").textContent =
-    "This host does not support sending prompts. Use a compatible host or the example browser host.";
+    "This browser preview has no agent. Open BESS in your MCP Apps client to send the prompt, or copy it into your connected client’s chat.";
 $("ask").onclick = async () => {
   const prompt = $("prompt").value.trim();
   if (!prompt) return;
@@ -130,8 +113,59 @@ $("ask").onclick = async () => {
       content: [{ type: "text", text: prompt }],
     });
     if (result.isError) throw Error("The host rejected the prompt.");
+    $("status").textContent =
+      "Prompt sent. Continue in your agent client’s chat.";
+    $("ask").disabled = false;
   } catch (error) {
     $("agent-error").textContent = error.message;
     $("ask").disabled = false;
   }
 };
+
+let refreshTimer;
+for (const action of ["heat", "reset"]) {
+  $(action).disabled = false;
+  $(action).onclick = async () => {
+    for (const id of ["heat", "reset"]) $(id).disabled = true;
+    clearTimeout(refreshTimer);
+    try {
+      const result = await app.callServerTool({
+        name: action === "heat" ? "heat_bess" : "reset_bess",
+        arguments: {},
+      });
+      if (result.isError)
+        throw Error(
+          result.content?.find((c) => c.type === "text")?.text ||
+            "Scenario change failed",
+        );
+      $("scenario-status").textContent =
+        action === "heat"
+          ? "Heating pack-0 / mod-3 / cell-5 to 80°C. Refreshing in 12 seconds. Active for 10 minutes."
+          : "Returning to normal temperatures. Refreshing telemetry…";
+      refreshTimer = setTimeout(
+        async () => {
+          try {
+            const snapshot = await app.callServerTool({
+              name: "read_bess_snapshot",
+              arguments: {},
+            });
+            app.ontoolresult(snapshot);
+            if (snapshot.isError)
+              throw Error("Check the simulator and refresh telemetry.");
+            $("scenario-status").textContent =
+              action === "heat"
+                ? "Hot-cell scenario selected. Check the telemetry, then ask your agent to investigate. Resets automatically after 10 minutes."
+                : "Normal scenario selected. Check the telemetry, then ask your agent again.";
+          } catch (error) {
+            $("scenario-status").textContent = error.message;
+          }
+        },
+        action === "heat" ? 12000 : 1500,
+      );
+    } catch (error) {
+      $("scenario-status").textContent = error.message;
+    } finally {
+      for (const id of ["heat", "reset"]) $(id).disabled = false;
+    }
+  };
+}
