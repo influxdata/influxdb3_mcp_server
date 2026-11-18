@@ -88,7 +88,12 @@ For each run, record:
 - Client version, MCP commit and build identity, and prompt/criteria version
 - Server mode and product
 - Database version, fixture identity and time range, and authentication mode
-- Model and reasoning effort, if the harness exposes them
+- Model and reasoning effort, if the harness exposes them. In a run's JSON
+  record, name these `model` and `effort`, and set `effort` to `null` when the
+  harness doesn't expose it. If a model judge grades the run, also record
+  `judge` and `judge_effort`. These match the release manifest fields added in
+  influxdata/influxdb3-skills#50, so one script can read results from both
+  repositories.
 - Repeat index and planned repeat count
 - Prompt
 - Tool calls used
