@@ -209,6 +209,38 @@ describe("MCP protocol compliance", () => {
         await readonlyClient.close();
       }
     });
+
+    it("advertises read-only tools plus write_line_protocol in readwrite profile", async () => {
+      const readwriteClient = await createTestClient({
+        INFLUX_MCP_TOOL_PROFILE: "readwrite",
+      });
+      try {
+        const result = await readwriteClient.client.listTools();
+        const names = result.tools.map((t) => t.name);
+
+        expect(names).toEqual(
+          expect.arrayContaining([
+            "load_database_context",
+            "get_help",
+            "health_check",
+            "list_databases",
+            "query_sql",
+            "query_influxql",
+            "list_tables",
+            "describe_table",
+            "investigate_database",
+            "write_line_protocol",
+          ]),
+        );
+        expect(names).not.toContain("create_database");
+        expect(names).not.toContain("delete_database");
+        expect(names).not.toContain("create_admin_token");
+        expect(names).not.toContain("delete_token");
+        expect(names).toHaveLength(10);
+      } finally {
+        await readwriteClient.close();
+      }
+    });
   });
 
   describe("resources/list", () => {

@@ -6,6 +6,7 @@
 
 import { z } from "zod";
 import { InfluxDBMasterService } from "../services/influxdb-master.service.js";
+import { ToolProfile } from "../config.js";
 import { createHelpTools } from "./categories/help.tools.js";
 import { createWriteTools } from "./categories/write.tools.js";
 import { createDatabaseTools } from "./categories/database.tools.js";
@@ -37,6 +38,14 @@ const READONLY_TOOLS = new Set([
   "investigate_database",
 ]);
 
+const READWRITE_TOOLS = new Set([...READONLY_TOOLS, "write_line_protocol"]);
+
+const PROFILE_ALLOWLISTS: Record<ToolProfile, Set<string> | undefined> = {
+  readonly: READONLY_TOOLS,
+  readwrite: READWRITE_TOOLS,
+  operator: undefined,
+};
+
 /**
  * Creates all MCP tools by aggregating them from organized categories
  */
@@ -52,14 +61,11 @@ export function createTools(influxService: InfluxDBMasterService): McpTool[] {
     ...createHealthTools(influxService),
   ];
 
-  const profile =
-    influxService.getConfig().tools?.profile ||
-    process.env.INFLUX_MCP_TOOL_PROFILE ||
-    "operator";
-
-  if (profile === "readonly") {
-    return tools.filter((tool) => READONLY_TOOLS.has(tool.name));
+  const profile = influxService.getConfig().tools?.profile ?? "operator";
+  const allowlist = PROFILE_ALLOWLISTS[profile];
+  if (allowlist === undefined && profile !== "operator") {
+    throw new Error(`Unknown MCP tool profile: ${profile}`);
   }
 
-  return tools;
+  return allowlist ? tools.filter((tool) => allowlist.has(tool.name)) : tools;
 }

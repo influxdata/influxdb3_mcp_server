@@ -305,8 +305,16 @@ See corresponding `env.<instancetype>.example` for examples and detailed info.
 
 #### Optional MCP tool profile and telemetry
 
-Use `INFLUX_MCP_TOOL_PROFILE=readonly` to expose only read-only tools. If
-unset, the server uses the full operator tool profile.
+`INFLUX_MCP_TOOL_PROFILE` selects which tools the server advertises:
+
+| Profile     | Tools                                                                                 |
+| ----------- | ------------------------------------------------------------------------------------- |
+| `readonly`  | Tools that explore and query data.                                                    |
+| `readwrite` | The `readonly` tools plus `write_line_protocol`. No database or token administration. |
+| `operator`  | Every tool, including database and token administration. The default when unset.      |
+
+The server refuses to start if the value is anything else, so a misspelled
+profile can't silently expose the full operator tool set.
 
 ```env
 INFLUX_MCP_TOOL_PROFILE=readonly
