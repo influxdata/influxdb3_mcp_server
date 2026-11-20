@@ -246,7 +246,8 @@ Connection Issues:
 
 Health Check Notes:
 - Different InfluxDB product types support different endpoints
-- Cloud Dedicated does not have /health endpoint available
+- Cloud Dedicated and InfluxDB 3 Cloud do not have a /health endpoint. A 404 from /health is reported as endpoint_absent, and /ping decides health.
+- /ping reports cluster_uuid when the server sends it, including on a 403, so a run can show which cluster it reached.
 - Different tokens may have not access to certain endpoints
 - If /health or /ping passes, the instance is considered operational. SDK initialization is configured evidence only. A credential denied both checks leaves health unknown.
 

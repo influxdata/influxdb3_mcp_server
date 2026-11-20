@@ -243,6 +243,7 @@ export class BaseConnectionService {
     outcome?: "ok" | "unreachable" | "credential_cannot_check";
     version?: string;
     build?: string;
+    cluster_uuid?: string;
     message?: string;
   }> {
     const url = this.getDataHost();
@@ -255,6 +256,8 @@ export class BaseConnectionService {
           Authorization: this.createAuthHeader(),
         },
       });
+      const clusterUuid = response.headers.get("cluster-uuid") || undefined;
+      const clusterIdentity = clusterUuid ? { cluster_uuid: clusterUuid } : {};
       if (response.ok) {
         const version = response.headers.get("x-influxdb-version") || undefined;
         let build = response.headers.get("x-influxdb-build") || undefined;
@@ -263,10 +266,11 @@ export class BaseConnectionService {
             build = "Other";
           }
         }
-        return { ok: true, version, build };
+        return { ok: true, version, build, ...clusterIdentity };
       } else {
         return {
           ok: false,
+          ...clusterIdentity,
           outcome:
             response.status === 401 || response.status === 403
               ? "credential_cannot_check"
@@ -288,7 +292,11 @@ export class BaseConnectionService {
   async getHealthStatus(): Promise<{
     status: string;
     checks?: any[];
-    outcome?: "ok" | "unreachable" | "credential_cannot_check";
+    outcome?:
+      | "ok"
+      | "unreachable"
+      | "credential_cannot_check"
+      | "endpoint_absent";
   }> {
     const url = this.getDataHost();
     if (!url || !this.client) {
@@ -318,6 +326,8 @@ export class BaseConnectionService {
         } catch {
           return { status: "pass" };
         }
+      } else if (response.status === 404) {
+        return { status: "unknown", outcome: "endpoint_absent" };
       } else {
         return {
           status:
