@@ -24,9 +24,9 @@
  * and a Core instance (3.11.0-nightly) — identical response on both. See
  * `CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA` below.
  *
- * Whether a stopped node makes `write_lp` return 503 (instead of the current
- * 400) remains unverified — needs a live instance with a node stopped
- * mid-write. See `CORE_503_NODE_STOPPED` below.
+ * A stopped Core or Enterprise 3.12.2 node returns no 503: the connection is
+ * reset, then refused (claims 20261120-0025, 0026). See
+ * `SYNTHETIC_503_WITHOUT_BODY` below.
  */
 
 import type { AxiosErrorShape, SdkErrorShape } from "./error-responses.js";
@@ -128,29 +128,19 @@ export const CORE_422_UNPROCESSABLE: AxiosErrorShape = {
   message: "Request failed with status code 422",
 };
 
-// ── 503 — the status neither handler has an arm for ─────────────────────────
+// ── 503 ─────────────────────────────────────────────────────────────────────
 
 /**
- * PROVISIONAL — a stopped node.
- *
- * InfluxDB 3.11's release notes (Core/Enterprise-scoped) document a 400→503
- * change for the legacy `/api/v2/write` endpoint that Core/Enterprise also
- * expose for backward compatibility — not the `/api/v3/write_lp` endpoint
- * this server actually calls for those product types. Whether
- * `/api/v3/write_lp` behaves the same on a stopped node is unverified,
- * answerable only on a live instance with a node stopped mid-write. The
- * fixture exists so the handler's 503 arm is testable either way — the arm is
- * also needed for the separate `Clustered` product (InfluxDB Clustered, the
- * self-hosted sibling to Cloud Dedicated — not a multi-node Enterprise
- * deployment), which does call `/api/v2/write` (see `write-routing.test.ts`).
- * That's unrelated to these Core/Enterprise release notes: `Clustered` is a
- * different product on its own release train.
+ * SYNTHETIC. No Core or Enterprise 3.12.2 response is recorded with this
+ * status: a stopped node resets the connection instead (claims
+ * 20261120-0025, 0026). The 503 arm follows HTTP semantics, for gateways and
+ * for `Clustered`, which calls `/api/v2/write` (see `write-routing.test.ts`).
  */
-export const CORE_503_NODE_STOPPED: AxiosErrorShape = {
+export const SYNTHETIC_503_WITHOUT_BODY: AxiosErrorShape = {
   response: {
     status: 503,
     statusText: "Service Unavailable",
-    data: { error: "node is stopped and not accepting writes" },
+    data: "",
   },
   message: "Request failed with status code 503",
 };

@@ -18,7 +18,7 @@ import {
   CORE_422_UNPROCESSABLE,
   CORE_500_OBJECT_BODY,
   CORE_500_STRING_BODY,
-  CORE_503_NODE_STOPPED,
+  SYNTHETIC_503_WITHOUT_BODY,
   DUPLICATE_TAG_LINE,
   DUPLICATED_TAG_KEY,
 } from "./fixtures/write-errors.js";
@@ -100,11 +100,10 @@ describe("handleWriteError preserves the InfluxDB error body", () => {
 
 describe("handleWriteError adds a 503 arm and serializes bodies", () => {
   it("503: is phrased as retryable and distinguishable from a bad request", async () => {
-    const message = await coreWriteError(CORE_503_NODE_STOPPED);
+    const message = await coreWriteError(SYNTHETIC_503_WITHOUT_BODY);
 
     expect(message).toMatch(/retry|temporar|again/i);
     expect(message).not.toMatch(/^Bad request: /);
-    expect(message).toContain("node is stopped");
   });
 
   it("fallback serializes a parsed JSON body instead of interpolating it", async () => {
