@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/influxdata/influxdb3_mcp_server/schemas/read-only-response.schema.json",
   "title": "Read-only tool response",
-  "description": "The JSON envelope the read-only tools return in their text content. query_sql and query_influxql return querySuccess; the other tools return toolSuccess; every tool returns toolError on failure. Changes are additive: new fields may be added, and existing required fields stay required.",
+  "description": "The JSON envelope the read-only tools return in their text content. query_sql and query_influxql return querySuccess; the other tools return toolSuccess; every tool returns toolError on failure, and write_line_protocol returns toolError in structuredContent for a failed write, while its text content stays a plain error message. Changes are additive: new fields may be added, and existing required fields stay required.",
   "oneOf": [
     {
       "$ref": "#/definitions/querySuccess"
@@ -259,6 +259,9 @@
               "const": "interrupted"
             }
           }
+        },
+        "write": {
+          "$ref": "#/definitions/writeOutcome"
         }
       },
       "if": {
@@ -601,6 +604,60 @@
       ],
       "not": {
         "required": ["q"]
+      }
+    },
+    "writeOutcome": {
+      "type": "object",
+      "description": "Present on a failed write that rejected specific lines. stored is inferred from the response: with accept_partial=false nothing is stored; with accept_partial=true every unlisted line is. It's unknown when the request didn't set accept_partial.",
+      "required": [
+        "stored",
+        "stored_source",
+        "lines_submitted",
+        "lines_rejected",
+        "rejected_lines",
+        "rejected_lines_truncated"
+      ],
+      "properties": {
+        "accept_partial": {
+          "type": "boolean"
+        },
+        "stored": {
+          "enum": ["some", "none", "unknown"]
+        },
+        "stored_source": {
+          "const": "inferred"
+        },
+        "lines_submitted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lines_rejected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rejected_lines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["error_message"],
+            "properties": {
+              "line_number": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "error_message": {
+                "type": "string"
+              },
+              "original_line": {
+                "type": "string",
+                "description": "The start of the rejected line, as the server echoed it."
+              }
+            }
+          }
+        },
+        "rejected_lines_truncated": {
+          "type": "boolean"
+        }
       }
     }
   }

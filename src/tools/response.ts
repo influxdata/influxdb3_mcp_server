@@ -20,7 +20,16 @@ export function okResponse(value: unknown) {
   };
 }
 
-export function errorResponse(error: unknown, code = "tool_error") {
+interface ToolErrorEnvelope {
+  ok: false;
+  error: { message: string; fix?: string } & Record<string, unknown>;
+  [field: string]: unknown;
+}
+
+export function errorEnvelope(
+  error: unknown,
+  code = "tool_error",
+): ToolErrorEnvelope {
   const message = error instanceof Error ? error.message : String(error);
   const details = (error && typeof error === "object" ? error : {}) as {
     code?: string;
@@ -28,34 +37,46 @@ export function errorResponse(error: unknown, code = "tool_error") {
     supported_formats?: string[];
     rows?: unknown[];
     metadata?: Record<string, unknown>;
+    write?: Record<string, unknown>;
   };
   return {
-    content: [
-      {
-        type: "text",
-        text: jsonText({
-          ...(redactErrorDetails({
-            ok: false,
-            error: {
-              ...operationErrorDetails(
-                error instanceof OperationError
-                  ? error
-                  : new OperationError(message, details.code || code),
-                code,
-              ),
-              ...(details.fix && { fix: redactCredentials(details.fix) }),
-              ...(details.supported_formats && {
-                supported_formats: details.supported_formats,
-              }),
-            },
-            ...(details.metadata && { metadata: details.metadata }),
-          }) as object),
-          // Rows received before an interruption are query data, not error
-          // text, so they are returned as the server sent them.
-          ...(details.rows && { rows: details.rows }),
+    ...(redactErrorDetails({
+      ok: false,
+      error: {
+        ...operationErrorDetails(
+          error instanceof OperationError
+            ? error
+            : new OperationError(message, details.code || code),
+          code,
+        ),
+        ...(details.fix && { fix: redactCredentials(details.fix) }),
+        ...(details.supported_formats && {
+          supported_formats: details.supported_formats,
         }),
       },
-    ],
+      ...(details.metadata && { metadata: details.metadata }),
+      ...(details.write && { write: details.write }),
+    }) as ToolErrorEnvelope),
+    // Rows received before an interruption are query data, not error
+    // text, so they are returned as the server sent them.
+    ...(details.rows && { rows: details.rows }),
+  };
+}
+
+export function errorResponse(error: unknown, code = "tool_error") {
+  return {
+    content: [{ type: "text", text: jsonText(errorEnvelope(error, code)) }],
+    isError: true,
+  };
+}
+
+export function textErrorWithStructuredEnvelope(error: unknown, code: string) {
+  const envelope = errorEnvelope(error, code);
+  const lines = [`Error: ${envelope.error.message}`];
+  if (envelope.error.fix) lines.push(envelope.error.fix);
+  return {
+    content: [{ type: "text", text: lines.join("\n") }],
+    structuredContent: envelope,
     isError: true,
   };
 }

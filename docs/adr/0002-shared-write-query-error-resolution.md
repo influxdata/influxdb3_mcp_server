@@ -1,6 +1,8 @@
 # ADR 0002: Shared error resolution for the write and query paths
 
 - Status: Accepted (implemented for the write path in the 1.4.1 patch)
+- Update (unreleased, after 2.0.1): the write path now builds the same
+  `OperationError` envelope as the query path, through `resolveWriteError`.
 - Date: 2026-09-01
 
 ## Context
