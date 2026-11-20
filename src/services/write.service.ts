@@ -7,10 +7,7 @@
 
 import { BaseConnectionService } from "./base-connection.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
-import {
-  normalizeError,
-  resolveErrorMessage,
-} from "./error-resolution.service.js";
+import { resolveWriteError } from "./error-resolution.service.js";
 
 export type Precision = "nanosecond" | "microsecond" | "millisecond" | "second";
 
@@ -103,7 +100,10 @@ export class WriteService {
         },
       );
     } catch (error: any) {
-      this.handleWriteError(error, database);
+      this.handleWriteError(error, database, {
+        lineProtocol: lineProtocolData,
+        acceptPartial,
+      });
     }
   }
 
@@ -128,7 +128,9 @@ export class WriteService {
       }
       await client.write(lineProtocolData, database, undefined, writeOptions);
     } catch (error: any) {
-      this.handleWriteError(error, database);
+      this.handleWriteError(error, database, {
+        lineProtocol: lineProtocolData,
+      });
     }
   }
 
@@ -162,7 +164,9 @@ export class WriteService {
         },
       );
     } catch (error: any) {
-      this.handleWriteError(error, database);
+      this.handleWriteError(error, database, {
+        lineProtocol: lineProtocolData,
+      });
     }
   }
 
@@ -187,33 +191,20 @@ export class WriteService {
       }
       await client.write(lineProtocolData, database, undefined, writeOptions);
     } catch (error: any) {
-      this.handleWriteError(error, database);
+      this.handleWriteError(error, database, {
+        lineProtocol: lineProtocolData,
+      });
     }
   }
 
   /**
    * Centralized error handler for write methods
    */
-  private handleWriteError(error: any, database: string): never {
-    const { status, body } = normalizeError(error);
-    const message = resolveErrorMessage(body, error.message);
-    const prefixes: Record<number, string> = {
-      400: "Bad request",
-      401: "Unauthorized",
-      403: "Access denied",
-      413: "Request entity too large",
-      422: "Unprocessable entity",
-    };
-    if (status !== undefined && status in prefixes) {
-      throw new Error(`${prefixes[status]}: ${message}`);
-    }
-    if (status === 503) {
-      throw new Error(
-        `Service temporarily unavailable, retry the write: ${message}`,
-      );
-    }
-    throw new Error(
-      `Failed to write data to database '${database}': ${message}`,
-    );
+  private handleWriteError(
+    error: any,
+    database: string,
+    request: { lineProtocol: string; acceptPartial?: boolean },
+  ): never {
+    throw resolveWriteError(error, database, request);
   }
 }

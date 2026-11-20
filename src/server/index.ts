@@ -45,10 +45,11 @@ function logMcpToolResult(
   startedAt: number,
   result: {
     content: Array<{ type: string; text: string }>;
+    structuredContent?: Record<string, unknown>;
     isError?: boolean;
   },
 ): void {
-  const payload = parseToolPayload(result);
+  const payload = result.structuredContent ?? parseToolPayload(result);
   const metadata = payload?.metadata || {};
   const success = !result.isError && payload?.ok !== false;
 

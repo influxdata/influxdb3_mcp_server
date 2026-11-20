@@ -37,14 +37,20 @@ export function resolveErrorMessage(body: unknown, fallback: string): string {
   if (body && typeof body === "object") {
     const data = body as Record<string, unknown>;
 
-    const partialData =
-      data.data && typeof data.data === "object"
-        ? ((Array.isArray(data.data) ? data.data[0] : data.data) as
-            | Record<string, unknown>
-            | undefined)
-        : undefined;
-    if (typeof partialData?.error_message === "string") {
-      return partialData.error_message;
+    const rejected = everyRejectedLine(body);
+    if (rejected.length === 1) return rejected[0].error_message;
+    if (rejected.length > 0) {
+      const shown = rejected
+        .slice(0, MESSAGE_LINE_LIMIT)
+        .map((line) =>
+          line.line_number === undefined
+            ? line.error_message
+            : `line ${line.line_number}: ${line.error_message}`,
+        );
+      const hidden = rejected.length - shown.length;
+      return hidden > 0
+        ? `${shown.join("; ")}; and ${hidden} more rejected lines`
+        : shown.join("; ");
     }
 
     if (typeof data.message === "string") return data.message;
@@ -55,6 +61,38 @@ export function resolveErrorMessage(body: unknown, fallback: string): string {
   // A 403 from Core or Enterprise 3.12.1 has an empty body.
   if (typeof body === "string") return body || fallback;
   return fallback;
+}
+
+const MESSAGE_LINE_LIMIT = 5;
+const REJECTED_LINES_LIMIT = 100;
+
+export interface RejectedLine {
+  line_number?: number;
+  error_message: string;
+  original_line?: string;
+}
+
+export function everyRejectedLine(body: unknown): RejectedLine[] {
+  if (!body || typeof body !== "object") return [];
+  const data = (body as Record<string, unknown>).data;
+  if (!data || typeof data !== "object") return [];
+  const entries = Array.isArray(data) ? data : [data];
+  return entries.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const line = entry as Record<string, unknown>;
+    if (typeof line.error_message !== "string") return [];
+    return [
+      {
+        error_message: line.error_message,
+        ...(typeof line.line_number === "number" && {
+          line_number: line.line_number,
+        }),
+        ...(typeof line.original_line === "string" && {
+          original_line: line.original_line,
+        }),
+      },
+    ];
+  });
 }
 
 export type Recovery =
@@ -249,4 +287,177 @@ export function operationErrorDetails(error: unknown, fallback: string) {
       retry_after_ms: resolved.retry_after_ms,
     }),
   };
+}
+
+export interface WriteOutcome {
+  accept_partial?: boolean;
+  stored: "some" | "none" | "unknown";
+  stored_source: "inferred";
+  lines_submitted: number;
+  lines_rejected: number;
+  rejected_lines: RejectedLine[];
+  rejected_lines_truncated: boolean;
+}
+
+export class WriteOperationError extends OperationError {
+  constructor(
+    message: string,
+    code: string,
+    recovery: Recovery,
+    status: number | undefined,
+    retryAfterMs: number | undefined,
+    readonly fix?: string,
+    readonly write?: WriteOutcome,
+  ) {
+    super(message, code, recovery, status, retryAfterMs);
+  }
+}
+
+function retryAfterMs(error: any): number | undefined {
+  const value = error?.response?.headers?.["retry-after"];
+  if (typeof value !== "string" && typeof value !== "number") return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
+  const date = typeof value === "string" ? Date.parse(value) : NaN;
+  return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined;
+}
+
+function countLineProtocolRecords(lineProtocol: string): number {
+  return lineProtocol
+    .split("\n")
+    .filter((line) => line.trim() !== "" && !line.trim().startsWith("#"))
+    .length;
+}
+
+function inferStoredLines(
+  acceptPartial: boolean | undefined,
+  rejectedCount: number,
+  submitted: number,
+): WriteOutcome["stored"] {
+  if (rejectedCount === 0 || acceptPartial === undefined) return "unknown";
+  const serverDiscardsWholeRequest = !acceptPartial;
+  const everyLineRejected = rejectedCount >= submitted;
+  return serverDiscardsWholeRequest || everyLineRejected ? "none" : "some";
+}
+
+const WRITE_STATUSES_CLASSIFIED_WITHOUT_OBSERVED_BODY = [429, 503];
+
+const WRITE_PREFIXES: Record<number, string> = {
+  400: "Bad request",
+  401: "Unauthorized",
+  403: "Access denied",
+  404: "Not found",
+  413: "Request entity too large",
+  422: "Unprocessable entity",
+  429: "Too many requests, retry the write",
+  503: "Service temporarily unavailable, retry the write",
+};
+
+export function resolveWriteError(
+  error: any,
+  database: string,
+  request: { lineProtocol: string; acceptPartial?: boolean },
+): WriteOperationError {
+  const { status, body } = normalizeError(error);
+  const detail = resolveErrorMessage(
+    body,
+    error instanceof Error ? error.message : String(error),
+  );
+  const message =
+    status !== undefined && status in WRITE_PREFIXES
+      ? `${WRITE_PREFIXES[status]}: ${detail}`
+      : `Failed to write data to database '${database}': ${detail}`;
+  const retryAfter = retryAfterMs(error);
+
+  const rejected = everyRejectedLine(body);
+  const submitted = countLineProtocolRecords(request.lineProtocol);
+  const rejectedCount = new Set(
+    rejected.map((line, index) => line.line_number ?? `#${index}`),
+  ).size;
+  const stored = inferStoredLines(
+    request.acceptPartial,
+    rejectedCount,
+    submitted,
+  );
+  const write: WriteOutcome | undefined =
+    rejected.length === 0
+      ? undefined
+      : {
+          ...(request.acceptPartial !== undefined && {
+            accept_partial: request.acceptPartial,
+          }),
+          stored,
+          stored_source: "inferred",
+          lines_submitted: submitted,
+          lines_rejected: rejectedCount,
+          rejected_lines: rejected.slice(0, REJECTED_LINES_LIMIT),
+          rejected_lines_truncated: rejected.length > REJECTED_LINES_LIMIT,
+        };
+  const fail = (code: string, recovery: Recovery, fix?: string) =>
+    new WriteOperationError(
+      message,
+      code,
+      recovery,
+      status,
+      retryAfter,
+      fix,
+      write,
+    );
+  const resend =
+    stored === "some"
+      ? "Lines that aren't listed in write.rejected_lines were written; resend only the rejected lines."
+      : stored === "none"
+        ? "Nothing from this request was written; resend the whole batch."
+        : "Check which lines were stored before resending.";
+
+  if (status === 401) return fail("credential_invalid", "renew_credential");
+  if (status === 403) {
+    return fail(
+      "not_found_or_denied",
+      "none",
+      "The token can't write to this database, or the database isn't visible to it. Don't retry with the same token.",
+    );
+  }
+  if (status === 404) return fail("not_found", "none");
+  if (
+    status !== undefined &&
+    WRITE_STATUSES_CLASSIFIED_WITHOUT_OBSERVED_BODY.includes(status)
+  ) {
+    return fail(
+      "write_unavailable",
+      "retry",
+      "The server is temporarily refusing writes. Wait (retry_after_ms when present), then resend the same request a small number of times before reporting the failure.",
+    );
+  }
+  if (status === 413) {
+    return fail(
+      "write_too_large",
+      "narrow",
+      "Split the data into smaller batches and write them separately.",
+    );
+  }
+  if (status === 500 && /must enable ingest mode/u.test(detail)) {
+    return fail(
+      "write_node_not_ingest",
+      "change_endpoint",
+      "INFLUX_DB_INSTANCE_URL points at a node that doesn't run ingest mode. Point it at an ingest node.",
+    );
+  }
+  if (
+    rejected.some((line) => /uses explicit schemas/u.test(line.error_message))
+  ) {
+    return fail(
+      "write_schema_not_declared",
+      "fix_reference",
+      `The database uses explicit schemas. Check the table and column names with describe_table. If they're right, an operator must declare them (POST /api/v3/configure/table); this server has no tool for that. ${resend}`,
+    );
+  }
+  if (rejected.length > 0) {
+    return fail(
+      "write_lines_rejected",
+      "none",
+      `Fix the rejected lines using each error_message. ${resend}`,
+    );
+  }
+  return fail("write_failed", "none");
 }

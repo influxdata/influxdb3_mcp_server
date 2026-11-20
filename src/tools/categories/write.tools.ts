@@ -5,6 +5,7 @@
 import { z } from "zod";
 import { InfluxDBMasterService } from "../../services/influxdb-master.service.js";
 import { McpTool } from "../index.js";
+import { textErrorWithStructuredEnvelope } from "../response.js";
 
 export function createWriteTools(
   influxService: InfluxDBMasterService,
@@ -35,7 +36,9 @@ Batch (separate with newlines):
 temperature,location=office value=23.5 1640995200
 humidity,location=office value=45i 1640995201
 
-Important: Always specify correct precision parameter to match your timestamp format. Use any precision if writing data with no timestamp. Escaping required for special characters in tags/fields.`,
+Important: Always specify correct precision parameter to match your timestamp format. Use any precision if writing data with no timestamp. Escaping required for special characters in tags/fields.
+
+Errors: a failed write returns "Error: <message>", then a line saying what to do next; follow it. When lines were rejected, the message lists each one by line number. Retry only when told to, a few times at most. For an undeclared table or column, don't rename fields to get past the check; report which one must be declared.`,
       inputSchema: {
         type: "object",
         properties: {
@@ -98,16 +101,8 @@ Important: Always specify correct precision parameter to match your timestamp fo
               },
             ],
           };
-        } catch (error: any) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Error: ${error.message}`,
-              },
-            ],
-            isError: true,
-          };
+        } catch (error: unknown) {
+          return textErrorWithStructuredEnvelope(error, "write_failed");
         }
       },
     },

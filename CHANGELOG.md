@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `write_line_protocol` failures now include `structuredContent`: the same
+  error envelope the query tools return (`ok: false`, `error.code`,
+  `error.recovery`, `error.retryable`, `error.fix`, `error.status`, and
+  `error.retry_after_ms` when the server sends `Retry-After`). The text
+  content keeps its `Error: <message>` format.
+- When a write rejects specific lines, the envelope adds a `write` object:
+  `rejected_lines` (every line number and error, up to 100), and `stored`,
+  which says whether the other lines were written (`some`), nothing was
+  (`none`), or it can't be told (`unknown`).
+- Write error codes: `write_lines_rejected`, `write_schema_not_declared`
+  (Enterprise explicit schema mode), `write_node_not_ingest` (a node without
+  ingest mode), `write_unavailable` (429 or 503, retryable), `write_too_large`
+  (413), and `write_failed`. A 401 is `credential_invalid` and a 403 is
+  `not_found_or_denied`, as on the query path. The 429 and 503 classification
+  uses the status alone; no body for either has been observed.
+
 ### Changed
 
 - `INFLUX_MCP_TOOL_PROFILE=readwrite` now advertises the `readonly` tools plus
@@ -16,6 +34,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `readonly`, `readwrite`, or `operator`. Previously any other value fell back
   to the full operator tool set. The bundled Codex development profile used
   `default` and now sets `operator`.
+
+### Fixed
+
+- A write that rejected several lines reported only the first. The error
+  message now lists up to five, and the envelope lists up to 100.
+- `write_line_protocol` error text adds a second line saying what to do
+  next, such as resending only the rejected lines or pointing at an ingest
+  node.
 
 ## [2.0.1]
 

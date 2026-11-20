@@ -22,6 +22,7 @@ export interface McpTool {
   zodSchema: z.ZodSchema;
   handler: (args: any) => Promise<{
     content: Array<{ type: string; text: string }>;
+    structuredContent?: Record<string, unknown>;
     isError?: boolean;
   }>;
 }
