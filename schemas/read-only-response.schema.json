@@ -585,7 +585,12 @@
                 "required": ["outcome"],
                 "properties": {
                   "outcome": {
-                    "enum": ["ok", "unreachable", "credential_cannot_check"]
+                    "enum": [
+                      "ok",
+                      "unreachable",
+                      "credential_cannot_check",
+                      "endpoint_absent"
+                    ]
                   }
                 }
               },
@@ -595,6 +600,9 @@
                 "properties": {
                   "outcome": {
                     "enum": ["ok", "unreachable", "credential_cannot_check"]
+                  },
+                  "cluster_uuid": {
+                    "type": "string"
                   }
                 }
               }

@@ -71,6 +71,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   next, such as resending only the rejected lines or pointing at an ingest
   node.
 
+### Fixed
+
+- `health_check` reports a 404 from `/health` as `endpoint_absent` instead of
+  `unreachable`. InfluxDB 3 Cloud has no `/health` endpoint, so a server that
+  answered was reported as unreachable. `/ping` still decides health.
+
+### Added
+
+- `health_check` and the status resource report `ping.cluster_uuid` when the
+  server sends a `cluster-uuid` header, including on a 403 from a
+  database-scoped token. It shows which cluster a run reached.
+
 ## [2.0.1]
 
 ### Security
