@@ -18,6 +18,9 @@ export interface InfluxConfig {
   cluster_id?: string;
 }
 
+export const TOOL_PROFILES = ["readonly", "readwrite", "operator"] as const;
+export type ToolProfile = (typeof TOOL_PROFILES)[number];
+
 export interface McpServerConfig {
   influx: InfluxConfig;
   server: {
@@ -25,7 +28,7 @@ export interface McpServerConfig {
     version: string;
   };
   tools: {
-    profile: "readonly" | "readwrite" | "operator";
+    profile: ToolProfile;
   };
 }
 
@@ -51,11 +54,8 @@ export function loadConfig(): McpServerConfig {
       version: "2.0.1",
     },
     tools: {
-      profile:
-        (process.env.INFLUX_MCP_TOOL_PROFILE as
-          | "readonly"
-          | "readwrite"
-          | "operator") || "operator",
+      profile: (process.env.INFLUX_MCP_TOOL_PROFILE ||
+        "operator") as ToolProfile,
     },
   };
 }
@@ -123,6 +123,12 @@ export function validateConfig(config: McpServerConfig): void {
     if (!config.influx.token) {
       errors.push("INFLUX_DB_TOKEN is required for core/enterprise");
     }
+  }
+
+  if (!TOOL_PROFILES.includes(config.tools.profile)) {
+    errors.push(
+      `INFLUX_MCP_TOOL_PROFILE must be one of: ${TOOL_PROFILES.join(", ")} (got "${config.tools.profile}")`,
+    );
   }
 
   if (errors.length > 0) {

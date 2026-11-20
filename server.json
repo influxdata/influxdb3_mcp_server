@@ -59,7 +59,7 @@
         },
         {
           "name": "INFLUX_MCP_TOOL_PROFILE",
-          "description": "Tools to expose. readonly exposes read-only tools; readwrite also allows writes; operator exposes all tools.",
+          "description": "Tools to expose. readonly exposes read-only tools; readwrite adds write_line_protocol; operator exposes all tools. Other values stop the server at startup.",
           "format": "string",
           "default": "operator",
           "choices": ["readonly", "readwrite", "operator"]

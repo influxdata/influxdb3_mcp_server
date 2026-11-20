@@ -5,6 +5,18 @@ All notable changes to the official InfluxDB 3 MCP Server will be documented in 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- `INFLUX_MCP_TOOL_PROFILE=readwrite` now advertises the `readonly` tools plus
+  `write_line_protocol`. Previously it exposed every operator tool, including
+  database and token administration.
+- The server refuses to start when `INFLUX_MCP_TOOL_PROFILE` is not
+  `readonly`, `readwrite`, or `operator`. Previously any other value fell back
+  to the full operator tool set. The bundled Codex development profile used
+  `default` and now sets `operator`.
+
 ## [2.0.1]
 
 ### Security
