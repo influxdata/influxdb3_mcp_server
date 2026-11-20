@@ -14,7 +14,7 @@ import {
   WRITE_400_ACCEPT_PARTIAL_REJECTS_LINES_2_AND_3,
   WRITE_429_PLACEHOLDER_BODY_RETRY_AFTER_2S,
 } from "./fixtures/write-errors-3.12.2.js";
-import { CORE_503_NODE_STOPPED } from "./fixtures/write-errors.js";
+import { SYNTHETIC_503_WITHOUT_BODY } from "./fixtures/write-errors.js";
 import { startFakeInfluxDB, FakeInfluxDB } from "./helpers/fake-influxdb.js";
 import { createTestClient, TestClient } from "./helpers/mcp-client.js";
 import { expectValidEnvelope } from "./helpers/envelope.js";
@@ -134,7 +134,7 @@ describe("resolveWriteError", () => {
 
   it.each([
     ["429", WRITE_429_PLACEHOLDER_BODY_RETRY_AFTER_2S, 2000],
-    ["503", CORE_503_NODE_STOPPED, undefined],
+    ["503", SYNTHETIC_503_WITHOUT_BODY, undefined],
   ])("makes a %s retryable", (_status, fixture, retryAfter) => {
     const error = resolveWriteError(fixture, "db", coreEnterprise("m v=1"));
     expect(error.code).toBe("write_unavailable");
@@ -193,7 +193,7 @@ describe("write_line_protocol error response", () => {
           version: "3.12.2",
           source: "live",
           detail:
-            "2026-11-20 testbench, Core cc9769917a and Enterprise f1972a0ff7 node0",
+            "2026-11-20 testbench Core and Enterprise node0. The shape is claim-20261120-0011 (Core) and claim-20261120-0012 (Enterprise).",
         },
         request: { method: "POST", path: "/api/v3/write_lp" },
         response: {
