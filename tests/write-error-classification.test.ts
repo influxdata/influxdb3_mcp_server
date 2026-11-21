@@ -12,7 +12,8 @@ import {
   BATCH_REJECTING_LINES_2_AND_3,
   WRITE_400_NO_PARTIAL_REJECTS_LINE_2,
   WRITE_400_ACCEPT_PARTIAL_REJECTS_LINES_2_AND_3,
-  WRITE_429_PLACEHOLDER_BODY_RETRY_AFTER_2S,
+  CORE_429_V3_WAL_BUFFER_FULL,
+  SYNTHETIC_429_RETRY_AFTER_2S,
 } from "./fixtures/write-errors-3.12.2.js";
 import { SYNTHETIC_503_WITHOUT_BODY } from "./fixtures/write-errors.js";
 import { startFakeInfluxDB, FakeInfluxDB } from "./helpers/fake-influxdb.js";
@@ -133,9 +134,10 @@ describe("resolveWriteError", () => {
   });
 
   it.each([
-    ["429", WRITE_429_PLACEHOLDER_BODY_RETRY_AFTER_2S, 2000],
-    ["503", SYNTHETIC_503_WITHOUT_BODY, undefined],
-  ])("makes a %s retryable", (_status, fixture, retryAfter) => {
+    ["a recorded WAL-full 429", CORE_429_V3_WAL_BUFFER_FULL, undefined],
+    ["a 429 with Retry-After", SYNTHETIC_429_RETRY_AFTER_2S, 2000],
+    ["a 503", SYNTHETIC_503_WITHOUT_BODY, undefined],
+  ])("makes %s retryable", (_case, fixture, retryAfter) => {
     const error = resolveWriteError(fixture, "db", coreEnterprise("m v=1"));
     expect(error.code).toBe("write_unavailable");
     expect(error.recovery).toBe("retry");
@@ -178,6 +180,15 @@ describe("resolveWriteError", () => {
     expect(error.code).toBe("write_failed");
     expect(error.message).toContain("some_db");
   });
+});
+
+it("passes the WAL-full text through as the message", () => {
+  const error = resolveWriteError(
+    CORE_429_V3_WAL_BUFFER_FULL,
+    "db",
+    coreEnterprise("m v=1"),
+  );
+  expect(error.message).toContain("wal buffer is full");
 });
 
 describe("write_line_protocol error response", () => {

@@ -85,11 +85,21 @@ export const ENT_500_WRITE_TO_PROCESS_ONLY_NODE: AxiosErrorShape = {
   message: "Request failed with status code 500",
 };
 
-export const WRITE_429_PLACEHOLDER_BODY_RETRY_AFTER_2S: AxiosErrorShape = {
+export const CORE_429_V3_WAL_BUFFER_FULL: AxiosErrorShape = {
   response: {
     status: 429,
     statusText: "Too Many Requests",
-    data: "placeholder: no 429 write body has been observed",
+    data: "wal buffer is full; writes are temporarily rejected, retry shortly",
+    headers: {},
+  } as AxiosErrorShape["response"],
+  message: "Request failed with status code 429",
+};
+
+export const SYNTHETIC_429_RETRY_AFTER_2S: AxiosErrorShape = {
+  response: {
+    status: 429,
+    statusText: "Too Many Requests",
+    data: "",
     headers: { "retry-after": "2" },
   } as AxiosErrorShape["response"],
   message: "Request failed with status code 429",
