@@ -340,7 +340,7 @@ function inferStoredLines(
   return serverDiscardsWholeRequest || everyLineRejected ? "none" : "some";
 }
 
-const WRITE_STATUSES_CLASSIFIED_WITHOUT_OBSERVED_BODY = [429, 503];
+const RETRYABLE_WRITE_STATUSES = [429, 503];
 
 const WRITE_PREFIXES: Record<number, string> = {
   400: "Bad request",
@@ -419,10 +419,7 @@ export function resolveWriteError(
     );
   }
   if (status === 404) return fail("not_found", "none");
-  if (
-    status !== undefined &&
-    WRITE_STATUSES_CLASSIFIED_WITHOUT_OBSERVED_BODY.includes(status)
-  ) {
+  if (status !== undefined && RETRYABLE_WRITE_STATUSES.includes(status)) {
     return fail(
       "write_unavailable",
       "retry",
