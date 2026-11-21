@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  hasExplicitTimestamp,
   operationErrorDetails,
   resolveWriteError,
 } from "../src/services/error-resolution.service.js";
@@ -189,6 +190,77 @@ it("passes the WAL-full text through as the message", () => {
     coreEnterprise("m v=1"),
   );
   expect(error.message).toContain("wal buffer is full");
+});
+
+const networkError = (code: string) =>
+  Object.assign(new Error(`connect ${code}`), { code });
+
+const GATEWAY_TIMEOUT_504 = {
+  response: { status: 504, statusText: "Gateway Timeout", data: "" },
+  message: "Request failed with status code 504",
+};
+
+const TIMESTAMPED_BATCH = "m,host=a v=1 1700000000\nm,host=b v=2 1700000001";
+const BATCH_WITH_UNTIMESTAMPED_LINE = "m,host=a v=1 1700000000\nm,host=b v=2";
+
+describe("write failures where the server may not have answered", () => {
+  it("retries a refused connection and says nothing was written", () => {
+    const error = resolveWriteError(
+      networkError("ECONNREFUSED"),
+      "db",
+      coreEnterprise(BATCH_WITH_UNTIMESTAMPED_LINE),
+    );
+    expect(error.code).toBe("write_connection_refused");
+    expect(error.recovery).toBe("retry");
+    expect(error.fix).toMatch(/nothing was written/);
+    expect(error.fix).not.toMatch(/second point/);
+    expect(operationErrorDetails(error, "write_failed").retryable).toBe(true);
+  });
+
+  it.each([
+    ["a reset connection", networkError("ECONNRESET")],
+    ["a 504 from a gateway", GATEWAY_TIMEOUT_504],
+  ])("retries %s and leaves the outcome unknown", (_case, failure) => {
+    const error = resolveWriteError(
+      failure,
+      "db",
+      coreEnterprise(TIMESTAMPED_BATCH),
+    );
+    expect(error.code).toBe("write_outcome_unknown");
+    expect(error.recovery).toBe("retry");
+    expect(error.fix).toMatch(/may .*been stored/);
+    expect(error.fix).not.toMatch(/second point/);
+  });
+
+  it.each([
+    ["a reset connection", networkError("ECONNRESET")],
+    ["a 504 from a gateway", GATEWAY_TIMEOUT_504],
+  ])(
+    "warns that a retry of %s adds a second point for lines without a timestamp",
+    (_case, failure) => {
+      const error = resolveWriteError(
+        failure,
+        "db",
+        coreEnterprise(BATCH_WITH_UNTIMESTAMPED_LINE),
+      );
+      expect(error.fix).toMatch(/second point at a later time/);
+    },
+  );
+});
+
+describe("hasExplicitTimestamp", () => {
+  it.each([
+    ["m,host=a v=1 1700000000", true],
+    ["m v=1 -5", true],
+    ["m,host=a v=1", false],
+    ['m s="text with 123" ', false],
+    ['m s="a b 123"', false],
+    ['m s="a b" 123', true],
+    ["m\\ name,tag\\ key=v\\ 1 f=1", false],
+    ["m\\ name,tag\\ key=v\\ 1 f=1 99", true],
+  ])("%s → %s", (line, expected) => {
+    expect(hasExplicitTimestamp(line)).toBe(expected);
+  });
 });
 
 describe("write_line_protocol error response", () => {

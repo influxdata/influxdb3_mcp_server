@@ -322,11 +322,38 @@ function retryAfterMs(error: any): number | undefined {
   return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined;
 }
 
-function countLineProtocolRecords(lineProtocol: string): number {
+function lineProtocolRecords(lineProtocol: string): string[] {
   return lineProtocol
     .split("\n")
-    .filter((line) => line.trim() !== "" && !line.trim().startsWith("#"))
-    .length;
+    .filter((line) => line.trim() !== "" && !line.trim().startsWith("#"));
+}
+
+function unquotedUnescapedSections(line: string): string[] {
+  const sections: string[] = [];
+  let current = "";
+  let inQuotedFieldValue = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === "\\" && i + 1 < line.length) {
+      current += char + line[i + 1];
+      i++;
+    } else if (char === '"') {
+      inQuotedFieldValue = !inQuotedFieldValue;
+      current += char;
+    } else if (char === " " && !inQuotedFieldValue) {
+      if (current !== "") sections.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  if (current !== "") sections.push(current);
+  return sections;
+}
+
+export function hasExplicitTimestamp(line: string): boolean {
+  const sections = unquotedUnescapedSections(line.trim());
+  return sections.length >= 3 && /^-?\d+$/u.test(sections[sections.length - 1]);
 }
 
 function inferStoredLines(
@@ -340,7 +367,15 @@ function inferStoredLines(
   return serverDiscardsWholeRequest || everyLineRejected ? "none" : "some";
 }
 
-const RETRYABLE_WRITE_STATUSES = [429, 503];
+const STATUSES_WHERE_SERVER_REJECTED_THE_WRITE = [429, 503];
+const STATUSES_WHERE_THE_WRITE_MAY_HAVE_BEEN_STORED = [504];
+const CONNECTION_REFUSED = "ECONNREFUSED";
+const CONNECTION_RESET = "ECONNRESET";
+
+function networkErrorCode(error: any): string | undefined {
+  const code = error?.code ?? error?.cause?.code;
+  return typeof code === "string" ? code : undefined;
+}
 
 const WRITE_PREFIXES: Record<number, string> = {
   400: "Bad request",
@@ -351,6 +386,7 @@ const WRITE_PREFIXES: Record<number, string> = {
   422: "Unprocessable entity",
   429: "Too many requests, retry the write",
   503: "Service temporarily unavailable, retry the write",
+  504: "Gateway timeout",
 };
 
 export function resolveWriteError(
@@ -370,7 +406,8 @@ export function resolveWriteError(
   const retryAfter = retryAfterMs(error);
 
   const rejected = everyRejectedLine(body);
-  const submitted = countLineProtocolRecords(request.lineProtocol);
+  const records = lineProtocolRecords(request.lineProtocol);
+  const submitted = records.length;
   const rejectedCount = new Set(
     rejected.map((line, index) => line.line_number ?? `#${index}`),
   ).size;
@@ -419,11 +456,43 @@ export function resolveWriteError(
     );
   }
   if (status === 404) return fail("not_found", "none");
-  if (status !== undefined && RETRYABLE_WRITE_STATUSES.includes(status)) {
+  const timestampWarning = records.every(hasExplicitTimestamp)
+    ? ""
+    : " Lines without a timestamp get the server's time, so if the first attempt was stored, a retry writes a second point at a later time.";
+  if (
+    status !== undefined &&
+    STATUSES_WHERE_SERVER_REJECTED_THE_WRITE.includes(status)
+  ) {
     return fail(
       "write_unavailable",
       "retry",
       "The server is temporarily refusing writes. Wait (retry_after_ms when present), then resend the same request a small number of times before reporting the failure.",
+    );
+  }
+  if (
+    status !== undefined &&
+    STATUSES_WHERE_THE_WRITE_MAY_HAVE_BEEN_STORED.includes(status)
+  ) {
+    return fail(
+      "write_outcome_unknown",
+      "retry",
+      `A gateway timed out waiting for the server, so the write may or may not have been stored. Resend the same request a small number of times before reporting the failure.${timestampWarning}`,
+    );
+  }
+  const networkCode =
+    status === undefined ? networkErrorCode(error) : undefined;
+  if (networkCode === CONNECTION_REFUSED) {
+    return fail(
+      "write_connection_refused",
+      "retry",
+      "The server refused the connection, so nothing was written. It may be restarting: wait, then resend the same request a small number of times before reporting the failure.",
+    );
+  }
+  if (networkCode === CONNECTION_RESET) {
+    return fail(
+      "write_outcome_unknown",
+      "retry",
+      `The connection was reset before the server answered, so the write may or may not have been stored. Wait, then resend the same request a small number of times before reporting the failure.${timestampWarning}`,
     );
   }
   if (status === 413) {
