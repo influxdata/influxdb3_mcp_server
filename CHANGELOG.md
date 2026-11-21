@@ -83,6 +83,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   server sends a `cluster-uuid` header, including on a 403 from a
   database-scoped token. It shows which cluster a run reached.
 
+### Fixed
+
+- `write_line_protocol` on Cloud Dedicated failed for every write with
+  "Unsupported precision". The server passed the long precision name
+  (`second`) to the InfluxDB 3 client library, which accepts only `ns`, `us`,
+  `ms`, and `s`. It now converts the name, as the Cloud Serverless path does.
+
 ## [2.0.1]
 
 ### Security

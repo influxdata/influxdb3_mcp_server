@@ -99,7 +99,7 @@ describe("write routing – Clustered is the only v2 caller", () => {
 });
 
 describe("write routing – Cloud product types use the SDK client", () => {
-  it("cloud-dedicated calls client.write with the long-form precision", async () => {
+  it("cloud-dedicated calls client.write with a short precision code", async () => {
     const { call } = await sdkWriteFor(
       InfluxProductType.CloudDedicated,
       "millisecond",
@@ -107,7 +107,7 @@ describe("write routing – Cloud product types use the SDK client", () => {
 
     expect(call[0]).toBe(LINE);
     expect(call[1]).toBe("mydb");
-    expect(call[3]).toEqual({ precision: "millisecond" });
+    expect(call[3]).toEqual({ precision: "ms" });
   });
 
   it("cloud-serverless calls client.write with a short precision code", async () => {

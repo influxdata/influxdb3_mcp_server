@@ -51,7 +51,7 @@ describe("write_line_protocol – advertised contract", () => {
     expect(schema.additionalProperties).toBe(false);
   });
 
-  it("advertises exactly the four precision values that the clustered and cloud-serverless write paths map to short names", async () => {
+  it("advertises exactly the four precision values that the Cloud Dedicated, Cloud Serverless, and Clustered write paths map to short names", async () => {
     const schema = (await writeTool()).inputSchema as any;
 
     expect(schema.properties.precision.enum).toEqual([
