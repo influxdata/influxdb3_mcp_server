@@ -100,7 +100,7 @@ export class WriteService {
       if (!client) throw new Error("InfluxDB client not initialized");
       const writeOptions: any = {};
       if (options.precision) {
-        writeOptions.precision = options.precision;
+        writeOptions.precision = this.toShortPrecisionUnit(options.precision);
       }
       await client.write(lineProtocolData, database, undefined, writeOptions);
     } catch (error: any) {
