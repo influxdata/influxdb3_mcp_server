@@ -635,6 +635,13 @@ library's default of 10 seconds on Cloud Dedicated and Cloud Serverless.
 
 Other write errors aren't retryable.
 
+### InfluxDB 3.12 compatibility
+
+Write and query errors were checked against InfluxDB 3.12.2 Core and
+Enterprise, including a multi-node Enterprise cluster. The 3.12.3 release
+notes don't change any endpoint this server calls. This server hasn't been
+tested against 3.12.3 yet.
+
 ### InfluxDB 3.11 compatibility
 
 Verified against InfluxDB 3.11.5 Core and Enterprise, including a
