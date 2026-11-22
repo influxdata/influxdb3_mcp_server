@@ -572,9 +572,18 @@ includes the specific reason, for example:
 Bad request: invalid line protocol - multiple instances of 'region' tag found
 ```
 
-A `503` reaching this server is phrased as retryable
-(`Service temporarily unavailable, retry the write: ...`) — safe to retry
-the write. Any other status is not.
+A failed write also has `error.code` and `error.recovery`. These have
+`recovery: "retry"`:
+
+- `429` and `503` are `write_unavailable`: the server rejected the write, so
+  nothing was stored.
+- A refused connection is `write_connection_refused`: nothing was written.
+- A `504` or a reset connection is `write_outcome_unknown`: the write may or
+  may not have been stored. A line without a timestamp gets the server's
+  time, so a retry of a stored write adds a second point at a later time.
+  The error says so when the batch has such lines.
+
+Other write errors aren't retryable.
 
 ### InfluxDB 3.11 compatibility
 
