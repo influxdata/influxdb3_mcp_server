@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (Enterprise explicit schema mode), `write_node_not_ingest` (a node without
   ingest mode), `write_unavailable` (429 or 503: the server refused the
   write, retryable), `write_connection_refused` (nothing was written,
-  retryable), `write_outcome_unknown` (a reset connection or a 504: the write
+  retryable), `write_outcome_unknown` (a connection closed or reset before a reply, or a 504: the write
   may have been stored, retryable), `write_too_large` (413), and
   `write_failed`. A 401 is `credential_invalid` and a 403 is
   `not_found_or_denied`, as on the query path. For `write_outcome_unknown`,
