@@ -637,10 +637,11 @@ Other write errors aren't retryable.
 
 ### InfluxDB 3.12 compatibility
 
-Write and query errors were checked against InfluxDB 3.12.2 Core and
-Enterprise, including a multi-node Enterprise cluster. The 3.12.3 release
-notes don't change any endpoint this server calls. This server hasn't been
-tested against 3.12.3 yet.
+Write and query errors were checked against InfluxDB 3.12.2 and 3.12.3 Core
+and Enterprise, including a multi-node Enterprise cluster. The live test
+suite passes on 3.12.3. A write to a Core 3.12.3 node that stops mid-write
+gets an empty reply instead of a reset connection. This server reports both
+as `write_outcome_unknown`.
 
 ### InfluxDB 3.11 compatibility
 
