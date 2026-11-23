@@ -14,6 +14,7 @@ import {
   WRITE_400_NO_PARTIAL_REJECTS_LINE_2,
   WRITE_400_ACCEPT_PARTIAL_REJECTS_LINES_2_AND_3,
   CORE_429_V3_WAL_BUFFER_FULL,
+  CORE_429_V2_WAL_BUFFER_FULL,
   SYNTHETIC_429_RETRY_AFTER_2S,
 } from "./fixtures/write-errors-3.12.2.js";
 import { SYNTHETIC_503_WITHOUT_BODY } from "./fixtures/write-errors.js";
@@ -183,14 +184,18 @@ describe("resolveWriteError", () => {
   });
 });
 
-it("passes the WAL-full text through as the message", () => {
-  const error = resolveWriteError(
-    CORE_429_V3_WAL_BUFFER_FULL,
-    "db",
-    coreEnterprise("m v=1"),
-  );
-  expect(error.message).toContain("wal buffer is full");
-});
+it.each([
+  ["v3 plain text", CORE_429_V3_WAL_BUFFER_FULL, "wal buffer is full"],
+  ["v2 JSON", CORE_429_V2_WAL_BUFFER_FULL, "wal buffer full with 1 ops"],
+])(
+  "retries a WAL-full 429 (%s) and passes its text through",
+  (_body, fixture, text) => {
+    const error = resolveWriteError(fixture, "db", coreEnterprise("m v=1"));
+    expect(error.code).toBe("write_unavailable");
+    expect(error.recovery).toBe("retry");
+    expect(error.message).toContain(text);
+  },
+);
 
 const networkError = (code: string) =>
   Object.assign(new Error(`connect ${code}`), { code });
@@ -236,14 +241,20 @@ describe("write failures where the server may not have answered", () => {
     ["a reset connection", networkError("ECONNRESET")],
     ["a 504 from a gateway", GATEWAY_TIMEOUT_504],
   ])(
-    "warns that a retry of %s adds a second point for lines without a timestamp",
+    "doesn't retry %s when a line has no timestamp, because a resend adds a second point",
     (_case, failure) => {
       const error = resolveWriteError(
         failure,
         "db",
         coreEnterprise(BATCH_WITH_UNTIMESTAMPED_LINE),
       );
+      expect(error.code).toBe("write_outcome_unknown");
+      expect(error.recovery).toBe("none");
+      expect(operationErrorDetails(error, "write_failed").retryable).toBe(
+        false,
+      );
       expect(error.fix).toMatch(/second point at a later time/);
+      expect(error.fix).toMatch(/Don't resend automatically/);
     },
   );
 });

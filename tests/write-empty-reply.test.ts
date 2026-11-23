@@ -70,7 +70,7 @@ describe("a write whose connection closes without a reply", () => {
       acceptPartial: true,
     });
     expect(error.code).toBe("write_outcome_unknown");
-    expect(error.recovery).toBe("retry");
+    expect(error.recovery).toBe("none");
     expect(error.fix).toMatch(/second point/);
   });
 });

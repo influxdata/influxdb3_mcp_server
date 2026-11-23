@@ -95,6 +95,19 @@ export const CORE_429_V3_WAL_BUFFER_FULL: AxiosErrorShape = {
   message: "Request failed with status code 429",
 };
 
+export const CORE_429_V2_WAL_BUFFER_FULL: AxiosErrorShape = {
+  response: {
+    status: 429,
+    statusText: "Too Many Requests",
+    data: {
+      code: "too many requests",
+      message: "write buffer error: error from wal: wal buffer full with 1 ops",
+    },
+    headers: {},
+  } as AxiosErrorShape["response"],
+  message: "Request failed with status code 429",
+};
+
 export const SYNTHETIC_429_RETRY_AFTER_2S: AxiosErrorShape = {
   response: {
     status: 429,
