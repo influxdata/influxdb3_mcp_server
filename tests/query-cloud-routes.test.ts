@@ -8,7 +8,7 @@ import {
 } from "./helpers/mcp-client.js";
 
 describe.skipIf(LIVE)(
-  "[fake-only: the testbench has no Cloud target] Cloud query routes refuse unsupported combinations before sending anything to the fake",
+  "[fake-only: the testbench has no cloud-serverless or clustered target] cloud-serverless and clustered query routes refuse unsupported combinations before sending anything to the fake",
   () => {
     let fake: FakeInfluxDB | undefined;
     let mcp: TestClient | undefined;
