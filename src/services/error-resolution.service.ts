@@ -456,9 +456,18 @@ export function resolveWriteError(
     );
   }
   if (status === 404) return fail("not_found", "none");
-  const timestampWarning = records.every(hasExplicitTimestamp)
-    ? ""
-    : " Lines without a timestamp get the server's time, so if the first attempt was stored, a retry writes a second point at a later time.";
+  const outcomeUnknown = (whatHappened: string) =>
+    records.every(hasExplicitTimestamp)
+      ? fail(
+          "write_outcome_unknown",
+          "retry",
+          `${whatHappened}, so the write may or may not have been stored. Every line has a timestamp, so resending stores no second copy. Wait, then resend the same request a small number of times before reporting the failure.`,
+        )
+      : fail(
+          "write_outcome_unknown",
+          "none",
+          `${whatHappened}, so the write may or may not have been stored. Lines without a timestamp get the server's time, so if the first attempt was stored, a resend writes a second point at a later time. Don't resend automatically: check whether the rows arrived, or ask the user.`,
+        );
   if (
     status !== undefined &&
     STATUSES_WHERE_SERVER_REJECTED_THE_WRITE.includes(status)
@@ -473,11 +482,7 @@ export function resolveWriteError(
     status !== undefined &&
     STATUSES_WHERE_THE_WRITE_MAY_HAVE_BEEN_STORED.includes(status)
   ) {
-    return fail(
-      "write_outcome_unknown",
-      "retry",
-      `A gateway timed out waiting for the server, so the write may or may not have been stored. Resend the same request a small number of times before reporting the failure.${timestampWarning}`,
-    );
+    return outcomeUnknown("A gateway timed out waiting for the server");
   }
   const networkCode =
     status === undefined ? networkErrorCode(error) : undefined;
@@ -489,11 +494,7 @@ export function resolveWriteError(
     );
   }
   if (networkCode === CONNECTION_RESET) {
-    return fail(
-      "write_outcome_unknown",
-      "retry",
-      `The connection closed before the server answered, so the write may or may not have been stored. Wait, then resend the same request a small number of times before reporting the failure.${timestampWarning}`,
-    );
+    return outcomeUnknown("The connection closed before the server answered");
   }
   if (status === 413) {
     return fail(

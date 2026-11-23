@@ -578,10 +578,14 @@ A failed write also has `error.code` and `error.recovery`. These have
 - `429` and `503` are `write_unavailable`: the server rejected the write, so
   nothing was stored.
 - A refused connection is `write_connection_refused`: nothing was written.
-- A `504`, or a connection closed before a reply, is `write_outcome_unknown`: the write may or
-  may not have been stored. A line without a timestamp gets the server's
-  time, so a retry of a stored write adds a second point at a later time.
-  The error says so when the batch has such lines.
+
+A `504`, or a connection that closes before a reply, is
+`write_outcome_unknown`: the write may or may not have been stored. It has
+`recovery: "retry"` only when every line has a timestamp, because resending
+such a batch stores no second copy. A line without a timestamp gets the
+server's time, so resending a stored write adds a second point at a later
+time. For those batches the recovery is `none`, and the error says to check
+whether the rows arrived, or to ask the user, before resending.
 
 Other write errors aren't retryable.
 
