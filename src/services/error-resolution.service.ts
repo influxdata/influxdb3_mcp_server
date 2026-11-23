@@ -492,7 +492,7 @@ export function resolveWriteError(
     return fail(
       "write_outcome_unknown",
       "retry",
-      `The connection was reset before the server answered, so the write may or may not have been stored. Wait, then resend the same request a small number of times before reporting the failure.${timestampWarning}`,
+      `The connection closed before the server answered, so the write may or may not have been stored. Wait, then resend the same request a small number of times before reporting the failure.${timestampWarning}`,
     );
   }
   if (status === 413) {
