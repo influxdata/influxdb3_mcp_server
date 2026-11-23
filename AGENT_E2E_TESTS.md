@@ -172,7 +172,7 @@ Notes:
   plus a load generator. Enterprise nodes on the upgraded storage engine
   didn't return a 429 at that cap, so use Core.
 - `wr-cloud-dedicated-roundtrip` and `wr-cloud-serverless-roundtrip` run from
-  the host with the Cloud credentials. Clustered has no target, so there's no
+  the host with the Cloud Dedicated and Cloud Serverless credentials. Clustered has no target, so there's no
   live Clustered case.
 
 ### Claude Code harness
