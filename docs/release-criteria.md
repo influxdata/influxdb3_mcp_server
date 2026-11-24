@@ -36,6 +36,13 @@ server, "breaking" is judged from the agent's point of view.
 - Add a tool.
 - Add an optional parameter.
 - Materially rewrite a description.
+- Add a value to an output enum, such as an error `code`, a `recovery`, or a
+  health `outcome`. Agents must already treat an unknown value as "unknown".
+- Add an optional field to a result or error envelope.
+- Bring a non-default tool profile in line with its documented scope, or
+  refuse a configuration value that was never documented. 2.1.0 does both for
+  `INFLUX_MCP_TOOL_PROFILE`: `readwrite` no longer exposes administration
+  tools, and an unknown profile stops the server from starting.
 
 **Patch**
 
@@ -78,7 +85,7 @@ releases, whichever is longer.
 Every release must pass all of these.
 
 1. CI is green on `main`, including the version-consistency check.
-2. Protocol tests pass (`pnpm test`), including `EXPECTED_TOOL_COUNT`.
+2. Protocol tests pass (`pnpm test`), including `EXPECTED_CORE_TOOL_COUNT`.
 3. For Core and Enterprise changes, integration tests pass against a live
    InfluxDB 3 instance. See `.claude/skills/testing/`.
 4. **Capability evals:** task success is measured per client (for example,

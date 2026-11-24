@@ -3,7 +3,7 @@ name: Testing
 description: >-
   This skill should be used when the user asks to "run tests", "run the test
   suite", "check test results", "why are tests failing", "debug test failures",
-  "add a test", "write a test", "update EXPECTED_TOOL_COUNT",
+  "add a test", "write a test", "update EXPECTED_CORE_TOOL_COUNT",
   "run protocol tests", "run integration tests", "test against InfluxDB",
   "run agent evals", "prepare eval prerequisites",
   or needs to run, analyze, extend, or troubleshoot the MCP server test suite.
@@ -110,7 +110,7 @@ Reruns on file changes. Useful during development.
 | -------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Initialize handshake | Server starts, SDK handshake succeeds, capabilities reported                                               |
 | Server version       | Name is `"influxdb-mcp-server"`, version is defined                                                        |
-| Tool count           | `tools/list` returns exactly `EXPECTED_TOOL_COUNT` tools                                                   |
+| Tool count           | `tools/list` returns exactly `EXPECTED_CORE_TOOL_COUNT` tools                                              |
 | Tool structure       | Each tool has `name`, `description`, `inputSchema` with `type: "object"`                                   |
 | Core tool names      | Spot-checks `health_check`, `execute_query`, `write_line_protocol`, `list_databases`, `create_admin_token` |
 | Resource URIs        | 4 resources with correct `influx://` URIs                                                                  |
