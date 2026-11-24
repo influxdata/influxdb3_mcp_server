@@ -48,6 +48,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `readonly`, `readwrite`, or `operator`. Previously any other value fell back
   to the full operator tool set. The bundled Codex development profile used
   `default` and now sets `operator`.
+- Query and write errors share one set of status labels. A write `403` reads
+  `Access denied or not found:`, like a query `403`, matching its
+  `not_found_or_denied` code. A write `429` or `503` drops ", retry the
+  write" from the label; `error.fix` says when to resend. A query `413`,
+  `429`, `503`, or `504` is labelled by status instead of `Query failed:`.
 
 ### Fixed
 
