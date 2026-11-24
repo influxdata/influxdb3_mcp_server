@@ -97,26 +97,35 @@ function responseHeader(error: any, name: string): string | undefined {
  * Cloud Serverless report it: a 400 with `influxdata-partial-write: true` and
  * a JSON body whose `message` lists each rejected line, plus a top-level
  * `line` (claims 20261123-0037, 0038).
+ * `listed` is false when the message names no `line N:`, so the rejected
+ * lines can't be told apart from the stored ones.
  */
-function everyV2PartialWriteLine(error: any, body: unknown): RejectedLine[] {
-  if (!body || typeof body !== "object") return [];
+function everyV2PartialWriteLine(
+  error: any,
+  body: unknown,
+): { lines: RejectedLine[]; listed: boolean } {
+  const none = { lines: [], listed: false };
+  if (!body || typeof body !== "object") return none;
   const { message, line } = body as Record<string, unknown>;
-  if (typeof message !== "string") return [];
+  if (typeof message !== "string") return none;
   const prefix = V2_PARTIAL_WRITE_PREFIX.exec(message);
   const flagged = responseHeader(error, PARTIAL_WRITE_HEADER) === "true";
-  if (!prefix && !flagged) return [];
+  if (!prefix && !flagged) return none;
 
   const lineErrors = prefix ? message.slice(prefix[0].length) : message;
   const markers = [...lineErrors.matchAll(V2_LINE_ERROR_MARKER)];
   if (markers.length === 0) {
-    return [
-      {
-        error_message: lineErrors,
-        ...(typeof line === "number" && { line_number: line }),
-      },
-    ];
+    return {
+      lines: [
+        {
+          error_message: lineErrors,
+          ...(typeof line === "number" && { line_number: line }),
+        },
+      ],
+      listed: false,
+    };
   }
-  return markers.map((marker, index) => {
+  const lines = markers.map((marker, index) => {
     const start = marker.index + marker[0].length;
     const end = markers[index + 1]?.index ?? lineErrors.length;
     return {
@@ -127,6 +136,7 @@ function everyV2PartialWriteLine(error: any, body: unknown): RejectedLine[] {
         .replace(SEPARATOR_BEFORE_NEXT_LINE_ERROR, ""),
     };
   });
+  return { lines, listed: true };
 }
 
 export type Recovery =
@@ -350,7 +360,7 @@ function rejectedLinesOf(error: unknown, body: unknown): RejectedLines {
   const v3 = everyRejectedLine(body);
   if (v3.length > 0) return { lines: v3, serverStoresValidLines: false };
   const v2 = everyV2PartialWriteLine(error, body);
-  return { lines: v2, serverStoresValidLines: v2.length > 0 };
+  return { lines: v2.lines, serverStoresValidLines: v2.listed };
 }
 
 function writeOutcome(
@@ -439,12 +449,15 @@ export function resolveWriteError(
       fix,
       write,
     });
+  const everyLineHasTimestamp = records.every(hasExplicitTimestamp);
   const resend =
-    stored === "some"
-      ? "Lines that aren't listed in write.rejected_lines were written; resend only the rejected lines."
-      : stored === "none"
-        ? "Nothing from this request was written; resend the whole batch."
-        : "Check which lines were stored before resending.";
+    stored === "some" && write?.rejected_lines_truncated
+      ? `write.rejected_lines lists ${write.rejected_lines.length} of the ${write.lines_rejected} rejected lines, so a line that isn't listed may have been written or rejected. Fix and resend the listed lines. Check which rows arrived before resending any unlisted lines.`
+      : stored === "some"
+        ? "Lines that aren't listed in write.rejected_lines were written; resend only the rejected lines."
+        : stored === "none"
+          ? "Nothing from this request was written; resend the whole batch."
+          : "Check which lines were stored before resending.";
 
   const access =
     status === undefined ? undefined : ACCESS_FAILURE_BY_STATUS[status];
@@ -458,7 +471,7 @@ export function resolveWriteError(
     );
   }
   const outcomeUnknown = (whatHappened: string) =>
-    records.every(hasExplicitTimestamp)
+    everyLineHasTimestamp
       ? fail(
           "write_outcome_unknown",
           "retry",

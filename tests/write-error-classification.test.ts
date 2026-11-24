@@ -173,6 +173,63 @@ describe("resolveWriteError", () => {
     expect(error.write?.stored).toBe("some");
   });
 
+  describe("when more lines are rejected than write.rejected_lines lists", () => {
+    const LISTED = 100;
+    const REJECTED = 120;
+    const VALID = 10;
+    const partialWriteRejecting = (count: number) => ({
+      response: {
+        status: 400,
+        data: {
+          error: "partial write of line protocol occurred",
+          data: Array.from({ length: count }, (_, index) => ({
+            error_message: "invalid column type",
+            line_number: index + 1,
+          })),
+        },
+      },
+    });
+    const batch = (line: string) =>
+      Array(REJECTED + VALID)
+        .fill(line)
+        .join("\n");
+
+    it("doesn't say every unlisted line was written", () => {
+      const error = resolveWriteError(
+        partialWriteRejecting(REJECTED),
+        "db",
+        coreEnterprise(batch("m v=1")),
+      );
+      expect(error.write?.stored).toBe("some");
+      expect(error.write?.rejected_lines).toHaveLength(LISTED);
+      expect(error.fix).not.toMatch(/aren't listed .* were written/);
+      expect(error.fix).toContain(
+        `${LISTED} of the ${REJECTED} rejected lines`,
+      );
+      expect(error.fix).toContain(
+        "Check which rows arrived before resending any unlisted lines.",
+      );
+    });
+
+    it("requires checking which rows arrived even when every line has a distinct timestamped point", () => {
+      const distinctPoints = Array.from(
+        { length: REJECTED + VALID },
+        (_, index) => `m,host=h${index} v=1 1700000000`,
+      ).join("\n");
+      const error = resolveWriteError(
+        partialWriteRejecting(REJECTED),
+        "db",
+        coreEnterprise(distinctPoints),
+      );
+      expect(error.fix).toContain(
+        `${LISTED} of the ${REJECTED} rejected lines`,
+      );
+      expect(error.fix).toContain(
+        "Check which rows arrived before resending any unlisted lines.",
+      );
+    });
+  });
+
   it("falls back to write_failed with the database name when there's no response", () => {
     const error = resolveWriteError(
       new Error("connect ECONNREFUSED"),
@@ -309,7 +366,7 @@ describe("write_line_protocol error response", () => {
     await fake?.close();
   });
 
-  it("keeps the text error format and puts the envelope in structuredContent", async () => {
+  it("keeps the text error format and returns the envelope as structuredContent and as JSON text", async () => {
     const result = (await client.client.callTool({
       name: "write_line_protocol",
       arguments: {
@@ -329,6 +386,7 @@ describe("write_line_protocol error response", () => {
     expect(fix).toMatch(/resend only the rejected lines/);
 
     const envelope = result.structuredContent;
+    expect(JSON.parse(result.content[1].text)).toEqual(envelope);
     expectValidEnvelope(envelope, "write_line_protocol structuredContent");
     expect(envelope.ok).toBe(false);
     expect(envelope.error).toMatchObject({

@@ -13,7 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   error envelope the query tools return (`ok: false`, `error.code`,
   `error.recovery`, `error.retryable`, `error.fix`, `error.status`, and
   `error.retry_after_ms` when the server sends `Retry-After`). The text
-  content keeps its `Error: <message>` format.
+  content keeps its `Error: <message>` format. A second text block holds the
+  envelope as JSON, for clients that don't pass `structuredContent` to the
+  model.
 - When a write rejects specific lines, the envelope adds a `write` object:
   `rejected_lines` (every line number and error, up to 100), and `stored`,
   which says whether the other lines were written (`some`), nothing was
@@ -23,7 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and return a `400` with `influxdata-partial-write: true`, naming each
   rejected line in the message. That `400` is now `write_lines_rejected`
   with `stored: "some"`, so an agent resends only the rejected lines instead
-  of the whole batch.
+  of the whole batch. When the message names no `line N:`, `stored` is
+  `unknown`, because the rejected lines can't be told apart from the stored ones.
+- The `acceptPartial` and `noSync` descriptions of `write_line_protocol` say
+  that only Core and Enterprise use them.
 - Write error codes: `write_lines_rejected`, `write_schema_not_declared`
   (Enterprise explicit schema mode), `write_node_not_ingest` (a node without
   ingest mode), `write_unavailable` (429 or 503: the server refused the

@@ -74,7 +74,10 @@ export function textErrorWithStructuredEnvelope(error: unknown, code: string) {
   const lines = [`Error: ${envelope.error.message}`];
   if (envelope.error.fix) lines.push(envelope.error.fix);
   return {
-    content: [{ type: "text", text: lines.join("\n") }],
+    content: [
+      { type: "text", text: lines.join("\n") },
+      { type: "text", text: jsonText(envelope) },
+    ],
     structuredContent: envelope,
     isError: true,
   };

@@ -55,12 +55,14 @@ Errors: a failed write returns "Error: <message>", then a line saying what to do
           },
           acceptPartial: {
             type: "boolean",
-            description: "Accept partial writes",
+            description:
+              "Core and Enterprise only: store the valid lines when some are rejected. Other products ignore it, so a batch with rejected lines may still be partly stored.",
             default: true,
           },
           noSync: {
             type: "boolean",
-            description: "Acknowledge without waiting for WAL persistence",
+            description:
+              "Core and Enterprise only: acknowledge without waiting for WAL persistence. Other products ignore it.",
             default: false,
           },
         },
