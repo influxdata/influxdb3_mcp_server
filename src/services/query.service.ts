@@ -710,9 +710,6 @@ export class QueryService {
     }
   }
 
-  /**
-   * Query for cloud-serverless (influxdb3 client)
-   */
   private async executeCloudServerlessQuery(
     query: string,
     database: string,
