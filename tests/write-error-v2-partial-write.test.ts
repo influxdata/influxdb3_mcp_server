@@ -64,6 +64,21 @@ describe("an /api/v2/write partial write on Cloud Dedicated and Cloud Serverless
     expect(error.write?.stored).toBe("some");
   });
 
+  it("leaves stored unknown when the message names no rejected line", () => {
+    const error = resolveWriteError(
+      {
+        ...CLOUD_SERVERLESS_400_V2_PARTIAL_WRITE_DUPLICATE_TAG,
+        json: { code: "invalid", message: "some points were rejected" },
+      },
+      "db",
+      v2Write("a v=1 1\nb v=2 2\nc v=3 3"),
+    );
+    expect(error.code).toBe("write_lines_rejected");
+    expect(error.write?.stored).toBe("unknown");
+    expect(error.fix).not.toMatch(/resend only the rejected lines/);
+    expect(error.fix).toMatch(/Check which lines were stored/);
+  });
+
   it("says nothing was stored when every line was rejected", () => {
     const error = resolveWriteError(
       CLOUD_SERVERLESS_400_V2_PARTIAL_WRITE_DUPLICATE_TAG,
