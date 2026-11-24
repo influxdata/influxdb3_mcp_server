@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
-import { QueryService, v1SeriesRows } from "../src/services/query.service.js";
+import { QueryService } from "../src/services/query.service.js";
+import { v1SeriesRows } from "../src/services/v1-query.js";
 import { BaseConnectionService } from "../src/services/base-connection.service.js";
 import { InfluxProductType } from "../src/helpers/enums/influx-product-types.enum.js";
 

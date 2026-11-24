@@ -9,6 +9,7 @@ import {
   resolveOperationError,
 } from "./error-resolution.service.js";
 import { createRequestId } from "./telemetry.service.js";
+import { queryV1, v1SeriesRows } from "./v1-query.js";
 import {
   decodePayload,
   returnedQueryFormat,
@@ -22,54 +23,6 @@ import {
 } from "./query-capabilities.js";
 
 const BUCKET_WITHOUT_DBRP_MAPPING = /database not found/iu;
-
-/** Errors in a v1 `/query` body. The v1 API reports a failed statement with HTTP 200. */
-export function v1StatementErrors(body: unknown): string[] {
-  if (!body || typeof body !== "object") return [];
-  const { error, results } = body as { error?: unknown; results?: unknown };
-  const errors = typeof error === "string" ? [error] : [];
-  if (!Array.isArray(results)) return errors;
-  for (const result of results) {
-    if (typeof result?.error === "string") errors.push(result.error);
-  }
-  return errors;
-}
-
-interface V1Series {
-  name?: string;
-  tags?: Record<string, unknown>;
-  columns?: string[];
-  values?: unknown[][];
-}
-
-/**
- * Rows from a v1 `/query` body, one per value in every series, in the shape
- * Core and Enterprise return from `/api/v3/query_influxql`: the measurement
- * as `iox::measurement`, then the series tags, then the columns. A statement
- * with no `series` contributes no rows.
- */
-export function v1SeriesRows(body: unknown): Record<string, unknown>[] {
-  const results = (body as { results?: unknown })?.results;
-  if (!Array.isArray(results)) return [];
-  const rows: Record<string, unknown>[] = [];
-  for (const result of results) {
-    const series: V1Series[] = Array.isArray(result?.series)
-      ? result.series
-      : [];
-    for (const { name, tags, columns = [], values = [] } of series) {
-      for (const value of values) {
-        rows.push({
-          ...(name !== undefined && { "iox::measurement": name }),
-          ...tags,
-          ...Object.fromEntries(
-            columns.map((column, index) => [column, value[index]]),
-          ),
-        });
-      }
-    }
-  }
-  return rows;
-}
 
 export interface QueryResult {
   results?: any[];
@@ -231,7 +184,7 @@ export class QueryService {
       case InfluxProductType.CloudDedicated:
         return this.executeCloudDedicatedQuery(query, database, options);
       case InfluxProductType.Clustered:
-        return this.executeClusteredQuery(query, database, options);
+        return this.executeV1Query(query, database, options);
       case InfluxProductType.CloudServerless:
         return this.executeCloudServerlessQuery(query, database, options);
       case InfluxProductType.Core:
@@ -496,8 +449,8 @@ export class QueryService {
       return decodePayload(raw, options.format);
     }
 
-    const v1Body = await this.executeInfluxqlQuery(query, database, options);
-    return decodePayload(v1SeriesRows(v1Body), options.format);
+    const rows = await this.executeInfluxqlQuery(query, database, options);
+    return decodePayload(rows, options.format);
   }
 
   private async findQueryHistoryMetadata(
@@ -571,14 +524,18 @@ export class QueryService {
           options,
         );
       case InfluxProductType.CloudServerless:
-        return this.executeCloudServerlessInfluxqlQuery(
-          query,
-          database,
-          options,
+        return v1SeriesRows(
+          await this.executeCloudServerlessInfluxqlQuery(
+            query,
+            database,
+            options,
+          ),
         );
       case InfluxProductType.CloudDedicated:
       case InfluxProductType.Clustered:
-        return this.executeClusteredQuery(query, database, options);
+        return v1SeriesRows(
+          await this.executeV1Query(query, database, options),
+        );
       default:
         throw new Error(
           `InfluxQL queries are not supported for ${connectionInfo.type}`,
@@ -645,7 +602,7 @@ export class QueryService {
         ...(options.timeoutMs !== undefined && { timeout: options.timeoutMs }),
       });
     } catch (error: any) {
-      this.handleQueryError(error);
+      throw resolveOperationError(error);
     }
 
     const format = returnedQueryFormat(response.contentType, requestedFormat);
@@ -700,11 +657,11 @@ export class QueryService {
       }
       return rows;
     } catch (error: any) {
-      this.handleQueryError(error);
+      throw resolveOperationError(error);
     }
   }
 
-  private async executeClusteredQuery(
+  private async executeV1Query(
     query: string,
     database: string,
     options: {
@@ -714,7 +671,7 @@ export class QueryService {
   ): Promise<any> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
-      const response = await this.getV1Query(httpClient, {
+      const response = await queryV1(httpClient, {
         params: {
           db: database,
           q: query,
@@ -724,20 +681,8 @@ export class QueryService {
       });
       return response;
     } catch (error: any) {
-      this.handleQueryError(error);
+      throw resolveOperationError(error);
     }
-  }
-
-  private async getV1Query(
-    httpClient: HttpClientService,
-    config: Record<string, unknown>,
-  ): Promise<any> {
-    const body = await httpClient.get("/query", config);
-    const statementErrors = v1StatementErrors(body);
-    if (statementErrors.length > 0) {
-      throw new OperationError(statementErrors.join("; "), "query_failed");
-    }
-    return body;
   }
 
   private async executeCloudServerlessInfluxqlQuery(
@@ -749,7 +694,7 @@ export class QueryService {
     },
   ): Promise<any> {
     try {
-      return await this.executeClusteredQuery(query, database, options);
+      return await this.executeV1Query(query, database, options);
     } catch (error) {
       if (
         error instanceof OperationError &&
@@ -792,7 +737,7 @@ export class QueryService {
       }
       return rows;
     } catch (error: any) {
-      this.handleQueryError(error);
+      throw resolveOperationError(error);
     }
   }
 
@@ -822,19 +767,14 @@ export class QueryService {
     return options.params as Record<string, QParamType> | undefined;
   }
 
-  private handleQueryError(error: any): never {
-    throw resolveOperationError(error);
-  }
-
   async getMeasurements(database: string): Promise<MeasurementInfo[]> {
     this.baseService.validateDataCapabilities();
 
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
-        return this.getMeasurementsCloudDedicated(database);
       case InfluxProductType.Clustered:
-        return this.getMeasurementsClustered(database);
+        return this.getMeasurementsOverV1(database);
       case InfluxProductType.CloudServerless:
         return this.getMeasurementsCloudServerless(database);
       case InfluxProductType.Core:
@@ -847,41 +787,12 @@ export class QueryService {
     }
   }
 
-  private async getMeasurementsCloudDedicated(
+  private async getMeasurementsOverV1(
     database: string,
   ): Promise<MeasurementInfo[]> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
-      const response = await this.getV1Query(httpClient, {
-        params: {
-          db: database,
-          q: "SHOW MEASUREMENTS",
-        },
-      });
-
-      if (
-        response.results &&
-        response.results[0] &&
-        response.results[0].series
-      ) {
-        const series = response.results[0].series[0];
-        if (series.name === "measurements" && series.values) {
-          return series.values.map((value: any[]) => ({ name: value[0] }));
-        }
-      }
-
-      return [];
-    } catch (error: any) {
-      throw resolveOperationError(error, "metadata_unavailable");
-    }
-  }
-
-  private async getMeasurementsClustered(
-    database: string,
-  ): Promise<MeasurementInfo[]> {
-    try {
-      const httpClient = this.baseService.getInfluxHttpClient();
-      const response = await this.getV1Query(httpClient, {
+      const response = await queryV1(httpClient, {
         params: {
           db: database,
           q: "SHOW MEASUREMENTS",
@@ -956,9 +867,8 @@ export class QueryService {
     const connectionInfo = this.baseService.getConnectionInfo();
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
-        return this.getMeasurementSchemaCloudDedicated(measurement, database);
       case InfluxProductType.Clustered:
-        return this.getMeasurementSchemaClustered(measurement, database);
+        return this.getMeasurementSchemaOverV1(measurement, database);
       case InfluxProductType.CloudServerless:
         return this.getMeasurementSchemaCloudServerless(measurement, database);
       case InfluxProductType.Core:
@@ -971,97 +881,21 @@ export class QueryService {
     }
   }
 
-  private async getMeasurementSchemaCloudDedicated(
+  private async getMeasurementSchemaOverV1(
     measurement: string,
     database: string,
   ): Promise<SchemaInfo> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
 
-      const fieldKeysResponse = await this.getV1Query(httpClient, {
+      const fieldKeysResponse = await queryV1(httpClient, {
         params: {
           db: database,
           q: `SHOW FIELD KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
         },
       });
 
-      const tagKeysResponse = await this.getV1Query(httpClient, {
-        params: {
-          db: database,
-          q: `SHOW TAG KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
-        },
-      });
-      const columns: {
-        name: string;
-        type: string;
-        category: "time" | "tag" | "field" | "unknown";
-        categoryConfidence: "high" | "low";
-      }[] = [];
-
-      if (
-        fieldKeysResponse.results &&
-        fieldKeysResponse.results[0] &&
-        fieldKeysResponse.results[0].series
-      ) {
-        const fieldSeries = fieldKeysResponse.results[0].series[0];
-        if (fieldSeries && fieldSeries.values) {
-          fieldSeries.values.forEach((value: any[]) => {
-            columns.push({
-              name: value[0],
-              type: value[1],
-              category: "field",
-              categoryConfidence: "high",
-            });
-          });
-        }
-      }
-
-      if (
-        tagKeysResponse.results &&
-        tagKeysResponse.results[0] &&
-        tagKeysResponse.results[0].series
-      ) {
-        const tagSeries = tagKeysResponse.results[0].series[0];
-        if (tagSeries && tagSeries.values) {
-          tagSeries.values.forEach((value: any[]) => {
-            columns.push({
-              name: value[0],
-              type: "string",
-              category: "tag",
-              categoryConfidence: "high",
-            });
-          });
-        }
-      }
-
-      columns.unshift({
-        name: "time",
-        type: "timestamp",
-        category: "time",
-        categoryConfidence: "high",
-      });
-
-      return { columns };
-    } catch (error: any) {
-      throw resolveOperationError(error, "metadata_unavailable");
-    }
-  }
-
-  private async getMeasurementSchemaClustered(
-    measurement: string,
-    database: string,
-  ): Promise<SchemaInfo> {
-    try {
-      const httpClient = this.baseService.getInfluxHttpClient();
-
-      const fieldKeysResponse = await this.getV1Query(httpClient, {
-        params: {
-          db: database,
-          q: `SHOW FIELD KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
-        },
-      });
-
-      const tagKeysResponse = await this.getV1Query(httpClient, {
+      const tagKeysResponse = await queryV1(httpClient, {
         params: {
           db: database,
           q: `SHOW TAG KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
