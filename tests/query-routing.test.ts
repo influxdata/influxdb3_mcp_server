@@ -128,8 +128,8 @@ describe("query routing options", () => {
     "%s routes InfluxQL to the v1-compatible HTTP API with params and timeout, even where SQL uses Flight",
     async (_name, type) => {
       const base = stubBaseService(type);
-      const response = { results: [{ statement_id: 0 }] };
-      const httpClient = { get: vi.fn().mockResolvedValue(response) };
+      const emptyResult = { results: [{ statement_id: 0 }] };
+      const httpClient = { get: vi.fn().mockResolvedValue(emptyResult) };
       vi.mocked(base.getInfluxHttpClient).mockReturnValue(httpClient as any);
 
       await expect(
@@ -137,7 +137,7 @@ describe("query routing options", () => {
           params: PARAMS,
           timeoutMs: TIMEOUT_MS,
         }),
-      ).resolves.toEqual(response);
+      ).resolves.toEqual([]);
 
       expect(httpClient.get).toHaveBeenCalledWith("/query", {
         params: { db: DATABASE, q: QUERY, params: PARAMS },

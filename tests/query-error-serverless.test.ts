@@ -179,7 +179,7 @@ describe("v1 /query statement errors returned with HTTP 200", () => {
     expect(error.message).toContain("database not found");
   });
 
-  it("returns a body without statement errors unchanged", async () => {
+  it("returns the rows of a body without statement errors", async () => {
     const body = {
       results: [
         {
@@ -195,6 +195,6 @@ describe("v1 /query statement errors returned with HTTP 200", () => {
 
     await expect(
       svc.executeInfluxqlQuery("SELECT * FROM m", "mybucket"),
-    ).resolves.toEqual(body);
+    ).resolves.toEqual([{ "iox::measurement": "m", time: 1, v: 2 }]);
   });
 });
