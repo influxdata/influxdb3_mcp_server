@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `rejected_lines` (every line number and error, up to 100), and `stored`,
   which says whether the other lines were written (`some`), nothing was
   (`none`), or it can't be told (`unknown`).
+- Cloud Dedicated and Cloud Serverless partial writes get the same `write`
+  object. Both products store the valid lines of an `/api/v2/write` batch
+  and return a `400` with `influxdata-partial-write: true`, naming each
+  rejected line in the message. That `400` is now `write_lines_rejected`
+  with `stored: "some"`, so an agent resends only the rejected lines instead
+  of the whole batch.
 - Write error codes: `write_lines_rejected`, `write_schema_not_declared`
   (Enterprise explicit schema mode), `write_node_not_ingest` (a node without
   ingest mode), `write_unavailable` (429 or 503: the server refused the

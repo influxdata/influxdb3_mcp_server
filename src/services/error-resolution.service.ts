@@ -95,6 +95,61 @@ export function everyRejectedLine(body: unknown): RejectedLine[] {
   });
 }
 
+const PARTIAL_WRITE_HEADER = "influxdata-partial-write";
+const V2_PARTIAL_WRITE_PREFIX =
+  /^partial write has occurred, errors encountered on line\(s\): /u;
+const V2_LINE_ERROR_MARKER = /line (\d+): /gu;
+const SEPARATOR_BEFORE_NEXT_LINE_ERROR = /[,;]\s*$/u;
+
+function responseHeader(error: any, name: string): string | undefined {
+  const headers = error?.response?.headers ?? error?.headers;
+  if (!headers) return undefined;
+  const value =
+    typeof headers.get === "function" ? headers.get(name) : headers[name];
+  const first = Array.isArray(value) ? value[0] : value;
+  return typeof first === "string" ? first : undefined;
+}
+
+/**
+ * Rejected lines from an `/api/v2/write` partial write, as Cloud Dedicated and
+ * Cloud Serverless report it: a 400 with `influxdata-partial-write: true` and
+ * a JSON body whose `message` lists each rejected line, plus a top-level
+ * `line` (claims 20261123-0037, 0038).
+ */
+export function everyV2PartialWriteLine(
+  error: any,
+  body: unknown,
+): RejectedLine[] {
+  if (!body || typeof body !== "object") return [];
+  const { message, line } = body as Record<string, unknown>;
+  if (typeof message !== "string") return [];
+  const prefix = V2_PARTIAL_WRITE_PREFIX.exec(message);
+  const flagged = responseHeader(error, PARTIAL_WRITE_HEADER) === "true";
+  if (!prefix && !flagged) return [];
+
+  const lineErrors = prefix ? message.slice(prefix[0].length) : message;
+  const markers = [...lineErrors.matchAll(V2_LINE_ERROR_MARKER)];
+  if (markers.length === 0) {
+    return [
+      {
+        error_message: lineErrors,
+        ...(typeof line === "number" && { line_number: line }),
+      },
+    ];
+  }
+  return markers.map((marker, index) => {
+    const start = marker.index + marker[0].length;
+    const end = markers[index + 1]?.index ?? lineErrors.length;
+    return {
+      line_number: Number(marker[1]),
+      error_message: lineErrors
+        .slice(start, end)
+        .trim()
+        .replace(SEPARATOR_BEFORE_NEXT_LINE_ERROR, ""),
+    };
+  });
+}
+
 export type Recovery =
   | "retry"
   | "narrow"
@@ -405,14 +460,18 @@ export function resolveWriteError(
       : `Failed to write data to database '${database}': ${detail}`;
   const retryAfter = retryAfterMs(error);
 
-  const rejected = everyRejectedLine(body);
+  const v3Rejected = everyRejectedLine(body);
+  const v2Rejected =
+    v3Rejected.length === 0 ? everyV2PartialWriteLine(error, body) : [];
+  const serverReportedPartialWrite = v2Rejected.length > 0;
+  const rejected = serverReportedPartialWrite ? v2Rejected : v3Rejected;
   const records = lineProtocolRecords(request.lineProtocol);
   const submitted = records.length;
   const rejectedCount = new Set(
     rejected.map((line, index) => line.line_number ?? `#${index}`),
   ).size;
   const stored = inferStoredLines(
-    request.acceptPartial,
+    serverReportedPartialWrite ? true : request.acceptPartial,
     rejectedCount,
     submitted,
   );

@@ -117,3 +117,17 @@ export const SYNTHETIC_429_RETRY_AFTER_2S: AxiosErrorShape = {
   } as AxiosErrorShape["response"],
   message: "Request failed with status code 429",
 };
+
+export const CORE_ENT_400_V2_DUPLICATE_TAG_WHOLE_BATCH: AxiosErrorShape = {
+  response: {
+    status: 400,
+    statusText: "Bad Request",
+    data: {
+      code: "invalid",
+      message:
+        "write buffer error: line protocol parse failed: invalid line protocol - multiple instances of 'host' tag found",
+    },
+    headers: {},
+  } as AxiosErrorShape["response"],
+  message: "Request failed with status code 400",
+};

@@ -20,6 +20,7 @@ export interface SdkErrorShape {
   body: string | undefined;
   json: unknown;
   message: string;
+  headers?: Record<string, string>;
 }
 
 // ── Core / axios-based fixtures ────────────────────────────────────────────
