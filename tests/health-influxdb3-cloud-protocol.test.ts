@@ -7,34 +7,34 @@ import { startFakeInfluxDB, FakeInfluxDB } from "./helpers/fake-influxdb.js";
 import { createTestClient, TestClient } from "./helpers/mcp-client.js";
 import { expectValidEnvelope } from "./helpers/envelope.js";
 
-const CLOUD_CLUSTER_UUID = "00000000-0000-4000-8000-000000000c10";
+const INFLUXDB3_CLOUD_CLUSTER_UUID = "00000000-0000-4000-8000-000000000c10";
 
-const cloudClaim = (claimIds: string): ScenarioProvenance => ({
+const influxdb3CloudClaim = (claimIds: string): ScenarioProvenance => ({
   products: ["enterprise"],
   version: "3.12.2",
   source: "claim",
   detail: `InfluxDB 3 Cloud, ${claimIds}`,
 });
 
-const CLOUD_HEALTH_ABSENT: Scenario = {
+const INFLUXDB3_CLOUD_HEALTH_ABSENT: Scenario = {
   name: "InfluxDB 3 Cloud has no /health",
   provenance: {
-    ...cloudClaim("claim-20261120-0006"),
+    ...influxdb3CloudClaim("claim-20261120-0006"),
     outside_spec: "The public health spec omits 404.",
   },
   request: { method: "GET", path: "/health" },
   response: { status: 404, body: "" },
 };
 
-const CLOUD_ADMIN_PING: Scenario = {
+const INFLUXDB3_CLOUD_ADMIN_PING: Scenario = {
   name: "InfluxDB 3 Cloud /ping with an admin token",
-  provenance: cloudClaim("claim-20261120-0004, claim-20261120-0007"),
+  provenance: influxdb3CloudClaim("claim-20261120-0004, claim-20261120-0007"),
   request: { method: "GET", path: "/ping" },
   response: {
     status: 200,
     headers: {
       "content-type": "application/json",
-      "cluster-uuid": CLOUD_CLUSTER_UUID,
+      "cluster-uuid": INFLUXDB3_CLOUD_CLUSTER_UUID,
       "x-influxdb-build": "Enterprise",
       "x-influxdb-version": "3.12.2",
     },
@@ -46,13 +46,13 @@ const CLOUD_ADMIN_PING: Scenario = {
   },
 };
 
-const CLOUD_SCOPED_PING: Scenario = {
+const INFLUXDB3_CLOUD_SCOPED_PING: Scenario = {
   name: "InfluxDB 3 Cloud /ping with a database-scoped token",
-  provenance: cloudClaim("claim-20261120-0005"),
+  provenance: influxdb3CloudClaim("claim-20261120-0005"),
   request: { method: "GET", path: "/ping" },
   response: {
     status: 403,
-    headers: { "cluster-uuid": CLOUD_CLUSTER_UUID },
+    headers: { "cluster-uuid": INFLUXDB3_CLOUD_CLUSTER_UUID },
     body: "",
   },
 };
@@ -85,8 +85,8 @@ async function healthCheckAgainst(scenarios: Scenario[]) {
 describe("health_check against InfluxDB 3 Cloud", () => {
   it("reports /health as absent, not unreachable, and stays healthy on /ping", async () => {
     const result = await healthCheckAgainst([
-      CLOUD_HEALTH_ABSENT,
-      CLOUD_ADMIN_PING,
+      INFLUXDB3_CLOUD_HEALTH_ABSENT,
+      INFLUXDB3_CLOUD_ADMIN_PING,
     ]);
     expect(result.health.outcome).toBe("endpoint_absent");
     expect(result.ping).toMatchObject({
@@ -94,7 +94,7 @@ describe("health_check against InfluxDB 3 Cloud", () => {
       outcome: "ok",
       version: "3.12.2",
       build: "Enterprise",
-      cluster_uuid: CLOUD_CLUSTER_UUID,
+      cluster_uuid: INFLUXDB3_CLOUD_CLUSTER_UUID,
     });
     expect(result.connection).toMatchObject({
       status: "healthy",
@@ -104,14 +104,14 @@ describe("health_check against InfluxDB 3 Cloud", () => {
 
   it("keeps the cluster UUID from a denied /ping", async () => {
     const result = await healthCheckAgainst([
-      CLOUD_HEALTH_ABSENT,
-      CLOUD_SCOPED_PING,
+      INFLUXDB3_CLOUD_HEALTH_ABSENT,
+      INFLUXDB3_CLOUD_SCOPED_PING,
     ]);
     expect(result.health.outcome).toBe("endpoint_absent");
     expect(result.ping).toMatchObject({
       ok: false,
       outcome: "credential_cannot_check",
-      cluster_uuid: CLOUD_CLUSTER_UUID,
+      cluster_uuid: INFLUXDB3_CLOUD_CLUSTER_UUID,
     });
     expect(result.ping).not.toHaveProperty("version");
     expect(result.connection).toMatchObject({

@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { InfluxProductType } from "../src/helpers/enums/influx-product-types.enum.js";
 import { writeErrorMessage } from "./helpers/write-service.js";
 import {
-  CLOUD_SDK_401_UNAUTHORIZED,
-  CLOUD_SDK_503_UNAVAILABLE,
+  CLIENT_LIBRARY_401_UNAUTHORIZED,
+  PROVISIONAL_CLIENT_LIBRARY_503_UNAVAILABLE,
 } from "./fixtures/write-errors.js";
 import {
   CLOUD_DEDICATED_400_V2_PARTIAL_WRITE_DUPLICATE_TAG,
@@ -12,7 +12,7 @@ import {
   V2_PARTIAL_WRITE_REJECTION,
 } from "./fixtures/write-errors-v2-partial-write.js";
 
-const CLOUD_TYPES = [
+const CLIENT_LIBRARY_PRODUCTS = [
   ["cloud-dedicated", InfluxProductType.CloudDedicated],
   ["cloud-serverless", InfluxProductType.CloudServerless],
 ] as const;
@@ -45,12 +45,12 @@ describe("client library HttpError reaches the same status handling as axios", (
     },
   );
 
-  it.each(CLOUD_TYPES)(
+  it.each(CLIENT_LIBRARY_PRODUCTS)(
     "%s: a 401 reaches the 401 arm",
     async (_label, type) => {
       const message = await writeErrorMessage(
         type,
-        sdk(CLOUD_SDK_401_UNAUTHORIZED),
+        sdk(CLIENT_LIBRARY_401_UNAUTHORIZED),
       );
 
       expect(message).toMatch(/^Unauthorized: /);
@@ -58,12 +58,12 @@ describe("client library HttpError reaches the same status handling as axios", (
     },
   );
 
-  it.each(CLOUD_TYPES)(
+  it.each(CLIENT_LIBRARY_PRODUCTS)(
     "%s: a 503 reaches the retryable arm, not the generic or 400 arm whose text the SDK message could match",
     async (_label, type) => {
       const message = await writeErrorMessage(
         type,
-        sdk(CLOUD_SDK_503_UNAVAILABLE),
+        sdk(PROVISIONAL_CLIENT_LIBRARY_503_UNAVAILABLE),
       );
 
       expect(message).not.toMatch(/^Failed to write data to database /);
