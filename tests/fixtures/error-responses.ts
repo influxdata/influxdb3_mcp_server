@@ -118,15 +118,9 @@ export const SERVERLESS_SDK_404_NONEXISTENT_BUCKET: SdkErrorShape = {
 };
 
 /**
- * Cloud Serverless v1 `/query` on a bucket with no DBRP mapping. The text
- * `database not found` is from claim 20261123-0038; the status and the rest
- * of the body aren't recorded in this repository.
+ * Cloud Serverless v1 `/query` on a bucket with no DBRP mapping: HTTP 200 with
+ * the error in `results[0].error` (claim 20261123-0039).
  */
-export const SERVERLESS_AXIOS_INFLUXQL_BUCKET_WITHOUT_DBRP: AxiosErrorShape = {
-  response: {
-    status: 404,
-    statusText: "Not Found",
-    data: { code: "not found", message: "database not found: mybucket" },
-  },
-  message: "Request failed with status code 404",
+export const SERVERLESS_V1_QUERY_200_BUCKET_WITHOUT_DBRP = {
+  results: [{ statement_id: 0, error: "database not found: mybucket" }],
 };

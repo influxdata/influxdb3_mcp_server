@@ -29,6 +29,18 @@ import {
 
 const BUCKET_WITHOUT_DBRP_MAPPING = /database not found/iu;
 
+/** Errors in a v1 `/query` body. The v1 API reports a failed statement with HTTP 200. */
+export function v1StatementErrors(body: unknown): string[] {
+  if (!body || typeof body !== "object") return [];
+  const { error, results } = body as { error?: unknown; results?: unknown };
+  const errors = typeof error === "string" ? [error] : [];
+  if (!Array.isArray(results)) return errors;
+  for (const result of results) {
+    if (typeof result?.error === "string") errors.push(result.error);
+  }
+  return errors;
+}
+
 export interface QueryResult {
   results?: any[];
   data?: any;
@@ -695,7 +707,7 @@ export class QueryService {
   ): Promise<any> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
-      const response = await httpClient.get("/query", {
+      const response = await this.getV1Query(httpClient, {
         params: {
           db: database,
           q: query,
@@ -707,6 +719,18 @@ export class QueryService {
     } catch (error: any) {
       this.handleQueryError(error);
     }
+  }
+
+  private async getV1Query(
+    httpClient: HttpClientService,
+    config: Record<string, unknown>,
+  ): Promise<any> {
+    const body = await httpClient.get("/query", config);
+    const statementErrors = v1StatementErrors(body);
+    if (statementErrors.length > 0) {
+      throw new OperationError(statementErrors.join("; "), "query_failed");
+    }
+    return body;
   }
 
   private async executeCloudServerlessInfluxqlQuery(
@@ -831,7 +855,7 @@ export class QueryService {
   ): Promise<MeasurementInfo[]> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
-      const response = await httpClient.get("/query", {
+      const response = await this.getV1Query(httpClient, {
         params: {
           db: database,
           q: "SHOW MEASUREMENTS",
@@ -863,7 +887,7 @@ export class QueryService {
   ): Promise<MeasurementInfo[]> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
-      const response = await httpClient.get("/query", {
+      const response = await this.getV1Query(httpClient, {
         params: {
           db: database,
           q: "SHOW MEASUREMENTS",
@@ -976,14 +1000,14 @@ export class QueryService {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
 
-      const fieldKeysResponse = await httpClient.get("/query", {
+      const fieldKeysResponse = await this.getV1Query(httpClient, {
         params: {
           db: database,
           q: `SHOW FIELD KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
         },
       });
 
-      const tagKeysResponse = await httpClient.get("/query", {
+      const tagKeysResponse = await this.getV1Query(httpClient, {
         params: {
           db: database,
           q: `SHOW TAG KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
@@ -1055,14 +1079,14 @@ export class QueryService {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
 
-      const fieldKeysResponse = await httpClient.get("/query", {
+      const fieldKeysResponse = await this.getV1Query(httpClient, {
         params: {
           db: database,
           q: `SHOW FIELD KEYS FROM "${measurement.replace(/"/gu, '""')}"`,
         },
       });
 
-      const tagKeysResponse = await httpClient.get("/query", {
+      const tagKeysResponse = await this.getV1Query(httpClient, {
         params: {
           db: database,
           q: `SHOW TAG KEYS FROM "${measurement.replace(/"/gu, '""')}"`,

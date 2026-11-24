@@ -48,11 +48,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `query_influxql` on Cloud Serverless now explains a `database not found`
-  error. Cloud Serverless answers InfluxQL through the v1 `/query` endpoint,
-  which needs a DBRP mapping for the bucket, and `/api/v2/write` doesn't
-  create one. The error code is `influxql_bucket_not_mapped`, and the message
-  points to `query_sql`, which needs no mapping.
+- InfluxQL on Cloud Dedicated, Cloud Serverless, and Clustered reported a
+  failed statement as success. The v1 `/query` endpoint returns a statement
+  error with HTTP 200, in `results[].error`. `query_influxql` returned that
+  body as one row, and schema discovery returned an empty list. Both now
+  fail with the server's error.
+- On Cloud Serverless, `database not found` from InfluxQL is
+  `influxql_bucket_not_mapped`. `/query` needs a DBRP mapping for the bucket,
+  and `/api/v2/write`, which `write_line_protocol` uses, doesn't create one.
+  The message points to `query_sql`, which needs no mapping.
 - A write that rejected several lines reported only the first. The error
   message now lists up to five, and the envelope lists up to 100.
 - `write_line_protocol` error text adds a second line saying what to do
