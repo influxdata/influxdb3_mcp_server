@@ -579,13 +579,15 @@ A failed write also has `error.code` and `error.recovery`. These have
   nothing was stored.
 - A refused connection is `write_connection_refused`: nothing was written.
 
-A `504`, or a connection that closes before a reply, is
-`write_outcome_unknown`: the write may or may not have been stored. It has
+A `504`, a connection that closes before a reply, or a write the server
+doesn't answer in time is `write_outcome_unknown`: the write may or may not have been stored. It has
 `recovery: "retry"` only when every line has a timestamp, because resending
 such a batch stores no second copy. A line without a timestamp gets the
 server's time, so resending a stored write adds a second point at a later
 time. For those batches the recovery is `none`, and the error says to check
-whether the rows arrived, or to ask the user, before resending.
+whether the rows arrived, or to ask the user, before resending. The time
+limit is 30 seconds on Core, Enterprise, and Clustered, and the client
+library's default of 10 seconds on Cloud Dedicated and Cloud Serverless.
 
 Other write errors aren't retryable.
 
