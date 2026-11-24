@@ -28,8 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (Enterprise explicit schema mode), `write_node_not_ingest` (a node without
   ingest mode), `write_unavailable` (429 or 503: the server refused the
   write, retryable), `write_connection_refused` (nothing was written,
-  retryable), `write_outcome_unknown` (a connection closed or reset before a reply, or a
-  504: the write may have been stored), `write_too_large` (413), and
+  retryable), `write_outcome_unknown` (a connection closed or reset before
+  a reply, a client timeout, or a 504: the write may have been stored), `write_too_large` (413), and
   `write_failed`. A 401 is `credential_invalid` and a 403 is
   `not_found_or_denied`, as on the query path. `write_outcome_unknown` is
   retryable only when every line has a timestamp. The server gives a line
@@ -54,10 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   body as one row, and schema discovery returned an empty list. Both now
   fail with the server's error.
 - On Cloud Serverless, `database not found` from InfluxQL is
-  `influxql_bucket_not_mapped`. `/query` needs a DBRP mapping for the bucket,
-  and `/api/v2/write`, which `write_line_protocol` uses, doesn't create one.
-  The message points to `query_sql`, which needs no mapping, and says how
-  to create a default mapping (`retention_policy` is required).
+  `influxql_bucket_not_mapped`. The same error means the bucket doesn't
+  exist or has no DBRP mapping, which `/query` needs and `/api/v2/write`,
+  which `write_line_protocol` uses, doesn't create. The message says to
+  check the name with `list_databases`, points to `query_sql`, which needs
+  no mapping, and says how to create a default mapping (`retention_policy`
+  is required).
 - `query_influxql` on Cloud Dedicated, Cloud Serverless, and Clustered
   returned the whole v1 `/query` body as one row, so `row_count` was always
   1, an empty result counted as data, and `max_rows` capped nothing. Each

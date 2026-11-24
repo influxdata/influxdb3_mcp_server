@@ -128,7 +128,10 @@ describe("v1 /query statement errors returned with HTTP 200", () => {
     expect(error.code).toBe("influxql_bucket_not_mapped");
     expect(error.recovery).toBe("none");
     expect(error.message).toContain("database not found: mybucket");
-    expect(error.message).toMatch(/DBRP mapping for bucket 'mybucket'/);
+    expect(error.message).toMatch(
+      /bucket 'mybucket' doesn't exist, or it has no DBRP mapping/,
+    );
+    expect(error.message).toMatch(/list_databases/);
     expect(error.message).toMatch(/query_sql/);
     expect(error.message).toMatch(/POST \/api\/v2\/dbrps/);
     expect(error.message).toMatch(/retention_policy .*\(required\)/);

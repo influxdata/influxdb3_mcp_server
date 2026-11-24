@@ -1,3 +1,5 @@
+import { RequestTimedOutError } from "@influxdata/influxdb3-client";
+
 /**
  * Shared error normalization for the write and query paths.
  *
@@ -273,13 +275,8 @@ export function resolveOperationError(
     422: "Unprocessable entity",
   };
   const access = status === undefined ? undefined : ACCESS_FAILURES[status];
-  const clientTimeout =
-    error &&
-    typeof error === "object" &&
-    "code" in error &&
-    (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT");
+  const clientTimeout = clientStoppedWaiting(error);
   const code = access?.code ?? (clientTimeout ? "client_timeout" : fallback);
-  // Backpressure and timeout signatures need live evidence.
   const signature = RECOVERY_SIGNATURES.find(
     (candidate) =>
       status !== undefined &&
@@ -287,26 +284,6 @@ export function resolveOperationError(
       candidate.pattern.test(message),
   );
   const recovery: Recovery = access?.recovery ?? signature?.recovery ?? "none";
-  let retryAfter: unknown;
-  if (error && typeof error === "object" && "response" in error) {
-    const response = error.response;
-    if (response && typeof response === "object" && "headers" in response) {
-      const headers = response.headers;
-      if (headers && typeof headers === "object" && "retry-after" in headers)
-        retryAfter = headers["retry-after"];
-    }
-  }
-  const seconds =
-    typeof retryAfter === "string" || typeof retryAfter === "number"
-      ? Number(retryAfter)
-      : NaN;
-  const date = typeof retryAfter === "string" ? Date.parse(retryAfter) : NaN;
-  const retryMs =
-    Number.isFinite(seconds) && seconds >= 0
-      ? seconds * 1000
-      : Number.isFinite(date)
-        ? Math.max(0, date - Date.now())
-        : undefined;
   const label =
     signature?.hint ??
     (status ? prefix[status] || "Query failed" : "Query failed");
@@ -315,7 +292,7 @@ export function resolveOperationError(
     code,
     recovery,
     status,
-    retryMs,
+    retryAfterMs(error),
     clientTimeout ? "client" : undefined,
   );
 }
@@ -363,17 +340,18 @@ export class WriteOperationError extends OperationError {
     retryAfterMs: number | undefined,
     readonly fix?: string,
     readonly write?: WriteOutcome,
+    timeoutOrigin?: "client",
   ) {
-    super(message, code, recovery, status, retryAfterMs);
+    super(message, code, recovery, status, retryAfterMs, timeoutOrigin);
   }
 }
 
-function retryAfterMs(error: any): number | undefined {
-  const value = error?.response?.headers?.["retry-after"];
-  if (typeof value !== "string" && typeof value !== "number") return undefined;
+function retryAfterMs(error: unknown): number | undefined {
+  const value = responseHeader(error, "retry-after");
+  if (value === undefined) return undefined;
   const seconds = Number(value);
   if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1000;
-  const date = typeof value === "string" ? Date.parse(value) : NaN;
+  const date = Date.parse(value);
   return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined;
 }
 
@@ -432,6 +410,15 @@ function networkErrorCode(error: any): string | undefined {
   return typeof code === "string" ? code : undefined;
 }
 
+const AXIOS_TIMEOUT_CODES = ["ECONNABORTED", "ETIMEDOUT"];
+
+function clientStoppedWaiting(error: unknown): boolean {
+  return (
+    error instanceof RequestTimedOutError ||
+    AXIOS_TIMEOUT_CODES.includes(networkErrorCode(error) ?? "")
+  );
+}
+
 const WRITE_PREFIXES: Record<number, string> = {
   400: "Bad request",
   401: "Unauthorized",
@@ -459,6 +446,8 @@ export function resolveWriteError(
       ? `${WRITE_PREFIXES[status]}: ${detail}`
       : `Failed to write data to database '${database}': ${detail}`;
   const retryAfter = retryAfterMs(error);
+  const timeoutOrigin =
+    status === undefined && clientStoppedWaiting(error) ? "client" : undefined;
 
   const v3Rejected = everyRejectedLine(body);
   const v2Rejected =
@@ -498,6 +487,7 @@ export function resolveWriteError(
       retryAfter,
       fix,
       write,
+      timeoutOrigin,
     );
   const resend =
     stored === "some"
@@ -554,6 +544,9 @@ export function resolveWriteError(
   }
   if (networkCode === CONNECTION_RESET) {
     return outcomeUnknown("The connection closed before the server answered");
+  }
+  if (timeoutOrigin) {
+    return outcomeUnknown("The client stopped waiting for the server's answer");
   }
   if (status === 413) {
     return fail(
