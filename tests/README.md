@@ -89,13 +89,13 @@ pnpm exec vitest run tests/query-completeness.test.ts tests/query-format.test.ts
 
 ## Coverage for the write-path error and packaging fixes
 
-| Bug                                             | Tests                                                   |
-| ----------------------------------------------- | ------------------------------------------------------- |
-| Write path drops the InfluxDB error body        | `write-error-core.test.ts`, `write-error-cloud.test.ts` |
-| Which endpoint each product type writes to      | `write-routing.test.ts`                                 |
-| `zod` is a runtime dependency, declared as dev  | `packaging.test.ts`                                     |
-| `ping()` version/build header passthrough       | `base-connection-ping.test.ts`                          |
-| `write_line_protocol` contract, error surfacing | `protocol-write.test.ts`                                |
+| Bug                                             | Tests                                                            |
+| ----------------------------------------------- | ---------------------------------------------------------------- |
+| Write path drops the InfluxDB error body        | `write-error-core.test.ts`, `write-error-client-library.test.ts` |
+| Which endpoint each product type writes to      | `write-routing.test.ts`                                          |
+| `zod` is a runtime dependency, declared as dev  | `packaging.test.ts`                                              |
+| `ping()` version/build header passthrough       | `base-connection-ping.test.ts`                                   |
+| `write_line_protocol` contract, error surfacing | `protocol-write.test.ts`                                         |
 
 None of these are version-gated — they're bugs in the current server,
 independent of which InfluxDB release is on the other end.

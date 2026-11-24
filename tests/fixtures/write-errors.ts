@@ -90,7 +90,7 @@ export const CORE_500_STRING_BODY: AxiosErrorShape = {
   message: "Request failed with status code 500",
 };
 
-export const CLOUD_SDK_401_UNAUTHORIZED: SdkErrorShape = {
+export const CLIENT_LIBRARY_401_UNAUTHORIZED: SdkErrorShape = {
   statusCode: 401,
   statusMessage: "Unauthorized",
   body: '{"code":"unauthorized","message":"unauthorized access"}',
@@ -98,7 +98,7 @@ export const CLOUD_SDK_401_UNAUTHORIZED: SdkErrorShape = {
   message: "unauthorized access",
 };
 
-export const CLOUD_SDK_503_UNAVAILABLE: SdkErrorShape = {
+export const PROVISIONAL_CLIENT_LIBRARY_503_UNAVAILABLE: SdkErrorShape = {
   statusCode: 503,
   statusMessage: "Service Unavailable",
   body: '{"code":"unavailable","message":"service temporarily unavailable"}',
