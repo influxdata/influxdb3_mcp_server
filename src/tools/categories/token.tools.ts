@@ -9,6 +9,7 @@ export function createTokenTools(
   const tools: McpTool[] = [
     {
       name: "create_admin_token",
+      minimumProfile: "operator",
       description:
         "Create a new InfluxDB named admin token with full administrative permissions (Core/Enterprise only). Named admin tokens can manage databases, users, and resource tokens, but cannot manage other admin tokens.",
       inputSchema: {
@@ -70,6 +71,7 @@ export function createTokenTools(
 
     {
       name: "list_admin_tokens",
+      minimumProfile: "operator",
       description:
         "List all admin tokens (operator and named admin tokens) with optional filtering by token name (Core/Enterprise only). Named admin tokens have full administrative access including resource token management.",
       inputSchema: {
@@ -128,6 +130,7 @@ export function createTokenTools(
 
     {
       name: "list_resource_tokens",
+      minimumProfile: "operator",
       description:
         "List all Enterprise resource tokens with optional filtering by database name and/or token name, and ordering.",
       inputSchema: {
@@ -227,6 +230,7 @@ export function createTokenTools(
 
     {
       name: "regenerate_operator_token",
+      minimumProfile: "operator",
       description:
         "Regenerate the InfluxDB operator token (Core/Enterprise only). Returns the new token value. ⚠️ This action invalidates current operator token and is irreversible. Receive the explicit user confirmation before proceeding.",
       inputSchema: {
@@ -263,6 +267,7 @@ export function createTokenTools(
 
     {
       name: "create_resource_token",
+      minimumProfile: "operator",
       description:
         'Create a new InfluxDB Enterprise resource token with specific database permissions. Example: databases=["mydb", "testdb"], actions=["read", "write"]',
       inputSchema: {
@@ -379,6 +384,7 @@ export function createTokenTools(
 
     {
       name: "delete_token",
+      minimumProfile: "operator",
       description: "Delete an InfluxDB token by name (Core/Enterprise only).",
       inputSchema: {
         type: "object",

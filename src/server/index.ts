@@ -63,14 +63,11 @@ function logMcpToolResult(
   });
 }
 
-const REFUSED_LEGACY_INVESTIGATION_OPTION = "includeCardinality";
-
 function acceptedArgumentNames(tool: McpTool): Set<string> {
-  const accepted = new Set(Object.keys(tool.inputSchema.properties || {}));
-  if (tool.name === "investigate_database") {
-    accepted.add(REFUSED_LEGACY_INVESTIGATION_OPTION);
-  }
-  return accepted;
+  return new Set([
+    ...Object.keys(tool.inputSchema.properties || {}),
+    ...(tool.refusedLegacyArguments ?? []),
+  ]);
 }
 
 function describeIssuesWithoutSubmittedValues(
