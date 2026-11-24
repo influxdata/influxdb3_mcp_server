@@ -1,180 +1,98 @@
+import type { WritePrecision } from "@influxdata/influxdb3-client";
 import { BaseConnectionService } from "./base-connection.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import { resolveWriteError } from "./error-resolution.service.js";
 
 export type Precision = "nanosecond" | "microsecond" | "millisecond" | "second";
 
+export interface LineProtocolWriteOptions {
+  precision: Precision;
+  acceptPartial?: boolean;
+  noSync?: boolean;
+}
+
+const SHORT_PRECISION_UNIT: Record<Precision, WritePrecision> = {
+  nanosecond: "ns",
+  microsecond: "us",
+  millisecond: "ms",
+  second: "s",
+};
+
+const LINE_PROTOCOL_REQUEST_HEADERS = {
+  "Content-Type": "text/plain; charset=utf-8",
+  Accept: "application/json",
+};
+
 export class WriteService {
-  private baseService: BaseConnectionService;
-
-  constructor(baseService: BaseConnectionService) {
-    this.baseService = baseService;
-  }
-
-  private toShortPrecisionUnit(precision: Precision): string {
-    const precisionMap: Record<Precision, string> = {
-      nanosecond: "ns",
-      microsecond: "us",
-      millisecond: "ms",
-      second: "s",
-    };
-    return precisionMap[precision];
-  }
+  constructor(private readonly baseService: BaseConnectionService) {}
 
   async writeLineProtocol(
-    lineProtocolData: string,
+    lineProtocol: string,
     database: string,
-    options: {
-      precision: Precision;
-      acceptPartial?: boolean;
-      noSync?: boolean;
-    },
+    options: LineProtocolWriteOptions,
   ): Promise<void> {
     this.baseService.validateDataCapabilities();
+    const product = this.baseService.getConnectionInfo().type;
+    const { precision, noSync = false } = options;
 
-    const connectionInfo = this.baseService.getConnectionInfo();
-    switch (connectionInfo.type) {
-      case InfluxProductType.CloudDedicated:
-        return this.writeCloudDedicated(lineProtocolData, database, options);
-      case InfluxProductType.Clustered:
-        return this.writeClustered(lineProtocolData, database, options);
-      case InfluxProductType.CloudServerless:
-        return this.writeCloudServerless(lineProtocolData, database, options);
+    let send: () => Promise<unknown>;
+    let acceptPartial: boolean | undefined;
+    switch (product) {
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
-        return this.writeCoreEnterprise(lineProtocolData, database, options);
+        acceptPartial = options.acceptPartial ?? true;
+        send = () =>
+          this.postLineProtocol("/api/v3/write_lp", lineProtocol, {
+            db: database,
+            precision,
+            accept_partial: String(acceptPartial),
+            no_sync: String(noSync),
+          });
+        break;
+      case InfluxProductType.Clustered:
+        send = () =>
+          this.postLineProtocol("/api/v2/write", lineProtocol, {
+            bucket: database,
+            precision: SHORT_PRECISION_UNIT[precision],
+          });
+        break;
+      case InfluxProductType.CloudDedicated:
+      case InfluxProductType.CloudServerless:
+        send = () =>
+          this.writeThroughClientLibrary(lineProtocol, database, precision);
+        break;
       default:
-        throw new Error(
-          `Unsupported InfluxDB product type: ${connectionInfo.type}`,
-        );
+        throw new Error(`Unsupported InfluxDB product type: ${product}`);
     }
-  }
 
-  private async writeCoreEnterprise(
-    lineProtocolData: string,
-    database: string,
-    options: {
-      precision: Precision;
-      acceptPartial?: boolean;
-      noSync?: boolean;
-    },
-  ): Promise<void> {
-    const { precision, acceptPartial = true, noSync = false } = options;
     try {
-      const httpClient = this.baseService.getInfluxHttpClient();
-      const params = new URLSearchParams({
-        db: database,
-        precision,
-        accept_partial: acceptPartial.toString(),
-        no_sync: noSync.toString(),
-      });
-      await httpClient.post(
-        `/api/v3/write_lp?${params.toString()}`,
-        lineProtocolData,
-        {
-          headers: {
-            "Content-Type": "text/plain; charset=utf-8",
-            Accept: "application/json",
-          },
-        },
-      );
-    } catch (error: any) {
-      this.handleWriteError(error, database, {
-        lineProtocol: lineProtocolData,
-        acceptPartial,
-      });
+      await send();
+    } catch (error) {
+      throw resolveWriteError(error, database, { lineProtocol, acceptPartial });
     }
   }
 
-  private async writeCloudDedicated(
-    lineProtocolData: string,
+  private postLineProtocol(
+    path: string,
+    lineProtocol: string,
+    query: Record<string, string>,
+  ): Promise<unknown> {
+    return this.baseService
+      .getInfluxHttpClient()
+      .post(`${path}?${new URLSearchParams(query)}`, lineProtocol, {
+        headers: LINE_PROTOCOL_REQUEST_HEADERS,
+      });
+  }
+
+  private async writeThroughClientLibrary(
+    lineProtocol: string,
     database: string,
-    options: {
-      precision: Precision;
-      acceptPartial?: boolean;
-      noSync?: boolean;
-    },
+    precision: Precision,
   ): Promise<void> {
-    try {
-      const client = this.baseService.getClient();
-      if (!client) throw new Error("InfluxDB client not initialized");
-      const writeOptions: any = {};
-      if (options.precision) {
-        writeOptions.precision = this.toShortPrecisionUnit(options.precision);
-      }
-      await client.write(lineProtocolData, database, undefined, writeOptions);
-    } catch (error: any) {
-      this.handleWriteError(error, database, {
-        lineProtocol: lineProtocolData,
-      });
-    }
-  }
-
-  private async writeClustered(
-    lineProtocolData: string,
-    database: string,
-    options: {
-      precision: Precision;
-      acceptPartial?: boolean;
-      noSync?: boolean;
-    },
-  ): Promise<void> {
-    const { precision } = options;
-    try {
-      const httpClient = this.baseService.getInfluxHttpClient();
-      const params = new URLSearchParams({
-        bucket: database,
-        precision: this.toShortPrecisionUnit(precision),
-      });
-      await httpClient.post(
-        `/api/v2/write?${params.toString()}`,
-        lineProtocolData,
-        {
-          headers: {
-            "Content-Type": "text/plain; charset=utf-8",
-            Accept: "application/json",
-          },
-        },
-      );
-    } catch (error: any) {
-      this.handleWriteError(error, database, {
-        lineProtocol: lineProtocolData,
-      });
-    }
-  }
-
-  private async writeCloudServerless(
-    lineProtocolData: string,
-    database: string,
-    options: {
-      precision: Precision;
-      acceptPartial?: boolean;
-      noSync?: boolean;
-    },
-  ): Promise<void> {
-    try {
-      const client = this.baseService.getClient();
-      if (!client) throw new Error("InfluxDB client not initialized");
-      const writeOptions: any = {};
-      if (options.precision) {
-        writeOptions.precision = this.toShortPrecisionUnit(options.precision);
-      }
-      await client.write(lineProtocolData, database, undefined, writeOptions);
-    } catch (error: any) {
-      this.handleWriteError(error, database, {
-        lineProtocol: lineProtocolData,
-      });
-    }
-  }
-
-  /**
-   * Centralized error handler for write methods
-   */
-  private handleWriteError(
-    error: any,
-    database: string,
-    request: { lineProtocol: string; acceptPartial?: boolean },
-  ): never {
-    throw resolveWriteError(error, database, request);
+    const client = this.baseService.getClient();
+    if (!client) throw new Error("InfluxDB client not initialized");
+    await client.write(lineProtocol, database, undefined, {
+      precision: SHORT_PRECISION_UNIT[precision],
+    });
   }
 }
