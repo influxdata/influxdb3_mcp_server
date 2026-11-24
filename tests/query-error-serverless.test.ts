@@ -9,6 +9,7 @@ import {
   SERVERLESS_SDK_404_NONEXISTENT_BUCKET,
   SERVERLESS_AXIOS_400_INVALID_QUERY,
   SERVERLESS_AXIOS_404_NONEXISTENT_BUCKET,
+  SERVERLESS_AXIOS_INFLUXQL_BUCKET_WITHOUT_DBRP,
 } from "./fixtures/error-responses.js";
 
 function stubBaseService(type: InfluxProductType): BaseConnectionService {
@@ -97,5 +98,59 @@ describe("handleQueryError – Serverless {code,message} via axios path", () => 
     await expect(svc.executeQuery("SELECT 1", "nonexistent")).rejects.toThrow(
       /could not find bucket/,
     );
+  });
+});
+
+describe("Cloud Serverless InfluxQL on a bucket without a DBRP mapping", () => {
+  function serviceWhoseQueryEndpointFails(error: AxiosErrorShape) {
+    const base = stubBaseService(InfluxProductType.CloudServerless);
+    vi.mocked(base.getInfluxHttpClient).mockReturnValue({
+      get: vi.fn().mockRejectedValue(error),
+    } as any);
+    return new QueryService(base);
+  }
+
+  it("says the bucket needs a DBRP mapping and that query_sql reads it", async () => {
+    const svc = serviceWhoseQueryEndpointFails(
+      SERVERLESS_AXIOS_INFLUXQL_BUCKET_WITHOUT_DBRP,
+    );
+
+    const error = await svc
+      .executeInfluxqlQuery("SELECT * FROM m", "mybucket")
+      .catch((thrown) => thrown);
+
+    expect(error.code).toBe("influxql_bucket_not_mapped");
+    expect(error.recovery).toBe("none");
+    expect(error.status).toBe(404);
+    expect(error.message).toContain("database not found");
+    expect(error.message).toMatch(/DBRP mapping for bucket 'mybucket'/);
+    expect(error.message).toMatch(/query_sql/);
+  });
+
+  it("leaves other InfluxQL errors as they are", async () => {
+    const svc = serviceWhoseQueryEndpointFails(
+      SERVERLESS_AXIOS_404_NONEXISTENT_BUCKET,
+    );
+
+    const error = await svc
+      .executeInfluxqlQuery("SELECT * FROM m", "nonexistent")
+      .catch((thrown) => thrown);
+
+    expect(error.code).not.toBe("influxql_bucket_not_mapped");
+    expect(error.message).not.toMatch(/DBRP/);
+  });
+
+  it("doesn't change Cloud Dedicated's InfluxQL errors", async () => {
+    const base = stubBaseService(InfluxProductType.CloudDedicated);
+    vi.mocked(base.getInfluxHttpClient).mockReturnValue({
+      get: vi
+        .fn()
+        .mockRejectedValue(SERVERLESS_AXIOS_INFLUXQL_BUCKET_WITHOUT_DBRP),
+    } as any);
+    const error = await new QueryService(base)
+      .executeInfluxqlQuery("SELECT * FROM m", "mybucket")
+      .catch((thrown) => thrown);
+
+    expect(error.code).not.toBe("influxql_bucket_not_mapped");
   });
 });

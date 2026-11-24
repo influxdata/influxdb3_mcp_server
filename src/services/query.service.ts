@@ -10,7 +10,10 @@ import type { QParamType } from "@influxdata/influxdb3-client";
 import { z } from "zod";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import { QueryLanguage, QuerySafetyService } from "./query-safety.service.js";
-import { resolveOperationError } from "./error-resolution.service.js";
+import {
+  OperationError,
+  resolveOperationError,
+} from "./error-resolution.service.js";
 import { createRequestId } from "./telemetry.service.js";
 import {
   decodePayload,
@@ -23,6 +26,8 @@ import {
   READ_ONLY_FORMATS,
   unsupportedOption,
 } from "./query-capabilities.js";
+
+const BUCKET_WITHOUT_DBRP_MAPPING = /database not found/iu;
 
 export interface QueryResult {
   results?: any[];
@@ -529,8 +534,13 @@ export class QueryService {
           database,
           options,
         );
-      case InfluxProductType.CloudDedicated:
       case InfluxProductType.CloudServerless:
+        return this.executeCloudServerlessInfluxqlQuery(
+          query,
+          database,
+          options,
+        );
+      case InfluxProductType.CloudDedicated:
       case InfluxProductType.Clustered:
         return this.executeClusteredQuery(query, database, options);
       default:
@@ -696,6 +706,32 @@ export class QueryService {
       return response;
     } catch (error: any) {
       this.handleQueryError(error);
+    }
+  }
+
+  private async executeCloudServerlessInfluxqlQuery(
+    query: string,
+    database: string,
+    options: {
+      params?: Record<string, unknown> | unknown[];
+      timeoutMs?: number;
+    },
+  ): Promise<any> {
+    try {
+      return await this.executeClusteredQuery(query, database, options);
+    } catch (error) {
+      if (
+        error instanceof OperationError &&
+        BUCKET_WITHOUT_DBRP_MAPPING.test(error.message)
+      ) {
+        throw new OperationError(
+          `${error.message}. Cloud Serverless answers InfluxQL through the v1 /query endpoint, which needs a DBRP mapping for bucket '${database}'. Writes through /api/v2/write, which write_line_protocol uses, don't create one. Read the same data with query_sql, which needs no mapping, or create a DBRP mapping for the bucket.`,
+          "influxql_bucket_not_mapped",
+          "none",
+          error.status,
+        );
+      }
+      throw error;
     }
   }
 
