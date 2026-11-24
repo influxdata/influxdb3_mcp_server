@@ -179,18 +179,6 @@ export const CORE_500_STRING_BODY: AxiosErrorShape = {
 // rather than `response.status`. Every status branch in the write handler tests
 // `error.response?.status` and therefore misses on these entirely.
 
-/** PROVISIONAL — Cloud rejection of {@link DUPLICATE_TAG_LINE}. */
-export const CLOUD_SDK_400_DUPLICATE_TAG: SdkErrorShape = {
-  statusCode: 400,
-  statusMessage: "Bad Request",
-  body: `{"code":"invalid","message":"invalid line protocol: duplicate tag key '${DUPLICATED_TAG_KEY}' on line 1"}`,
-  json: {
-    code: "invalid",
-    message: `invalid line protocol: duplicate tag key '${DUPLICATED_TAG_KEY}' on line 1`,
-  },
-  message: `invalid line protocol: duplicate tag key '${DUPLICATED_TAG_KEY}' on line 1`,
-};
-
 /** RECORDED shape — Cloud rejects an invalid token. */
 export const CLOUD_SDK_401_UNAUTHORIZED: SdkErrorShape = {
   statusCode: 401,

@@ -14,12 +14,15 @@ import { describe, it, expect } from "vitest";
 import { InfluxProductType } from "../src/helpers/enums/influx-product-types.enum.js";
 import { writeErrorMessage } from "./helpers/write-service.js";
 import {
-  CLOUD_SDK_400_DUPLICATE_TAG,
   CLOUD_SDK_401_UNAUTHORIZED,
   CLOUD_SDK_503_UNAVAILABLE,
-  DUPLICATE_TAG_LINE,
-  DUPLICATED_TAG_KEY,
 } from "./fixtures/write-errors.js";
+import {
+  CLOUD_DEDICATED_400_V2_PARTIAL_WRITE_DUPLICATE_TAG,
+  CLOUD_SERVERLESS_400_V2_PARTIAL_WRITE_DUPLICATE_TAG,
+  V2_PARTIAL_WRITE_BATCH,
+  V2_PARTIAL_WRITE_REJECTION,
+} from "./fixtures/write-errors-v2-partial-write.js";
 
 const CLOUD_TYPES = [
   ["cloud-dedicated", InfluxProductType.CloudDedicated],
@@ -34,17 +37,28 @@ describe("cloud SDK errors are normalized before branching", () => {
   // status, and both `error.response.data` and `error.body` / `error.json`
   // resolve to one body, before any status branch runs.
 
-  it.each(CLOUD_TYPES)(
+  it.each([
+    [
+      "cloud-dedicated",
+      InfluxProductType.CloudDedicated,
+      CLOUD_DEDICATED_400_V2_PARTIAL_WRITE_DUPLICATE_TAG,
+    ],
+    [
+      "cloud-serverless",
+      InfluxProductType.CloudServerless,
+      CLOUD_SERVERLESS_400_V2_PARTIAL_WRITE_DUPLICATE_TAG,
+    ],
+  ] as const)(
     "%s: a 400 reaches the 400 arm",
-    async (_label, type) => {
+    async (_label, type, recorded) => {
       const message = await writeErrorMessage(
         type,
-        sdk(CLOUD_SDK_400_DUPLICATE_TAG),
-        DUPLICATE_TAG_LINE,
+        sdk(recorded),
+        V2_PARTIAL_WRITE_BATCH,
       );
 
       expect(message).toMatch(/^Bad request: /);
-      expect(message).toContain(DUPLICATED_TAG_KEY);
+      expect(message).toContain(V2_PARTIAL_WRITE_REJECTION);
     },
   );
 
@@ -85,11 +99,14 @@ describe("cloud SDK errors are normalized before branching", () => {
     // resolver instead of letting the two handlers drift apart.
     const message = await writeErrorMessage(
       InfluxProductType.CloudServerless,
-      sdk({ ...CLOUD_SDK_400_DUPLICATE_TAG, message: "Request failed" }),
-      DUPLICATE_TAG_LINE,
+      sdk({
+        ...CLOUD_SERVERLESS_400_V2_PARTIAL_WRITE_DUPLICATE_TAG,
+        message: "Request failed",
+      }),
+      V2_PARTIAL_WRITE_BATCH,
     );
 
-    expect(message).toContain(DUPLICATED_TAG_KEY);
+    expect(message).toContain(V2_PARTIAL_WRITE_REJECTION);
     expect(message).not.toBe(
       "Failed to write data to database 'mydb': Request failed",
     );
