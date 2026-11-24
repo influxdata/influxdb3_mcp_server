@@ -40,8 +40,9 @@ required query and discovery tools, and execute a bounded read-only query.
 The checker exercises `readonly`, `readwrite`, and `operator` profiles and checks
 one successful telemetry event per query. The installed package must also include
 the output-contract document referenced by its README.
-The current `readwrite` and `operator` profiles expose the same tools.
-The smoke check invokes no write or administration tools.
+`readwrite` adds only `write_line_protocol` to the `readonly` tools, and
+`operator` adds database and token administration. The smoke check invokes no
+write or administration tools.
 
 You can also check an existing installation or image directly:
 
