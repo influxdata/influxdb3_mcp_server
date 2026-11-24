@@ -11,9 +11,7 @@ import {
   TestClient,
 } from "./helpers/mcp-client.js";
 
-// The keyword matrix lives in query-safety.test.ts. This checks the same fix
-// end to end, as the testbench case ro-quoted-keyword does.
-describe("read-only query safety over MCP", () => {
+describe("read-only query safety over MCP, end to end like the ro-quoted-keyword testbench case", () => {
   let backend: Backend;
   let mcp: TestClient;
 

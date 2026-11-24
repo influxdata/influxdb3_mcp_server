@@ -1,19 +1,12 @@
-/**
- * A scripted fake InfluxDB HTTP endpoint for protocol tests.
- *
- * The built MCP server runs over stdio with `INFLUX_DB_INSTANCE_URL` pointed
- * here. Each request is answered by the first scenario that matches it; an
- * unmatched request gets a 500 and is recorded in `unmatched`.
- */
-
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { AddressInfo } from "node:net";
 import { setTimeout } from "node:timers";
 import { URL } from "node:url";
 import type {
   Scenario,
-  ScriptedBody,
+  ScriptedFixedResponse,
   ScriptedTable,
+  TableInterruption,
 } from "../fixtures/influxdb-scenarios.js";
 
 export interface RecordedRequest {
@@ -42,9 +35,7 @@ export async function startFakeInfluxDB(
     const recorded = await recordRequest(req);
     requests.push(recorded);
 
-    const scenario = scenarios.find((candidate) =>
-      matches(candidate, recorded),
-    );
+    const scenario = firstMatchingScenario(scenarios, recorded);
     if (!scenario) {
       unmatched.push(recorded);
       sendBody(res, {
@@ -102,6 +93,13 @@ async function recordRequest(req: IncomingMessage): Promise<RecordedRequest> {
   };
 }
 
+function firstMatchingScenario(
+  scenarios: Scenario[],
+  request: RecordedRequest,
+): Scenario | undefined {
+  return scenarios.find((candidate) => matches(candidate, request));
+}
+
 function matches(scenario: Scenario, request: RecordedRequest): boolean {
   const expected = scenario.request;
   if (expected.method !== request.method) return false;
@@ -113,7 +111,7 @@ function matches(scenario: Scenario, request: RecordedRequest): boolean {
   return true;
 }
 
-function sendBody(res: ServerResponse, response: ScriptedBody): void {
+function sendBody(res: ServerResponse, response: ScriptedFixedResponse): void {
   const isText = typeof response.body === "string";
   res.writeHead(response.status, {
     "content-type": isText ? "text/plain" : "application/json",
@@ -143,7 +141,7 @@ function sendTable(
 
   res.writeHead(200, { "content-type": contentType });
   if (response.interrupt) {
-    sendInterrupted(res, rows, response.interrupt);
+    sendJsonRowsThenPartialRowThenStop(res, rows, response.interrupt);
     return;
   }
 
@@ -165,33 +163,29 @@ const CONTENT_TYPES: Record<string, string> = {
   csv: "text/csv; charset=utf-8",
 };
 
-/**
- * After the headers, send the first `afterRows` rows of a JSON array and part
- * of the next row, then stop. With `afterRows: 0` nothing follows the
- * headers, whatever the format.
- */
-function sendInterrupted(
+const PARTIAL_ROW_CHARACTERS = 8;
+const DELIVER_SENT_BYTES_BEFORE_DESTROY_MS = 20;
+
+function sendJsonRowsThenPartialRowThenStop(
   res: ServerResponse,
   rows: Array<Record<string, unknown>>,
-  interrupt: NonNullable<ScriptedTable["interrupt"]>,
+  interrupt: TableInterruption,
 ): void {
-  if (interrupt.afterRows === 0) {
+  if (interrupt.rowsBeforeFailure === 0) {
     res.flushHeaders();
   } else {
     const sent = rows
-      .slice(0, interrupt.afterRows)
+      .slice(0, interrupt.rowsBeforeFailure)
       .map((row) => JSON.stringify(row));
-    const partialNext = JSON.stringify(rows[interrupt.afterRows] ?? {}).slice(
-      0,
-      8,
-    );
+    const partialNext = JSON.stringify(
+      rows[interrupt.rowsBeforeFailure] ?? {},
+    ).slice(0, PARTIAL_ROW_CHARACTERS);
     res.write(`[${sent.join(",")},${partialNext}`);
   }
   if (interrupt.mode === "truncate") {
     res.end();
   } else {
-    // Let the headers and first chunk reach the client before the drop.
-    setTimeout(() => res.destroy(), 20);
+    setTimeout(() => res.destroy(), DELIVER_SENT_BYTES_BEFORE_DESTROY_MS);
   }
 }
 

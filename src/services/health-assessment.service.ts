@@ -1,6 +1,5 @@
 import type { InfluxDBMasterService } from "./influxdb-master.service.js";
 
-/** SDK initialization is configuration evidence, not a network check. */
 export async function assessHealth(service: InfluxDBMasterService) {
   const health = await service.getHealthStatus();
   const ping = await service.ping();

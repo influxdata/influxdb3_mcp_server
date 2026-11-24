@@ -5,13 +5,12 @@ const RUN =
   process.env.INFLUX_TEST_ENABLED === "true" ||
   process.env.INFLUX_TEST_ENABLED === "1";
 
-// Cloud Serverless reports a nonexistent database as a missing "bucket" (its
-// v2-lineage vocabulary); Core/Enterprise say "database". Both verified
-// against live CI runs, 2026-07-28.
+const SERVERLESS_MISSING_BUCKET_PATTERN = /bucket .*not found/i;
+const CORE_ENTERPRISE_MISSING_DATABASE_PATTERN = /database not found/i;
 const NOT_FOUND_PATTERN =
   process.env.INFLUX_DB_PRODUCT_TYPE === "cloud-serverless"
-    ? /bucket .*not found/i
-    : /database not found/i;
+    ? SERVERLESS_MISSING_BUCKET_PATTERN
+    : CORE_ENTERPRISE_MISSING_DATABASE_PATTERN;
 const TEST_DATABASE = process.env.INFLUX_TEST_DATABASE;
 
 describe.skipIf(!RUN)("error path integration tests (live instance)", () => {

@@ -2,7 +2,6 @@ import { appendFileSync } from "node:fs";
 import { URL } from "node:url";
 import { z } from "zod";
 
-/** Isolated 3.12.1 catalog fixture. Never writes to the shared seed databases. */
 export async function createP3Fixture(mode: "implicit" | "explicit") {
   const url = process.env.INFLUX_DB_INSTANCE_URL;
   const admin = process.env.INFLUX_DB_TOKEN;
@@ -10,7 +9,7 @@ export async function createP3Fixture(mode: "implicit" | "explicit") {
   if (!url || !admin || !["core", "enterprise"].includes(product ?? "")) {
     throw new Error("P3 needs a Core/Enterprise URL, product, and admin token");
   }
-  const db = `mcp_p3_${mode}_${process.pid}_${Date.now()}`;
+  const db = isolatedDatabaseName(mode);
   const tokenName = `${db}_app`;
   let databaseCreated = false;
   let tokenCreated = false;
@@ -52,8 +51,7 @@ export async function createP3Fixture(mode: "implicit" | "explicit") {
       );
     }
     if (!response.ok) {
-      // Token endpoint bodies contain credentials. Do not include them in errors.
-      throw new Error(`P3 ${method} ${path}: HTTP ${response.status}`);
+      throw errorWithoutResponseBody(method, path, response.status);
     }
     return text ? JSON.parse(text) : undefined;
   }
@@ -205,4 +203,16 @@ export async function createP3Fixture(mode: "implicit" | "explicit") {
     await close();
     throw error;
   }
+}
+
+function isolatedDatabaseName(mode: "implicit" | "explicit"): string {
+  return `mcp_p3_${mode}_${process.pid}_${Date.now()}`;
+}
+
+function errorWithoutResponseBody(
+  method: string,
+  path: string,
+  status: number,
+): Error {
+  return new Error(`P3 ${method} ${path}: HTTP ${status}`);
 }

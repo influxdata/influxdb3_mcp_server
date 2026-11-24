@@ -1,26 +1,20 @@
-/**
- * Protocol-boundary tests for `write_line_protocol` and `health_check`.
- *
- * These run against the compiled server over stdio with an unreachable
- * InfluxDB host — no instance is contacted for anything in this file.
- */
-
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createTestClient, TestClient } from "./helpers/mcp-client.js";
 
-/**
- * Minimum viable environment per product type, per `validateConfig`
- * (`src/config.ts`). The host is unreachable by design.
- */
-const PRODUCT_ENVS: Record<string, Record<string, string>> = {
+const UNREACHABLE_INFLUX_URL = "http://localhost:19999/";
+
+const MINIMAL_UNREACHABLE_ENV_BY_PRODUCT: Record<
+  string,
+  Record<string, string>
+> = {
   core: {
     INFLUX_DB_PRODUCT_TYPE: "core",
-    INFLUX_DB_INSTANCE_URL: "http://localhost:19999/",
+    INFLUX_DB_INSTANCE_URL: UNREACHABLE_INFLUX_URL,
     INFLUX_DB_TOKEN: "test-token-not-used",
   },
   enterprise: {
     INFLUX_DB_PRODUCT_TYPE: "enterprise",
-    INFLUX_DB_INSTANCE_URL: "http://localhost:19999/",
+    INFLUX_DB_INSTANCE_URL: UNREACHABLE_INFLUX_URL,
     INFLUX_DB_TOKEN: "test-token-not-used",
   },
 };
@@ -34,7 +28,9 @@ describe("write_line_protocol – advertised contract", () => {
   let testClient: TestClient;
 
   beforeAll(async () => {
-    testClient = await createTestClient(PRODUCT_ENVS.core);
+    testClient = await createTestClient(
+      MINIMAL_UNREACHABLE_ENV_BY_PRODUCT.core,
+    );
   });
 
   afterAll(async () => {
@@ -55,11 +51,7 @@ describe("write_line_protocol – advertised contract", () => {
     expect(schema.additionalProperties).toBe(false);
   });
 
-  it("advertises the four precision values the service maps", async () => {
-    // `mapPrecisionForCloud` in write.service.ts has an entry per value; an
-    // unmapped value would produce `undefined` in the Cloud/Clustered query
-    // string. Keeping the advertised enum and the map in step is what stops
-    // that.
+  it("advertises exactly the four precision values the service maps for Cloud/Clustered query strings", async () => {
     const schema = (await writeTool()).inputSchema as any;
 
     expect(schema.properties.precision.enum).toEqual([
@@ -70,17 +62,14 @@ describe("write_line_protocol – advertised contract", () => {
     ]);
   });
 
-  it("advertises acceptPartial defaulting to true", async () => {
-    // The advertised default must match the service default, because the
-    // partial-write response shape depends on it.
+  it("advertises acceptPartial defaulting to true, matching the service default the partial-write response shape depends on", async () => {
     const schema = (await writeTool()).inputSchema as any;
 
     expect(schema.properties.acceptPartial.default).toBe(true);
     expect(schema.properties.noSync.default).toBe(false);
   });
 
-  it("rejects an unknown precision at the validation boundary", async () => {
-    // zodSchema and inputSchema are maintained separately and must agree.
+  it("rejects an unknown precision at the validation boundary, as the advertised inputSchema enum does", async () => {
     const result = await testClient.client.callTool({
       name: "write_line_protocol",
       arguments: { database: "mydb", data: "m f=1i", precision: "hour" },
@@ -94,17 +83,16 @@ describe("write failures reach the model as tool errors", () => {
   let testClient: TestClient;
 
   beforeAll(async () => {
-    testClient = await createTestClient(PRODUCT_ENVS.core);
+    testClient = await createTestClient(
+      MINIMAL_UNREACHABLE_ENV_BY_PRODUCT.core,
+    );
   });
 
   afterAll(async () => {
     await testClient?.close();
   });
 
-  it("returns isError with non-empty text rather than throwing", async () => {
-    // The host is unreachable, so this exercises the transport-failure path:
-    // no `error.response`, so `handleWriteError` falls through to the fallback
-    // and interpolates `error.message`.
+  it("returns isError with the transport error's non-empty text rather than throwing when the host is unreachable", async () => {
     const result = await testClient.client.callTool({
       name: "write_line_protocol",
       arguments: {
@@ -118,9 +106,7 @@ describe("write failures reach the model as tool errors", () => {
     expect(textOf(result)).not.toBe("");
   });
 
-  it("never renders an error body as [object Object]", async () => {
-    // The protocol-boundary half of this check. The unit-level half — where a
-    // parsed JSON body is what gets interpolated — is in write-error-core.test.ts.
+  it("never renders an error body as [object Object] at the protocol boundary", async () => {
     const result = await testClient.client.callTool({
       name: "write_line_protocol",
       arguments: {
@@ -151,7 +137,9 @@ describe("capability detection – current state", () => {
   let testClient: TestClient;
 
   beforeAll(async () => {
-    testClient = await createTestClient(PRODUCT_ENVS.core);
+    testClient = await createTestClient(
+      MINIMAL_UNREACHABLE_ENV_BY_PRODUCT.core,
+    );
   });
 
   afterAll(async () => {
@@ -170,11 +158,10 @@ describe("capability detection – current state", () => {
     });
   });
 
-  it("reports the configured product type verbatim, unverified", async () => {
-    // `INFLUX_DB_PRODUCT_TYPE` is trusted as given (`src/config.ts`); nothing
-    // checks it against the instance. Declaring `enterprise` against an
-    // unreachable host still reports `enterprise`.
-    const client = await createTestClient(PRODUCT_ENVS.enterprise);
+  it("reports the configured product type verbatim, unverified against the unreachable instance", async () => {
+    const client = await createTestClient(
+      MINIMAL_UNREACHABLE_ENV_BY_PRODUCT.enterprise,
+    );
     try {
       const result = await client.client.callTool({
         name: "health_check",
@@ -193,22 +180,18 @@ describe("capability detection – current state", () => {
     });
     const text = textOf(result);
 
-    // `ping.version` is populated from the `x-influxdb-version` response
-    // header and passed straight through — never parsed, never compared
-    // against a minimum.
     expect(text).toContain('"ok": false');
     expect(text).not.toContain('"version"');
   });
 });
 
-describe.skip("health_check reflects reachability", () => {
-  // Un-skip when the health-reporting bug is fixed. A constructed client is
-  // not evidence the instance is reachable; only a successful /ping or
-  // /health is.
+describe.skip("health_check reflects reachability from a successful /ping or /health, not from a constructed client", () => {
   let testClient: TestClient;
 
   beforeAll(async () => {
-    testClient = await createTestClient(PRODUCT_ENVS.core);
+    testClient = await createTestClient(
+      MINIMAL_UNREACHABLE_ENV_BY_PRODUCT.core,
+    );
   });
 
   afterAll(async () => {

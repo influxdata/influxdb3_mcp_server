@@ -1,14 +1,4 @@
-/**
- * InfluxDB Help Service
- *
- * Provides help content for InfluxDB operations. Simple in-memory text content
- * that LLMs can easily navigate and extract relevant information from.
- */
-
 export class HelpService {
-  /**
-   * Get InfluxDB help content
-   */
   getHelp(): string {
     return INFLUXDB_HELP_CONTENT;
   }

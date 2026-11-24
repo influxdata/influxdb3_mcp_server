@@ -1,9 +1,3 @@
-/**
- * Validate tool responses and telemetry events against the committed
- * schemas, so any test that calls a tool through `callTool` also checks the
- * contract, on the fake and on a live instance alike.
- */
-
 import { Ajv } from "ajv";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";

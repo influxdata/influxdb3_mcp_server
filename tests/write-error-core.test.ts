@@ -1,12 +1,3 @@
-/**
- * Write-path error fidelity — Core / Enterprise (axios transport).
- *
- * Covers two fixes in `handleWriteError`: preserving InfluxDB's error body
- * instead of discarding it, and adding a 503 arm so retryable failures don't
- * render as `[object Object]`. Mirrors `query-error-core.test.ts`, which
- * already does this correctly on the query path.
- */
-
 import { describe, it, expect } from "vitest";
 import { InfluxProductType } from "../src/helpers/enums/influx-product-types.enum.js";
 import { writeErrorMessage } from "./helpers/write-service.js";
@@ -32,19 +23,8 @@ async function coreWriteError(
   return writeErrorMessage(InfluxProductType.Core, http(error), lineProtocol);
 }
 
-// ── Acceptance criteria for the fix ─────────────────────────────────────────
-
-describe("handleWriteError preserves the InfluxDB error body", () => {
-  // The resolution order: partial-write data[].error_message /
-  // data.error_message → data.message → data.error → string body →
-  // error.message.
-
-  // Verified shape (Core 3.11.0-nightly and Enterprise 3.11.0-0.rc.1,
-  // 2026-07-28): the tag name is nested under data[].error_message, not
-  // data.error or data.message. Resolving data.error alone is not enough —
-  // it yields the generic "partial write of line protocol occurred" and the
-  // actionable detail stays buried one level down.
-  it("400: the duplicated tag key is returned to the caller", async () => {
+describe("handleWriteError preserves the InfluxDB error body, resolving data[].error_message, data.error_message, data.message, data.error, a string body, then error.message", () => {
+  it("400: the duplicated tag key nested under data[].error_message (Core 3.11.0-nightly, Enterprise 3.11.0-0.rc.1) is returned, not the generic partial-write text", async () => {
     const message = await coreWriteError(
       CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA,
       DUPLICATE_TAG_LINE,
@@ -113,8 +93,6 @@ describe("handleWriteError adds a 503 arm and serializes bodies", () => {
     expect(message).toContain("internal error while persisting write");
   });
 
-  // A no-regression guard, not a new requirement: cloud-serverless is already
-  // correct and must stay that way when the other four types change.
   it("fallback still preserves a plain-text body unchanged", async () => {
     const message = await coreWriteError(CORE_500_STRING_BODY);
 

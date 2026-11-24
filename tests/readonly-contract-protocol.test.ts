@@ -89,15 +89,14 @@ it("[both] every readonly tool accepts advertised inputs, validates query alias 
     const validate = ajv.compile(tool.inputSchema);
     expect(validate(args), JSON.stringify(validate.errors)).toBe(true);
     if (["query_sql", "query_influxql"].includes(tool.name)) {
-      // These cases come from the input contract, independently of its schema.
-      for (const missing of [
+      const incompleteArgsSchemaAllowsButRuntimeRejects = [
         {},
         { db },
         { database: db },
         { q },
         { query: q },
-      ]) {
-        // The portable schema leaves alias pairs optional; runtime requires both.
+      ];
+      for (const missing of incompleteArgsSchemaAllowsButRuntimeRejects) {
         expect(validate(missing), JSON.stringify(missing)).toBe(true);
         const requestsBefore = fake?.requests.length ?? 0;
         const response = await call(tool.name, missing);
@@ -129,25 +128,25 @@ it("[both] every readonly tool accepts advertised inputs, validates query alias 
         expect(validate(aliases), JSON.stringify(validate.errors)).toBe(true);
         expect((await call(tool.name, aliases)).result.isError).not.toBe(true);
       }
-      // Exercise both parameter representations through the real MCP boundary.
-      // Synthetic values are for schema compatibility, not live query semantics.
       if (!live) {
-        for (const params of [
+        const syntheticObjectAndArrayParams = [
           {},
           { host: "a", count: 2, enabled: true, missing: null },
           { nested: { values: [1, "two", null] } },
           [],
           ["a", 2, true, null],
-        ]) {
+        ];
+        for (const params of syntheticObjectAndArrayParams) {
           const requestsBefore = fake?.requests.length ?? 0;
           const response = await call(tool.name, { db, q, params });
           expect(response.result.isError).not.toBe(true);
           expect(JSON.parse(response.text).format).toBe("json");
-          // A system.queries lookup on _internal follows the query; skip it.
-          const request = fake?.requests
+          const requestToQueriedDbNotInternalLookup = fake?.requests
             .slice(requestsBefore)
             .find((candidate) => candidate.db === db);
-          expect(request?.body).toMatchObject({ params });
+          expect(requestToQueriedDbNotInternalLookup?.body).toMatchObject({
+            params,
+          });
         }
       }
       for (const params of [null, "private-param-sentinel", 42, true]) {

@@ -1,13 +1,3 @@
-/**
- * Run one set of protocol tests against the fake InfluxDB server by default,
- * or against a live instance when `INFLUX_TEST_ENABLED` is set.
- *
- * Label each test with its backend in its name:
- * - `[both]` runs on the fake and on the live instance.
- * - `[fake-only]` skips under `INFLUX_TEST_ENABLED`; the name says why.
- * - `[live-only]` skips without `INFLUX_TEST_ENABLED`.
- */
-
 import { URL } from "node:url";
 import type { Scenario } from "../fixtures/influxdb-scenarios.js";
 import { FakeInfluxDB, startFakeInfluxDB } from "./fake-influxdb.js";
@@ -17,11 +7,8 @@ export const LIVE =
   process.env.INFLUX_TEST_ENABLED === "1";
 
 export interface Backend {
-  /** Environment for `createTestClient`. */
   env: Record<string, string>;
-  /** Present only on the fake backend. */
   fake?: FakeInfluxDB;
-  /** Write line protocol to the live instance; a no-op on the fake. */
   seed: (db: string, lineProtocol: string) => Promise<void>;
   close: () => Promise<void>;
 }

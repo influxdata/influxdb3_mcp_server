@@ -17,8 +17,7 @@ import {
 
 const TIME_RANGE = "time >= '2024-03-09T16:00:00Z'";
 
-/** Data records in a CSV payload, excluding the header line. */
-function csvRecords(text: string): string[] {
+function csvDataRowsWithoutHeader(text: string): string[] {
   return text
     .split("\n")
     .filter((line) => line !== "")
@@ -57,7 +56,7 @@ describe("read-only query formats and options on Core and Enterprise", () => {
     expect(body.ok).toBe(true);
     expect(body.format).toBe("csv");
     expect(body.rows).toHaveLength(1);
-    expect(csvRecords(body.rows[0].value)).toHaveLength(3);
+    expect(csvDataRowsWithoutHeader(body.rows[0].value)).toHaveLength(3);
     expect(body.metadata).toMatchObject({
       completeness: "capped",
       cap: 3,
@@ -75,7 +74,7 @@ describe("read-only query formats and options on Core and Enterprise", () => {
 
     expect(body.ok).toBe(true);
     expect(body.format).toBe("csv");
-    expect(csvRecords(body.rows[0].value)).toHaveLength(3);
+    expect(csvDataRowsWithoutHeader(body.rows[0].value)).toHaveLength(3);
     expect(body.metadata).toMatchObject({
       completeness: "capped",
       row_count: 3,

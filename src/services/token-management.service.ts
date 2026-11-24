@@ -1,9 +1,3 @@
-/**
- * InfluxDB Token Management Service
- *
- * Simplified service for essential token operations based on InfluxDB 3 Enterprise API
- */
-
 import { BaseConnectionService } from "./base-connection.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 
@@ -44,9 +38,6 @@ export class TokenManagementService {
     this.httpClient = baseService.getInfluxHttpClient();
   }
 
-  /**
-   * Create a new admin token with full permissions
-   */
   async createAdminToken(
     token_name?: string,
     expiry_secs?: number,
@@ -90,9 +81,6 @@ export class TokenManagementService {
     }
   }
 
-  /**
-   * List admin tokens with optional filtering
-   */
   async listAdminTokens(filters?: {
     tokenName?: string;
     order?: {
@@ -148,9 +136,6 @@ export class TokenManagementService {
     }
   }
 
-  /**
-   * List resource tokens with optional filtering
-   */
   async listResourceTokens(filters?: {
     databaseName?: string;
     tokenName?: string;
@@ -211,9 +196,6 @@ export class TokenManagementService {
     }
   }
 
-  /**
-   * Regenerate the operator token
-   */
   async regenerateOperatorToken(): Promise<{ token: string; id: string }> {
     this.baseService.validateOperationSupport("regenerate_operator_token", [
       InfluxProductType.Core,
@@ -245,9 +227,6 @@ export class TokenManagementService {
     }
   }
 
-  /**
-   * Create a new resource token with specific database permissions
-   */
   async createResourceToken(
     description: string,
     permissions: TokenPermission[],
@@ -291,9 +270,6 @@ export class TokenManagementService {
     }
   }
 
-  /**
-   * Delete a token by name
-   */
   async deleteToken(token_name: string): Promise<boolean> {
     if (!token_name) throw new Error("token_name is required");
     this.baseService.validateOperationSupport("delete_token", [

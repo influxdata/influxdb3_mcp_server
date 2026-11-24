@@ -1,10 +1,3 @@
-/**
- * Context File Service
- *
- * Searches for and loads custom context files to enhance the MCP server
- * with user-specific database descriptions or documentation.
- */
-
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join, extname, basename } from "path";
 
@@ -23,12 +16,6 @@ export class ContextFileService {
     this.workingDirectory = workingDirectory;
   }
 
-  /**
-   * Search for and load context file
-   * Priority:
-   * 1. /context/ folder (any file)
-   * 2. Files with "context" in name with .json, .txt, .md extensions
-   */
   async loadContextFile(): Promise<ContextFileInfo | null> {
     try {
       const contextFolderPath = join(this.workingDirectory, "context");
@@ -47,9 +34,6 @@ export class ContextFileService {
     }
   }
 
-  /**
-   * Search for files in /context/ folder
-   */
   private searchInContextFolder(
     contextFolderPath: string,
   ): ContextFileInfo | null {
@@ -83,9 +67,6 @@ export class ContextFileService {
     return null;
   }
 
-  /**
-   * Search for files with "context" in name
-   */
   private searchForContextNamedFiles(): ContextFileInfo | null {
     try {
       const files = readdirSync(this.workingDirectory);

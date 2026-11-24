@@ -1,7 +1,3 @@
-/**
- * Help and Documentation Tools
- */
-
 import { z } from "zod";
 import { InfluxDBMasterService } from "../../services/influxdb-master.service.js";
 import { McpTool } from "../index.js";

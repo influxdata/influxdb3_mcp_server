@@ -1,10 +1,3 @@
-/**
- * InfluxDB Write Service
- *
- * Handles write operations using InfluxDB v3 line protocol API
- * Note: InfluxDB v3 only supports writing via line protocol - no UPDATE/DELETE operations
- */
-
 import { BaseConnectionService } from "./base-connection.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import { resolveWriteError } from "./error-resolution.service.js";
@@ -18,10 +11,7 @@ export class WriteService {
     this.baseService = baseService;
   }
 
-  /**
-   * Map full precision names to cloud-compatible short format
-   */
-  private mapPrecisionForCloud(precision: Precision): string {
+  private toShortPrecisionUnit(precision: Precision): string {
     const precisionMap: Record<Precision, string> = {
       nanosecond: "ns",
       microsecond: "us",
@@ -31,13 +21,6 @@ export class WriteService {
     return precisionMap[precision];
   }
 
-  /**
-   * Write data (single entrypoint for all product types)
-   * For core/enterprise: HTTP API (/api/v3/write_lp)
-   * For cloud-dedicated: influxdb3 client
-   * For clustered: HTTP API (/api/v2/write)
-   * For cloud-serverless: influxdb3 client
-   */
   async writeLineProtocol(
     lineProtocolData: string,
     database: string,
@@ -47,7 +30,6 @@ export class WriteService {
       noSync?: boolean;
     },
   ): Promise<void> {
-    // Validate we have data capabilities for write operations
     this.baseService.validateDataCapabilities();
 
     const connectionInfo = this.baseService.getConnectionInfo();
@@ -68,9 +50,6 @@ export class WriteService {
     }
   }
 
-  /**
-   * Write for core/enterprise (HTTP API)
-   */
   private async writeCoreEnterprise(
     lineProtocolData: string,
     database: string,
@@ -107,9 +86,6 @@ export class WriteService {
     }
   }
 
-  /**
-   * Write for cloud-dedicated/clustered (influxdb3 client)
-   */
   private async writeCloudDedicated(
     lineProtocolData: string,
     database: string,
@@ -134,9 +110,6 @@ export class WriteService {
     }
   }
 
-  /**
-   * Write for clustered (HTTP API)
-   */
   private async writeClustered(
     lineProtocolData: string,
     database: string,
@@ -151,7 +124,7 @@ export class WriteService {
       const httpClient = this.baseService.getInfluxHttpClient();
       const params = new URLSearchParams({
         bucket: database,
-        precision: this.mapPrecisionForCloud(precision),
+        precision: this.toShortPrecisionUnit(precision),
       });
       await httpClient.post(
         `/api/v2/write?${params.toString()}`,
@@ -170,9 +143,6 @@ export class WriteService {
     }
   }
 
-  /**
-   * Write for cloud-serverless (influxdb3 client)
-   */
   private async writeCloudServerless(
     lineProtocolData: string,
     database: string,
@@ -187,7 +157,7 @@ export class WriteService {
       if (!client) throw new Error("InfluxDB client not initialized");
       const writeOptions: any = {};
       if (options.precision) {
-        writeOptions.precision = this.mapPrecisionForCloud(options.precision);
+        writeOptions.precision = this.toShortPrecisionUnit(options.precision);
       }
       await client.write(lineProtocolData, database, undefined, writeOptions);
     } catch (error: any) {

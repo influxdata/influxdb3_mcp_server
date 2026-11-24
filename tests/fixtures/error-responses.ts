@@ -1,10 +1,3 @@
-/**
- * Recorded InfluxDB error response fixtures.
- *
- * Axios errors (Core paths) have: error.response.status, error.response.statusText, error.response.data
- * SDK HttpError (Serverless paths) has: error.statusCode, error.statusMessage, error.body, error.json, error.message
- */
-
 export interface AxiosErrorShape {
   response: {
     status: number;
@@ -22,8 +15,6 @@ export interface SdkErrorShape {
   message: string;
   headers?: Record<string, string>;
 }
-
-// ── Core / axios-based fixtures ────────────────────────────────────────────
 
 export const CORE_404_NONEXISTENT_DB: AxiosErrorShape = {
   response: {
@@ -70,8 +61,6 @@ export const CORE_500_UNKNOWN_QUOTED_WILDCARD_FIELD: AxiosErrorShape = {
   message: "Request failed with status code 500",
 };
 
-// ── Cloud Serverless / axios-shaped with {code, message} format ────────────
-
 export const SERVERLESS_AXIOS_400_INVALID_QUERY: AxiosErrorShape = {
   response: {
     status: 400,
@@ -93,8 +82,6 @@ export const SERVERLESS_AXIOS_404_NONEXISTENT_BUCKET: AxiosErrorShape = {
   },
   message: "Request failed with status code 404",
 };
-
-// ── Cloud Serverless / SDK HttpError fixtures ──────────────────────────────
 
 export const SERVERLESS_SDK_400_INVALID_QUERY: SdkErrorShape = {
   statusCode: 400,

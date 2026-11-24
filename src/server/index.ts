@@ -1,9 +1,3 @@
-/**
- * MCP Server Factory
- *
- * Creates and configures the MCP server with all capabilities
- */
-
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
@@ -17,12 +11,13 @@ import {
 
 import { loadConfig, validateConfig } from "../config.js";
 import { InfluxDBMasterService } from "../services/influxdb-master.service.js";
-import { createTools } from "../tools/index.js";
+import { createTools, McpTool } from "../tools/index.js";
 import { createResources } from "../resources/index.js";
 import { createPrompts } from "../prompts/index.js";
 import { createRequestId, logToolCall } from "../services/telemetry.service.js";
 import { errorResponse } from "../tools/response.js";
 import { OperationError } from "../services/error-resolution.service.js";
+import type { ZodError } from "zod";
 
 function parseToolPayload(result: {
   content: Array<{ type: string; text: string }>;
@@ -68,9 +63,24 @@ function logMcpToolResult(
   });
 }
 
-/**
- * Create and configure the MCP server
- */
+const REFUSED_LEGACY_INVESTIGATION_OPTION = "includeCardinality";
+
+function acceptedArgumentNames(tool: McpTool): Set<string> {
+  const accepted = new Set(Object.keys(tool.inputSchema.properties || {}));
+  if (tool.name === "investigate_database") {
+    accepted.add(REFUSED_LEGACY_INVESTIGATION_OPTION);
+  }
+  return accepted;
+}
+
+function describeIssuesWithoutSubmittedValues(
+  issues: ZodError["issues"],
+): string {
+  return issues
+    .map((issue) => `${issue.path.join(".") || "arguments"}: ${issue.message}`)
+    .join("; ");
+}
+
 export function createServer(): Server {
   const config = loadConfig();
   validateConfig(config);
@@ -124,11 +134,7 @@ export function createServer(): Server {
     }
 
     try {
-      // Match additionalProperties:false even for legacy Zod objects that strip
-      // unknown keys. includeCardinality is a recognized, explicitly refused
-      // legacy investigation option, not an advertised working capability.
-      const allowed = new Set(Object.keys(tool.inputSchema.properties || {}));
-      if (name === "investigate_database") allowed.add("includeCardinality");
+      const allowed = acceptedArgumentNames(tool);
       const unexpected = Object.keys(args || {}).filter(
         (key) => !allowed.has(key),
       );
@@ -143,13 +149,9 @@ export function createServer(): Server {
       }
       const parsed = tool.zodSchema.safeParse(args || {});
       if (!parsed.success) {
-        // Describe fields and constraints; never echo submitted values.
-        const issues = parsed.error.issues
-          .map(
-            (issue) =>
-              `${issue.path.join(".") || "arguments"}: ${issue.message}`,
-          )
-          .join("; ");
+        const issues = describeIssuesWithoutSubmittedValues(
+          parsed.error.issues,
+        );
         throw new OperationError(
           `Invalid arguments: ${issues}. Expected fields: ${[...allowed].join(", ") || "none"}.`,
           "invalid_arguments",

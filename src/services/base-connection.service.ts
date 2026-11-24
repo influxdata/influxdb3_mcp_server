@@ -1,10 +1,3 @@
-/**
- * Base InfluxDB Connection Service
- *
- * Handles connection management, health checks, and provides base client access
- * for other specialized services
- */
-
 import { InfluxDBClient } from "@influxdata/influxdb3-client";
 import { InfluxConfig, McpServerConfig } from "../config.js";
 import { HttpClientService } from "./http-client.service.js";
@@ -30,9 +23,6 @@ export class BaseConnectionService {
     this.initializeClient();
   }
 
-  /**
-   * Get the correct host for query/write operations (data plane)
-   */
   private getDataHost(): string | undefined {
     const influx = this.config.influx;
     if (influx.type === InfluxProductType.CloudDedicated && influx.cluster_id) {
@@ -44,9 +34,6 @@ export class BaseConnectionService {
     return influx.url;
   }
 
-  /**
-   * Get the correct host for management operations (control plane)
-   */
   private getManagementHost(): string | undefined {
     const influx = this.config.influx;
     if (influx.type === InfluxProductType.CloudDedicated) {
@@ -58,13 +45,10 @@ export class BaseConnectionService {
     return influx.url;
   }
 
-  /**
-   * Initialize InfluxDB client
-   */
   private initializeClient(): void {
     try {
       const influxConfig = this.config.influx;
-      if (this.isValidConfig(influxConfig)) {
+      if (this.hasDataClientConfig(influxConfig)) {
         const clientConfig: any = {
           host: this.getDataHost(),
           token: influxConfig.token,
@@ -84,10 +68,7 @@ export class BaseConnectionService {
     }
     return `Bearer ${token}`;
   }
-  /**
-   * Check if configuration is valid for data operations (requires data client)
-   */
-  private isValidConfig(config: InfluxConfig): boolean {
+  private hasDataClientConfig(config: InfluxConfig): boolean {
     if (config.type === InfluxProductType.CloudDedicated) {
       return !!(config.cluster_id && config.token);
     }
@@ -97,16 +78,10 @@ export class BaseConnectionService {
     return !!(config.url && config.token);
   }
 
-  /**
-   * Check if we have data capabilities (query/write operations)
-   */
   hasDataCapabilities(): boolean {
-    return this.isValidConfig(this.config.influx);
+    return this.hasDataClientConfig(this.config.influx);
   }
 
-  /**
-   * Check if we have management capabilities
-   */
   hasManagementCapabilities(): boolean {
     const config = this.config.influx;
     if (config.type === InfluxProductType.CloudDedicated) {
@@ -125,10 +100,6 @@ export class BaseConnectionService {
     return !!(config.url && config.token);
   }
 
-  /**
-   * Validate that we can perform data operations (query/write)
-   * Throws an error if we don't have the necessary configuration
-   */
   validateDataCapabilities(): void {
     if (!this.hasDataCapabilities()) {
       const config = this.config.influx;
@@ -169,10 +140,6 @@ export class BaseConnectionService {
     }
   }
 
-  /**
-   * Validate that we can perform management operations
-   * Throws an error if we don't have the necessary configuration
-   */
   validateManagementCapabilities(): void {
     if (!this.hasManagementCapabilities()) {
       const config = this.config.influx;
@@ -213,9 +180,6 @@ export class BaseConnectionService {
     }
   }
 
-  /**
-   * Validate operation is supported for current product type
-   */
   validateOperationSupport(
     operation: string,
     supportedTypes: InfluxProductType[],
@@ -260,16 +224,10 @@ export class BaseConnectionService {
     }
   }
 
-  /**
-   * Get the main client instance
-   */
   getClient(): InfluxDBClient | null {
     return this.client;
   }
 
-  /**
-   * Get connection information
-   */
   getConnectionInfo(): ConnectionInfo {
     const influxConfig = this.config.influx;
     return {
@@ -280,9 +238,6 @@ export class BaseConnectionService {
     };
   }
 
-  /**
-   * Ping InfluxDB instance (returns version and build info if available)
-   */
   async ping(): Promise<{
     ok: boolean;
     outcome?: "ok" | "unreachable" | "credential_cannot_check";
@@ -330,9 +285,6 @@ export class BaseConnectionService {
     }
   }
 
-  /**
-   * Get health status
-   */
   async getHealthStatus(): Promise<{
     status: string;
     checks?: any[];
@@ -383,10 +335,6 @@ export class BaseConnectionService {
     }
   }
 
-  /**
-   * Get pre-configured HTTP client for InfluxDB API calls
-   * For cloud-dedicated, use data host for query/write, management host for admin
-   */
   getInfluxHttpClient(forManagement = false): HttpClientService {
     const influxConfig = this.config.influx;
     const host =
@@ -406,9 +354,6 @@ export class BaseConnectionService {
     return HttpClientService.createInfluxClient(host, token, influxConfig.type);
   }
 
-  /**
-   * Get configuration
-   */
   getConfig(): McpServerConfig {
     return this.config;
   }

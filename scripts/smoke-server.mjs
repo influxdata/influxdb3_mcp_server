@@ -16,6 +16,7 @@ import { URL } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
+const WRITABLE_BY_IMAGE_NON_ROOT_USER = 0o777;
 const docker = process.argv[2] === "--docker";
 const entry = process.argv[docker ? 3 : 2];
 if (!entry || process.argv.length !== (docker ? 4 : 3))
@@ -51,8 +52,7 @@ const target = Object.fromEntries(
   ),
 );
 const directory = mkdtempSync(join(tmpdir(), "mcp-packed-smoke-"));
-// Let the image's default non-root user write non-secret smoke telemetry.
-if (docker) chmodSync(directory, 0o777);
+if (docker) chmodSync(directory, WRITABLE_BY_IMAGE_NON_ROOT_USER);
 const summaries = [];
 try {
   for (const profile of ["readonly", "readwrite", "operator"]) {

@@ -71,11 +71,7 @@ describe("handleQueryError – Cloud Serverless (SDK async iterator)", () => {
   });
 });
 
-describe("handleQueryError – Serverless {code,message} via axios path", () => {
-  // These test the data.message extraction added to handleQueryError.
-  // Before the fix, data.error was undefined (field is "message"),
-  // so errors fell through to statusText ("Bad Request" / "Not Found").
-
+describe("handleQueryError – Serverless {code,message} via axios path surfaces data.message, not statusText", () => {
   it("400: surfaces message from {code, message} JSON response", async () => {
     const base = stubBaseService(InfluxProductType.Core);
     vi.mocked(base.getInfluxHttpClient).mockReturnValue(

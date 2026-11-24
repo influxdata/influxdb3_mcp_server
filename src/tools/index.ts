@@ -1,9 +1,3 @@
-/**
- * MCP Tools Definitions
- *
- * Defines all the tools available through the MCP server
- */
-
 import { z } from "zod";
 import { InfluxDBMasterService } from "../services/influxdb-master.service.js";
 import { ToolProfile } from "../config.js";
@@ -47,9 +41,6 @@ const PROFILE_ALLOWLISTS: Record<ToolProfile, Set<string> | undefined> = {
   operator: undefined,
 };
 
-/**
- * Creates all MCP tools by aggregating them from organized categories
- */
 export function createTools(influxService: InfluxDBMasterService): McpTool[] {
   const tools = [
     ...createHelpTools(influxService),
@@ -58,7 +49,6 @@ export function createTools(influxService: InfluxDBMasterService): McpTool[] {
     ...createQueryTools(influxService),
     ...createTokenTools(influxService),
     ...createCloudTokenTools(influxService),
-    // ...createSchemaTools(influxService),
     ...createHealthTools(influxService),
   ];
 

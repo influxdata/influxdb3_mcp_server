@@ -120,14 +120,12 @@ describe("query routing options", () => {
     );
   });
 
-  // These products use the v1-compatible HTTP API for InfluxQL, including
-  // Serverless, whose SQL queries use Flight instead.
   it.each([
     ["cloud-dedicated", InfluxProductType.CloudDedicated],
     ["cloud-serverless", InfluxProductType.CloudServerless],
     ["clustered", InfluxProductType.Clustered],
   ])(
-    "%s routes InfluxQL to the v1 API with params and timeout",
+    "%s routes InfluxQL to the v1-compatible HTTP API with params and timeout, even where SQL uses Flight",
     async (_name, type) => {
       const base = stubBaseService(type);
       const response = { results: [{ statement_id: 0 }] };

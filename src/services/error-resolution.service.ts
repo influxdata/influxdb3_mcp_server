@@ -1,15 +1,5 @@
 import { RequestTimedOutError } from "@influxdata/influxdb3-client";
 
-/**
- * Shared error normalization for the write and query paths.
- *
- * Two transports throw two different error shapes: axios (`error.response.*`)
- * for the Core/Enterprise/Clustered HTTP paths, and the InfluxDB SDK's
- * `HttpError` (`error.statusCode`, `error.json`/`error.body`) for the
- * Cloud Dedicated/Serverless paths. `normalizeError` collapses both to one
- * shape so status-branching code doesn't need to know which transport threw.
- */
-
 export interface NormalizedError {
   status: number | undefined;
   body: unknown;
@@ -25,16 +15,6 @@ export function normalizeError(error: any): NormalizedError {
   return { status: undefined, body: undefined };
 }
 
-/**
- * Resolve the actionable message out of an InfluxDB error body.
- *
- * Write-path partial-write bodies nest the actionable detail under
- * `data.data[].error_message` (when `accept_partial=true`, an array) or
- * `data.data.error_message` (when `accept_partial=false`, an object) — one
- * level below `data.error`, which is only ever the generic "partial write of
- * line protocol occurred". Those two arms are checked first; query-path
- * bodies never have a `data.data`, so they fall through unaffected.
- */
 export function resolveErrorMessage(body: unknown, fallback: string): string {
   if (body && typeof body === "object") {
     const data = body as Record<string, unknown>;
@@ -60,7 +40,6 @@ export function resolveErrorMessage(body: unknown, fallback: string): string {
     return Object.keys(data).length === 0 ? fallback : JSON.stringify(data);
   }
 
-  // A 403 from Core or Enterprise 3.12.1 has an empty body.
   if (typeof body === "string") return body || fallback;
   return fallback;
 }
@@ -200,12 +179,7 @@ export class OperationError extends Error {
   }
 }
 
-// Observed on Core and Enterprise 3.12.1: a token that may not read a
-// database gets 403 whether or not the database exists, and 404 reaches only
-// a token that can see the database is missing. Add version-specific
-// recovery signatures here only after the operator records the corresponding
-// live response.
-const ACCESS_FAILURES: Partial<
+const ACCESS_FAILURE_BY_STATUS: Partial<
   Record<number, { code: string; recovery: Recovery }>
 > = {
   401: { code: "credential_invalid", recovery: "renew_credential" },
@@ -213,38 +187,46 @@ const ACCESS_FAILURES: Partial<
   404: { code: "not_found", recovery: "none" },
 };
 
-/** Server messages that identify their own recovery. */
-const RECOVERY_SIGNATURES: Array<{
+interface SelfIdentifyingServerError {
   statuses: number[];
   pattern: RegExp;
   recovery: Recovery;
-  /** Replaces the status prefix of the message. */
-  hint?: string;
-}> = [
-  // Recorded Core unknown-field error.
-  { statuses: [500], pattern: /No field named/u, recovery: "fix_reference" },
-  // Unknown table: 400, plain text, on Core and Enterprise 3.11.7 and 3.12.1.
-  {
-    statuses: [400],
-    pattern: /Error during planning: table '[^']+' not found/u,
-    recovery: "fix_reference",
-  },
-  // Enterprise 3.12.1 ingest-only node.
-  {
-    statuses: [405],
-    pattern: /send this query to a query node/u,
-    recovery: "change_endpoint",
-  },
-  // The query memory pool ran out: 500 on Core 3.12.1, 429 on Enterprise.
-  {
-    statuses: [500, 429],
-    pattern: /Resources exhausted/u,
-    recovery: "narrow",
-    hint: "Query ran out of server memory. Narrow the query (a shorter time range, fewer columns, or an aggregate) before running it again",
-  },
+  replacementMessagePrefix?: string;
+}
+
+const coreUnknownFieldError: SelfIdentifyingServerError = {
+  statuses: [500],
+  pattern: /No field named/u,
+  recovery: "fix_reference",
+};
+
+const unknownTablePlainTextError: SelfIdentifyingServerError = {
+  statuses: [400],
+  pattern: /Error during planning: table '[^']+' not found/u,
+  recovery: "fix_reference",
+};
+
+const enterpriseIngestOnlyNodeError: SelfIdentifyingServerError = {
+  statuses: [405],
+  pattern: /send this query to a query node/u,
+  recovery: "change_endpoint",
+};
+
+const queryMemoryPoolExhaustedError: SelfIdentifyingServerError = {
+  statuses: [500, 429],
+  pattern: /Resources exhausted/u,
+  recovery: "narrow",
+  replacementMessagePrefix:
+    "Query ran out of server memory. Narrow the query (a shorter time range, fewer columns, or an aggregate) before running it again",
+};
+
+const SELF_IDENTIFYING_SERVER_ERRORS: SelfIdentifyingServerError[] = [
+  coreUnknownFieldError,
+  unknownTablePlainTextError,
+  enterpriseIngestOnlyNodeError,
+  queryMemoryPoolExhaustedError,
 ];
 
-/** Preserve access evidence across axios, Flight and metadata wrappers. */
 export function resolveOperationError(
   error: unknown,
   fallback = "query_failed",
@@ -274,10 +256,11 @@ export function resolveOperationError(
     405: "Method not allowed",
     422: "Unprocessable entity",
   };
-  const access = status === undefined ? undefined : ACCESS_FAILURES[status];
+  const access =
+    status === undefined ? undefined : ACCESS_FAILURE_BY_STATUS[status];
   const clientTimeout = clientStoppedWaiting(error);
   const code = access?.code ?? (clientTimeout ? "client_timeout" : fallback);
-  const signature = RECOVERY_SIGNATURES.find(
+  const signature = SELF_IDENTIFYING_SERVER_ERRORS.find(
     (candidate) =>
       status !== undefined &&
       candidate.statuses.includes(status) &&
@@ -285,7 +268,7 @@ export function resolveOperationError(
   );
   const recovery: Recovery = access?.recovery ?? signature?.recovery ?? "none";
   const label =
-    signature?.hint ??
+    signature?.replacementMessagePrefix ??
     (status ? prefix[status] || "Query failed" : "Query failed");
   return new OperationError(
     `${label}: ${message}`,
