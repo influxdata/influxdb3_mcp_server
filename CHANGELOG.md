@@ -7,16 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- `INFLUX_MCP_TOOL_PROFILE=readwrite` now advertises the `readonly` tools plus
-  `write_line_protocol`. Previously it exposed every operator tool, including
-  database and token administration.
-- The server refuses to start when `INFLUX_MCP_TOOL_PROFILE` is not
-  `readonly`, `readwrite`, or `operator`. Previously any other value fell back
-  to the full operator tool set. The bundled Codex development profile used
-  `default` and now sets `operator`.
-
 ### Added
 
 - `write_line_protocol` failures now include `structuredContent`: the same
@@ -45,6 +35,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retryable only when every line has a timestamp. The server gives a line
   without one its own time, so resending a stored write adds a second point;
   for those batches the recovery is `none`.
+- `health_check` and the status resource report `ping.cluster_uuid` when the
+  server sends a `cluster-uuid` header, including on a 403 from a
+  database-scoped token. It shows which cluster a run reached.
+
+### Changed
+
+- `INFLUX_MCP_TOOL_PROFILE=readwrite` now advertises the `readonly` tools plus
+  `write_line_protocol`. Previously it exposed every operator tool, including
+  database and token administration.
+- The server refuses to start when `INFLUX_MCP_TOOL_PROFILE` is not
+  `readonly`, `readwrite`, or `operator`. Previously any other value fell back
+  to the full operator tool set. The bundled Codex development profile used
+  `default` and now sets `operator`.
 
 ### Fixed
 
@@ -70,21 +73,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `write_line_protocol` error text adds a second line saying what to do
   next, such as resending only the rejected lines or pointing at an ingest
   node.
-
-### Fixed
-
 - `health_check` reports a 404 from `/health` as `endpoint_absent` instead of
   `unreachable`. InfluxDB 3 Cloud has no `/health` endpoint, so a server that
   answered was reported as unreachable. `/ping` still decides health.
-
-### Added
-
-- `health_check` and the status resource report `ping.cluster_uuid` when the
-  server sends a `cluster-uuid` header, including on a 403 from a
-  database-scoped token. It shows which cluster a run reached.
-
-### Fixed
-
 - `write_line_protocol` on Cloud Dedicated failed for every write with
   "Unsupported precision". The server passed the long precision name
   (`second`) to the InfluxDB 3 client library, which accepts only `ns`, `us`,

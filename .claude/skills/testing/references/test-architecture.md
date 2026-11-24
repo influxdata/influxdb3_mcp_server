@@ -37,7 +37,7 @@ it's lazy — no connection is made until a query or write is executed.
 
 ### Tool count as a regression signal
 
-`EXPECTED_TOOL_COUNT` is the primary regression gate for dependency updates.
+`EXPECTED_CORE_TOOL_COUNT` is the primary regression gate for dependency updates.
 When a dependency bump silently breaks a tool import (e.g., a Zod version
 change causes a tool's `zodSchema` definition to fail), the server may
 initialize with fewer tools than expected. The count assertion catches this.
