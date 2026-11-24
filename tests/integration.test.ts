@@ -5,13 +5,9 @@ const RUN =
   process.env.INFLUX_TEST_ENABLED === "true" ||
   process.env.INFLUX_TEST_ENABLED === "1";
 
-// Retention configuration via update_database is only supported on Core and
-// Enterprise, which use the v3 API. Skip the retention test for other product
-// types (for example the Cloud Serverless CI job, which manages buckets through
-// the v2 API and has no retention_period update path).
 const PRODUCT_TYPE = process.env.INFLUX_DB_PRODUCT_TYPE ?? "core";
 const TEST_DATABASE = process.env.INFLUX_TEST_DATABASE;
-const RETENTION_SUPPORTED =
+const USES_CORE_OR_ENTERPRISE_V3_API =
   PRODUCT_TYPE === "core" || PRODUCT_TYPE === "enterprise";
 
 describe.skipIf(!RUN)("live InfluxDB integration", () => {
@@ -19,6 +15,13 @@ describe.skipIf(!RUN)("live InfluxDB integration", () => {
 
   function textContent(result: any): string {
     return (result.content as Array<{ type: string; text: string }>)[0]?.text;
+  }
+
+  async function deleteDatabaseLeftByAnyRun(name: string) {
+    await testClient.client.callTool({
+      name: "delete_database",
+      arguments: { name },
+    });
   }
 
   beforeAll(async () => {
@@ -58,20 +61,18 @@ describe.skipIf(!RUN)("live InfluxDB integration", () => {
   });
 
   it("execute_query runs a simple query", async () => {
-    // Use the configured test database when the credential has restricted
-    // write access. Fall back to discovery for local Core and Enterprise runs.
     const dbResult = await testClient.client.callTool({
       name: "list_databases",
       arguments: {},
     });
     const dbBody = JSON.parse(textContent(dbResult));
 
-    // If no databases exist, skip gracefully
     if (!TEST_DATABASE && dbBody.database_count === 0) {
       return;
     }
 
-    const dbName = TEST_DATABASE ?? dbBody.databases[0]?.name;
+    const firstDiscoveredDatabase = dbBody.databases[0]?.name;
+    const dbName = TEST_DATABASE ?? firstDiscoveredDatabase;
     if (!dbName) {
       return;
     }
@@ -87,17 +88,13 @@ describe.skipIf(!RUN)("live InfluxDB integration", () => {
     expect((result as { isError?: boolean }).isError).not.toBe(true);
   });
 
-  it.skipIf(!RETENTION_SUPPORTED)(
-    "update_database sets a retention period (Core/Enterprise)",
+  it.skipIf(!USES_CORE_OR_ENTERPRISE_V3_API)(
+    "update_database sets a retention period (Core/Enterprise v3 API only; other products have no retention_period update path)",
     async () => {
       const dbName = "mcp_it_retention";
       const SEVEN_DAYS_NS = 7 * 24 * 60 * 60 * 1_000_000_000;
 
-      // Clean slate in case a previous run left the database behind.
-      await testClient.client.callTool({
-        name: "delete_database",
-        arguments: { name: dbName },
-      });
+      await deleteDatabaseLeftByAnyRun(dbName);
 
       const created = await testClient.client.callTool({
         name: "create_database",
@@ -114,15 +111,11 @@ describe.skipIf(!RUN)("live InfluxDB integration", () => {
       expect((updated as { isError?: boolean }).isError).not.toBe(true);
       expect(text).toContain("updated successfully");
 
-      // Cleanup.
-      await testClient.client.callTool({
-        name: "delete_database",
-        arguments: { name: dbName },
-      });
+      await deleteDatabaseLeftByAnyRun(dbName);
     },
   );
 
-  it.skipIf(!RETENTION_SUPPORTED)(
+  it.skipIf(!USES_CORE_OR_ENTERPRISE_V3_API)(
     "creates and deletes an expiring named admin token",
     async () => {
       const tokenName = `mcp_it_admin_${PRODUCT_TYPE}_${Date.now()}`;

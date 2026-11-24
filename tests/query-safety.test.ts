@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { QuerySafetyService } from "../src/services/query-safety.service.js";
 
+const REJECTED_SQL_KEYWORDS = [
+  "INSERT",
+  "UPDATE",
+  "DELETE",
+  "CREATE",
+  "ALTER",
+  "DROP",
+  "COPY",
+  "EXPORT",
+  "ATTACH",
+  "GRANT",
+  "REVOKE",
+  "TRUNCATE",
+];
+
 describe("QuerySafetyService", () => {
   const service = new QuerySafetyService();
 
@@ -122,29 +137,18 @@ describe("QuerySafetyService", () => {
     ).toBe("not_read_only");
   });
 
-  // The rejected-keyword lists as of 875d600. Stripping literals must not
-  // let any of them through when it appears outside a literal.
-  it.each([
-    "INSERT",
-    "UPDATE",
-    "DELETE",
-    "CREATE",
-    "ALTER",
-    "DROP",
-    "COPY",
-    "EXPORT",
-    "ATTACH",
-    "GRANT",
-    "REVOKE",
-    "TRUNCATE",
-  ])("still rejects SQL %s outside a literal", (keyword) => {
-    expect(service.validate(`${keyword} TABLE cpu`, "sql").code).toBe(
-      "not_read_only",
-    );
-    expect(
-      service.validate(`SELECT 'x' AS note FROM cpu ${keyword} t`, "sql").code,
-    ).toBe("not_read_only");
-  });
+  it.each(REJECTED_SQL_KEYWORDS)(
+    "still rejects SQL %s outside a literal after literals are stripped",
+    (keyword) => {
+      expect(service.validate(`${keyword} TABLE cpu`, "sql").code).toBe(
+        "not_read_only",
+      );
+      expect(
+        service.validate(`SELECT 'x' AS note FROM cpu ${keyword} t`, "sql")
+          .code,
+      ).toBe("not_read_only");
+    },
+  );
 
   it.each([
     ["DELETE", "not_read_only"],

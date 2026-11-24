@@ -1,9 +1,3 @@
-/**
- * InfluxDB Query Service
- *
- * Handles query operations using InfluxDB v3 SQL API
- */
-
 import { BaseConnectionService } from "./base-connection.service.js";
 import type { HttpClientService } from "./http-client.service.js";
 import type { QParamType } from "@influxdata/influxdb3-client";
@@ -23,7 +17,7 @@ import {
 } from "./query-payload.js";
 import {
   assertQuerySupported,
-  READ_ONLY_FORMATS,
+  ROW_COUNTABLE_READ_ONLY_FORMATS,
   unsupportedOption,
 } from "./query-capabilities.js";
 
@@ -219,12 +213,6 @@ export class QueryService {
     this.baseService = baseService;
   }
 
-  /**
-   * Execute SQL query (single entrypoint for all product types)
-   * For core/enterprise: HTTP API
-   * For cloud-dedicated: influxdb3 client
-   * For clustered: HTTP API (/query)
-   */
   async executeQuery(
     query: string,
     database: string,
@@ -312,7 +300,7 @@ export class QueryService {
         this.baseService.getConnectionInfo().type,
         language,
         { format, timeoutMs: options.timeoutMs },
-        READ_ONLY_FORMATS,
+        ROW_COUNTABLE_READ_ONLY_FORMATS,
       );
       const payload = await this.executeReadOnlyQuery(
         language,
@@ -328,11 +316,11 @@ export class QueryService {
       const kept = serverCapped
         ? payload.records.slice(0, maxRows)
         : payload.records;
-      // Filling the caller's own LIMIT does not prove more rows exist, so it
-      // is reported as capped with a "may" warning rather than asserted.
-      const queryLimit = safety.queryLimit;
-      const limitReached =
-        !serverCapped && queryLimit !== undefined && kept.length >= queryLimit;
+      const callerLimit = safety.queryLimit;
+      const callerLimitFilledMoreRowsMayExist =
+        !serverCapped &&
+        callerLimit !== undefined &&
+        kept.length >= callerLimit;
       const completion: SuccessfulQueryCompletion = serverCapped
         ? {
             completeness: "capped",
@@ -340,16 +328,16 @@ export class QueryService {
             cap: maxRows,
             cap_source: "server_bound",
           }
-        : limitReached
+        : callerLimitFilledMoreRowsMayExist
           ? {
               completeness: "capped",
               truncated: true,
-              cap: queryLimit,
+              cap: callerLimit,
               cap_source: "query_limit",
             }
           : { completeness: "complete", truncated: false };
       const warnings = [...safety.warnings];
-      if (limitReached) {
+      if (callerLimitFilledMoreRowsMayExist) {
         warnings.push({
           code: "limit_reached",
           message: `Returned ${kept.length} rows, the query's own LIMIT ${safety.queryLimit}; more rows may exist.`,
@@ -373,7 +361,7 @@ export class QueryService {
         db: database,
         q: safety.normalizedQuery,
         format: payload.format,
-        rows: payload.render(kept),
+        rows: payload.renderRows(kept),
         metadata: {
           request_id: requestId,
           query_id: history?.id || queryId,
@@ -598,9 +586,6 @@ export class QueryService {
     }
   }
 
-  /**
-   * Query for core/enterprise (HTTP API)
-   */
   private async executeCoreEnterpriseQuery(
     query: string,
     database: string,
@@ -671,21 +656,13 @@ export class QueryService {
       return { data: response.text, format };
     }
 
-    // A JSON body that does not parse, or a stream that failed, means the
-    // server began a result it did not finish. An empty result is `[]`, so
-    // an empty body is unfinished too. Keep the rows that arrived whole;
-    // never report the partial result as a successful one.
-    if (!response.interruption) {
-      try {
-        return { data: JSON.parse(response.text), format };
-      } catch {
-        // Fall through to the interrupted result.
-      }
-    }
+    const finishedJsonBody = response.interruption
+      ? undefined
+      : parseFinishedJsonBody(response.text);
+    if (finishedJsonBody) return { data: finishedJsonBody.value, format };
     throw new InterruptedQueryError(
-      completeArrayElements(response.text),
-      response.interruption?.message ??
-        "the response ended before the result was complete",
+      wholeElementsOfUnfinishedJsonArray(response.text),
+      response.interruption?.message ?? UNFINISHED_RESPONSE_REASON,
     );
   }
 
@@ -700,9 +677,6 @@ export class QueryService {
     }
   }
 
-  /**
-   * Query for cloud-dedicated/clustered (influxdb3 client)
-   */
   private async executeCloudDedicatedQuery(
     query: string,
     database: string,
@@ -730,9 +704,6 @@ export class QueryService {
     }
   }
 
-  /**
-   * Query for clustered (HTTP API)
-   */
   private async executeClusteredQuery(
     query: string,
     database: string,
@@ -851,17 +822,10 @@ export class QueryService {
     return options.params as Record<string, QParamType> | undefined;
   }
 
-  /**
-   * Centralized error handler for query methods
-   */
   private handleQueryError(error: any): never {
     throw resolveOperationError(error);
   }
 
-  /**
-   * Get all measurements/tables in a database
-   * Uses SHOW MEASUREMENTS for cloud-dedicated/clustered (HTTP), information_schema for others
-   */
   async getMeasurements(database: string): Promise<MeasurementInfo[]> {
     this.baseService.validateDataCapabilities();
 
@@ -883,9 +847,6 @@ export class QueryService {
     }
   }
 
-  /**
-   * Get measurements for cloud-dedicated/clustered (HTTP client with InfluxQL)
-   */
   private async getMeasurementsCloudDedicated(
     database: string,
   ): Promise<MeasurementInfo[]> {
@@ -915,9 +876,6 @@ export class QueryService {
     }
   }
 
-  /**
-   * Get measurements for clustered (HTTP client with InfluxQL)
-   */
   private async getMeasurementsClustered(
     database: string,
   ): Promise<MeasurementInfo[]> {
@@ -947,9 +905,6 @@ export class QueryService {
     }
   }
 
-  /**
-   * Get measurements for core/enterprise
-   */
   private async getMeasurementsCoreEnterprise(
     database: string,
   ): Promise<MeasurementInfo[]> {
@@ -969,10 +924,6 @@ export class QueryService {
     }
   }
 
-  /**
-   * Get measurements for cloud-serverless
-   * Parses the Cloud Serverless response format with _fields arrays
-   */
   private async getMeasurementsCloudServerless(
     database: string,
   ): Promise<MeasurementInfo[]> {
@@ -985,12 +936,10 @@ export class QueryService {
 
       if (Array.isArray(result)) {
         return result
-          .map((row: any) => {
-            // Cloud Serverless format: { "_fields": { "table_name": ["string", "actual_value"] } }
-            const tableName = row._fields?.table_name?.[1];
-            return { name: tableName };
-          })
-          .filter((item: any) => item.name); // Filter out undefined names
+          .map((row: any) => ({
+            name: serverlessFieldValue(row, "table_name"),
+          }))
+          .filter((item: any) => item.name);
       }
       return [];
     } catch (error: any) {
@@ -998,10 +947,6 @@ export class QueryService {
     }
   }
 
-  /**
-   * Get schema information for a measurement/table
-   * Uses SHOW FIELD KEYS + SHOW TAG KEYS for cloud-dedicated/clustered (HTTP), information_schema for others
-   */
   async getMeasurementSchema(
     measurement: string,
     database: string,
@@ -1026,9 +971,6 @@ export class QueryService {
     }
   }
 
-  /**
-   * Get measurement schema for cloud-dedicated/clustered (HTTP client with InfluxQL)
-   */
   private async getMeasurementSchemaCloudDedicated(
     measurement: string,
     database: string,
@@ -1105,9 +1047,6 @@ export class QueryService {
     }
   }
 
-  /**
-   * Get measurement schema for clustered (HTTP client with InfluxQL)
-   */
   private async getMeasurementSchemaClustered(
     measurement: string,
     database: string,
@@ -1184,9 +1123,6 @@ export class QueryService {
     }
   }
 
-  /**
-   * Get measurement schema for core/enterprise
-   */
   private async getMeasurementSchemaCoreEnterprise(
     measurement: string,
     database: string,
@@ -1198,71 +1134,21 @@ export class QueryService {
       });
 
       if (Array.isArray(result)) {
-        // Observed on Core and Enterprise 3.12.1. These optional sources may
-        // be absent on older servers or denied to a database-scoped credential.
         const columnRows = z
           .array(z.object({ column_name: z.string(), data_type: z.string() }))
           .safeParse(result);
         if (!columnRows.success)
           throw new Error("Column metadata has an unexpected shape");
-        const roles = new Map<string, string>();
-        const metadata: Pick<
-          SchemaInfo,
-          "schema_mode" | "deletion" | "warnings"
-        > = { warnings: [] };
-        if (result.length) {
-          try {
-            const response = await this.executeQuery(
-              "SELECT key, data_type FROM system.influxdb_schema WHERE measurement = $table",
+        const tableHasColumns = result.length > 0;
+        const roles = tableHasColumns
+          ? await this.readServerColumnRolesWhenAvailable(measurement, database)
+          : new Map<string, string>();
+        const metadata = tableHasColumns
+          ? await this.readCatalogMetadataWithCallerCredential(
+              measurement,
               database,
-              { format: "json", params: { table: measurement } },
-            );
-            const parsed = z
-              .array(z.object({ key: z.string(), data_type: z.string() }))
-              .safeParse(response);
-            if (parsed.success) {
-              for (const row of parsed.data) roles.set(row.key, row.data_type);
-            }
-          } catch {
-            // Keep the information_schema columns when role metadata is unavailable.
-          }
-          try {
-            const response = await this.executeQuery(
-              "SELECT t.deleted, d.schema_mode FROM system.tables t JOIN system.databases d ON t.database_name = d.database_name WHERE t.database_name = $db AND t.table_name = $table",
-              "_internal",
-              { format: "json", params: { db: database, table: measurement } },
-            );
-            const parsed = z
-              .array(
-                z.object({
-                  deleted: z.boolean(),
-                  schema_mode: z.enum(["implicit", "explicit"]),
-                }),
-              )
-              .length(1)
-              .safeParse(response);
-            if (parsed.success) {
-              metadata.schema_mode = {
-                value: parsed.data[0].schema_mode,
-                source: "server",
-                catalog: "system.databases",
-              };
-              metadata.deletion = {
-                value: parsed.data[0].deleted,
-                source: "server",
-                catalog: "system.tables",
-              };
-            }
-          } catch {
-            // The same credential must authorize _internal; never substitute an admin token.
-          }
-          if (!metadata.schema_mode)
-            metadata.warnings?.push({
-              code: "catalog_metadata_unavailable",
-              message:
-                "Schema mode and deletion status are unknown because the internal catalog is unavailable to this credential.",
-            });
-        }
+            )
+          : { warnings: [] };
         const fieldTypes = new Set([
           "float",
           "integer",
@@ -1313,10 +1199,90 @@ export class QueryService {
     }
   }
 
-  /**
-   * Get measurement schema for cloud-serverless
-   * Parses the Cloud Serverless response format with _fields arrays
-   */
+  private async readServerColumnRolesWhenAvailable(
+    measurement: string,
+    database: string,
+  ): Promise<Map<string, string>> {
+    const roles = new Map<string, string>();
+    try {
+      const response = await this.executeQuery(
+        "SELECT key, data_type FROM system.influxdb_schema WHERE measurement = $table",
+        database,
+        { format: "json", params: { table: measurement } },
+      );
+      const parsed = z
+        .array(z.object({ key: z.string(), data_type: z.string() }))
+        .safeParse(response);
+      if (parsed.success) {
+        for (const row of parsed.data) roles.set(row.key, row.data_type);
+      }
+    } catch {
+      return roles;
+    }
+    return roles;
+  }
+
+  private async readCatalogMetadataWithCallerCredential(
+    measurement: string,
+    database: string,
+  ): Promise<Pick<SchemaInfo, "schema_mode" | "deletion" | "warnings">> {
+    const catalogRow = await this.readCatalogRowWithCallerCredential(
+      measurement,
+      database,
+    );
+    if (!catalogRow) {
+      return {
+        warnings: [
+          {
+            code: "catalog_metadata_unavailable",
+            message:
+              "Schema mode and deletion status are unknown because the internal catalog is unavailable to this credential.",
+          },
+        ],
+      };
+    }
+    return {
+      warnings: [],
+      schema_mode: {
+        value: catalogRow.schema_mode,
+        source: "server",
+        catalog: "system.databases",
+      },
+      deletion: {
+        value: catalogRow.deleted,
+        source: "server",
+        catalog: "system.tables",
+      },
+    };
+  }
+
+  private async readCatalogRowWithCallerCredential(
+    measurement: string,
+    database: string,
+  ): Promise<
+    { deleted: boolean; schema_mode: "implicit" | "explicit" } | undefined
+  > {
+    try {
+      const response = await this.executeQuery(
+        "SELECT t.deleted, d.schema_mode FROM system.tables t JOIN system.databases d ON t.database_name = d.database_name WHERE t.database_name = $db AND t.table_name = $table",
+        "_internal",
+        { format: "json", params: { db: database, table: measurement } },
+      );
+      const parsed = z
+        .array(
+          z.object({
+            deleted: z.boolean(),
+            schema_mode: z.enum(["implicit", "explicit"]),
+          }),
+        )
+        .length(1)
+        .safeParse(response);
+      return parsed.success ? parsed.data[0] : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   private async getMeasurementSchemaCloudServerless(
     measurement: string,
     database: string,
@@ -1330,8 +1296,8 @@ export class QueryService {
       if (Array.isArray(result)) {
         const columns = result
           .map((row: any): SchemaInfo["columns"][number] => {
-            const columnName = row._fields?.column_name?.[1];
-            const dataType = row._fields?.data_type?.[1];
+            const columnName = serverlessFieldValue(row, "column_name");
+            const dataType = serverlessFieldValue(row, "data_type");
 
             let category: "time" | "tag" | "field" | "unknown" = "unknown";
             let categoryConfidence: "high" | "low" = "low";
@@ -1366,11 +1332,22 @@ export class QueryService {
   }
 }
 
-/**
- * Return the elements of a JSON array that arrived whole, from a body that
- * may stop partway through an element.
- */
-function completeArrayElements(text: string): any[] {
+const UNFINISHED_RESPONSE_REASON =
+  "the response ended before the result was complete";
+
+function parseFinishedJsonBody(text: string): { value: unknown } | undefined {
+  try {
+    return { value: JSON.parse(text) };
+  } catch {
+    return undefined;
+  }
+}
+
+function serverlessFieldValue(row: any, fieldName: string): any {
+  return row._fields?.[fieldName]?.[1];
+}
+
+function wholeElementsOfUnfinishedJsonArray(text: string): any[] {
   let depth = 0;
   let inString = false;
   let escaped = false;

@@ -1,16 +1,8 @@
-/**
- * Schema Management Tools for InfluxDB Cloud Serverless
- *
- * Provides tools for managing measurement schemas in Cloud Serverless buckets.
- * These tools are only available for Cloud Serverless instances with explicit schema type.
- * Explicit schema type is not implemented in v3 InfluxDB cloud serverless as of now.
- */
-
 import { z } from "zod";
 import { InfluxDBMasterService } from "../../services/influxdb-master.service.js";
 import { McpTool } from "../index.js";
 
-export function createSchemaTools(
+export function createServerlessExplicitSchemaTools(
   influxService: InfluxDBMasterService,
 ): McpTool[] {
   return [

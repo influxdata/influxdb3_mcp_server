@@ -39,6 +39,7 @@ export function errorEnvelope(
     metadata?: Record<string, unknown>;
     write?: Record<string, unknown>;
   };
+  const partialQueryRowsAsServerSent = details.rows && { rows: details.rows };
   return {
     ...(redactErrorDetails({
       ok: false,
@@ -57,9 +58,7 @@ export function errorEnvelope(
       ...(details.metadata && { metadata: details.metadata }),
       ...(details.write && { write: details.write }),
     }) as ToolErrorEnvelope),
-    // Rows received before an interruption are query data, not error
-    // text, so they are returned as the server sent them.
-    ...(details.rows && { rows: details.rows }),
+    ...partialQueryRowsAsServerSent,
   };
 }
 

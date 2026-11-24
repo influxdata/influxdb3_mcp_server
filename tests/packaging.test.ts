@@ -1,15 +1,3 @@
-/**
- * Packaging — every runtime import must be a declared dependency.
- *
- * `zod` is imported at runtime by `src/tools/index.ts` and by every
- * `src/tools/categories/*.tools.ts`. It used to be declared only in
- * `devDependencies`, so a clean `npm i --omit=dev` — or any consumer
- * installing the published package — got a server that couldn't start.
- *
- * The check is written as an invariant over every runtime import rather than
- * as a check on `zod` specifically, so it catches the next occurrence too.
- */
-
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -29,14 +17,12 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
-/** `@scope/name/sub/path.js` → `@scope/name`; `name/sub` → `name`. */
-function packageNameOf(specifier: string): string {
+function packageNameWithoutSubpath(specifier: string): string {
   const parts = specifier.split("/");
   return specifier.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0];
 }
 
-/** Every bare package `src/` imports, excluding builtins and relative paths. */
-function runtimeImports(): Map<string, string[]> {
+function srcFilesByImportedNonBuiltinPackage(): Map<string, string[]> {
   const byPackage = new Map<string, string[]>();
 
   for (const file of sourceFiles(join(ROOT, "src"))) {
@@ -50,7 +36,7 @@ function runtimeImports(): Map<string, string[]> {
       if (specifier.startsWith(".") || specifier.startsWith("/")) continue;
       if (isBuiltin(specifier)) continue;
 
-      const name = packageNameOf(specifier);
+      const name = packageNameWithoutSubpath(specifier);
       const files = byPackage.get(name) ?? [];
       files.push(file.slice(ROOT.length + 1));
       byPackage.set(name, files);
@@ -61,7 +47,7 @@ function runtimeImports(): Map<string, string[]> {
 }
 
 describe("runtime imports are declared as dependencies", () => {
-  const imports = runtimeImports();
+  const imports = srcFilesByImportedNonBuiltinPackage();
 
   it("finds the packages src/ imports at all (guards the scanner itself)", () => {
     expect([...imports.keys()].sort()).toContain("@modelcontextprotocol/sdk");
@@ -69,15 +55,13 @@ describe("runtime imports are declared as dependencies", () => {
   });
 
   it("the published package ships build/, so a missing dependency reaches consumers", () => {
-    // Not a hypothetical: `files` includes `build`, and the compiled output
-    // keeps every bare specifier. A misdeclared package lands on the consumer.
     expect(pkg.files).toContain("build");
     expect(pkg.main).toBe("./build/index.js");
   });
 });
 
-describe("zod is a runtime dependency", () => {
-  const imports = runtimeImports();
+describe("zod is a runtime dependency, so a server installed with npm i --omit=dev starts", () => {
+  const imports = srcFilesByImportedNonBuiltinPackage();
 
   it("no runtime import is missing from dependencies", () => {
     const missing = [...imports.keys()].filter((n) => !declaredRuntime.has(n));

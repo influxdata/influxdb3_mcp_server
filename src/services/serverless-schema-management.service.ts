@@ -1,20 +1,9 @@
-/**
- * InfluxDB Cloud Serverless Schema Management Service
- *
- * NOTE: As of Ocotber 2025, explicit schemas are not supported in InfluxDB v3 (Cloud Serverless).
- * This service and tools are preserved for potential future compatibility when
- * explicit schema support may be added to Cloud Serverless.
- *
- * For current schema exploration in Cloud Serverless, use the query-based tools:
- * - get_measurements: Lists all measurements using information_schema
- * - get_measurement_schema: Shows column details using information_schema
- *
- * This service provides schema management capabilities specific to InfluxDB Cloud Serverless,
- * including listing, creating, updating, and deleting measurement schemas within buckets.
- */
-
 import { BaseConnectionService } from "./base-connection.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
+
+type InfluxHttpClient = ReturnType<
+  BaseConnectionService["getInfluxHttpClient"]
+>;
 
 export interface SchemaInfo {
   name: string;
@@ -48,9 +37,6 @@ export class SchemaManagementService {
     this.baseService = baseService;
   }
 
-  /**
-   * Validate that schema operations are supported (Cloud Serverless only)
-   */
   private validateSchemaOperationSupport(): void {
     const connectionInfo = this.baseService.getConnectionInfo();
     if (connectionInfo.type !== InfluxProductType.CloudServerless) {
@@ -61,34 +47,37 @@ export class SchemaManagementService {
     this.baseService.validateManagementCapabilities();
   }
 
-  /**
-   * List all measurement schemas in a bucket
-   * GET /api/v2/buckets/{bucketID}/schema/measurements
-   */
+  private async findUserBucketId(
+    httpClient: InfluxHttpClient,
+    bucketName: string,
+  ): Promise<string> {
+    const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
+      "/api/v2/buckets",
+    );
+    let bucketId: string | undefined;
+
+    if (bucketsResponse?.buckets) {
+      const bucket = bucketsResponse.buckets.find(
+        (b) => b.name === bucketName && b.type !== "system",
+      );
+      if (bucket) {
+        bucketId = bucket.id;
+      }
+    }
+
+    if (!bucketId) {
+      throw new Error(`Bucket '${bucketName}' not found`);
+    }
+    return bucketId;
+  }
+
   async listSchemas(bucketName: string): Promise<SchemaInfo[]> {
     this.validateSchemaOperationSupport();
 
     try {
       const httpClient = this.baseService.getInfluxHttpClient(false);
 
-      // First, get the bucket ID by name
-      const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
-        "/api/v2/buckets",
-      );
-      let bucketId: string | undefined;
-
-      if (bucketsResponse?.buckets) {
-        const bucket = bucketsResponse.buckets.find(
-          (b) => b.name === bucketName && b.type !== "system",
-        );
-        if (bucket) {
-          bucketId = bucket.id;
-        }
-      }
-
-      if (!bucketId) {
-        throw new Error(`Bucket '${bucketName}' not found`);
-      }
+      const bucketId = await this.findUserBucketId(httpClient, bucketName);
 
       const endpoint = `/api/v2/buckets/${bucketId}/schema/measurements`;
       const response = await httpClient.get<any>(endpoint);
@@ -103,7 +92,7 @@ export class SchemaManagementService {
       return schemas.map((schema) => {
         const schemaInfo: SchemaInfo = {
           name: schema.name,
-          bucketId: schema.bucketID || bucketId!,
+          bucketId: schema.bucketID || bucketId,
           bucketName: bucketName,
         };
 
@@ -129,33 +118,13 @@ export class SchemaManagementService {
     }
   }
 
-  /**
-   * Get detailed information about a specific measurement schema
-   * GET /api/v2/buckets/{bucketID}/schema/measurements/{measurementID}
-   */
   async getSchema(bucketName: string, schemaName: string): Promise<SchemaInfo> {
     this.validateSchemaOperationSupport();
 
     try {
       const httpClient = this.baseService.getInfluxHttpClient(false);
 
-      const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
-        "/api/v2/buckets",
-      );
-      let bucketId: string | undefined;
-
-      if (bucketsResponse?.buckets) {
-        const bucket = bucketsResponse.buckets.find(
-          (b) => b.name === bucketName && b.type !== "system",
-        );
-        if (bucket) {
-          bucketId = bucket.id;
-        }
-      }
-
-      if (!bucketId) {
-        throw new Error(`Bucket '${bucketName}' not found`);
-      }
+      const bucketId = await this.findUserBucketId(httpClient, bucketName);
 
       const schemasResponse = await httpClient.get<any>(
         `/api/v2/buckets/${bucketId}/schema/measurements`,
@@ -213,33 +182,16 @@ export class SchemaManagementService {
     }
   }
 
-  /**
-   * Create a new measurement schema in a bucket
-   * POST /api/v2/buckets/{bucketID}/schema/measurements
-   */
   async createSchema(config: CreateSchemaConfig): Promise<boolean> {
     this.validateSchemaOperationSupport();
 
     try {
       const httpClient = this.baseService.getInfluxHttpClient(false);
 
-      const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
-        "/api/v2/buckets",
+      const bucketId = await this.findUserBucketId(
+        httpClient,
+        config.bucketName,
       );
-      let bucketId: string | undefined;
-
-      if (bucketsResponse?.buckets) {
-        const bucket = bucketsResponse.buckets.find(
-          (b) => b.name === config.bucketName && b.type !== "system",
-        );
-        if (bucket) {
-          bucketId = bucket.id;
-        }
-      }
-
-      if (!bucketId) {
-        throw new Error(`Bucket '${config.bucketName}' not found`);
-      }
 
       const payload = {
         name: config.name,
@@ -269,13 +221,6 @@ export class SchemaManagementService {
     }
   }
 
-  /**
-   * Add new columns to an existing measurement schema
-   * IMPORTANT: This endpoint only allows ADDING new columns, not modifying existing ones.
-   * The request must include ALL columns (existing + new ones to add).
-   * Get the current schema first to retrieve existing columns, then include them with new columns.
-   * PATCH /api/v2/buckets/{bucketID}/schema/measurements/{measurementName}
-   */
   async updateSchema(
     bucketName: string,
     schemaName: string,
@@ -286,23 +231,7 @@ export class SchemaManagementService {
     try {
       const httpClient = this.baseService.getInfluxHttpClient(false);
 
-      const bucketsResponse = await httpClient.get<{ buckets?: any[] }>(
-        "/api/v2/buckets",
-      );
-      let bucketId: string | undefined;
-
-      if (bucketsResponse?.buckets) {
-        const bucket = bucketsResponse.buckets.find(
-          (b) => b.name === bucketName && b.type !== "system",
-        );
-        if (bucket) {
-          bucketId = bucket.id;
-        }
-      }
-
-      if (!bucketId) {
-        throw new Error(`Bucket '${bucketName}' not found`);
-      }
+      const bucketId = await this.findUserBucketId(httpClient, bucketName);
 
       const schemasResponse = await httpClient.get(
         `/api/v2/buckets/${bucketId}/schema/measurements`,
@@ -327,7 +256,7 @@ export class SchemaManagementService {
 
       const measurementId = existingSchema.id;
 
-      const updatePayload = {
+      const fullColumnListPayload = {
         columns:
           config.columns?.map((col) => ({
             name: col.name,
@@ -339,7 +268,7 @@ export class SchemaManagementService {
 
       await httpClient.patch(
         `/api/v2/buckets/${bucketId}/schema/measurements/${measurementId}`,
-        updatePayload,
+        fullColumnListPayload,
       );
 
       return true;
@@ -356,9 +285,6 @@ export class SchemaManagementService {
     }
   }
 
-  /**
-   * Common error handling for schema operations
-   */
   private handleSchemaError(error: any, operation: string): never {
     const status = error.response?.status;
     const originalMessage =

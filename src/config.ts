@@ -1,13 +1,10 @@
-/**
- * MCP Server Configuration
- *
- * Handles environment variables and configuration for the standalone MCP server
- */
-
 import dotenv from "dotenv";
 import { InfluxProductType } from "./helpers/enums/influx-product-types.enum.js";
 
 dotenv.config();
+
+const CLUSTERED_PLACEHOLDER_ID_FOR_CLOUD_DEDICATED_HANDLERS =
+  "11111111-1111-1111-1111-111111111111";
 
 export interface InfluxConfig {
   url?: string;
@@ -32,9 +29,6 @@ export interface McpServerConfig {
   };
 }
 
-/**
- * Load configuration from environment variables
- */
 export function loadConfig(): McpServerConfig {
   return {
     influx: {
@@ -60,9 +54,6 @@ export function loadConfig(): McpServerConfig {
   };
 }
 
-/**
- * Validate that required configuration is present
- */
 export function validateConfig(config: McpServerConfig): void {
   const errors: string[] = [];
 
@@ -98,8 +89,10 @@ export function validateConfig(config: McpServerConfig): void {
   } else if (config.influx.type === InfluxProductType.Clustered) {
     const hasQueryWrite = config.influx.token;
     const hasManagement = config.influx.management_token;
-    config.influx.account_id = "11111111-1111-1111-1111-111111111111"; // Dummy account ID for clustered for compatibility with cloud-dedicated handlers
-    config.influx.cluster_id = "11111111-1111-1111-1111-111111111111"; // Dummy cluster ID for clustered for compatibility with cloud-dedicated handlers
+    config.influx.account_id =
+      CLUSTERED_PLACEHOLDER_ID_FOR_CLOUD_DEDICATED_HANDLERS;
+    config.influx.cluster_id =
+      CLUSTERED_PLACEHOLDER_ID_FOR_CLOUD_DEDICATED_HANDLERS;
     if (!hasQueryWrite && !hasManagement) {
       errors.push(
         "For clustered, provide at least either: DB TOKEN for query/write, or MANAGEMENT TOKEN for management API.",

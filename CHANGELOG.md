@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `INFLUX_MCP_TOOL_PROFILE=readwrite` now advertises the `readonly` tools plus
+  `write_line_protocol`. Previously it exposed every operator tool, including
+  database and token administration.
+- The server refuses to start when `INFLUX_MCP_TOOL_PROFILE` is not
+  `readonly`, `readwrite`, or `operator`. Previously any other value fell back
+  to the full operator tool set. The bundled Codex development profile used
+  `default` and now sets `operator`.
+
 ### Added
 
 - `write_line_protocol` failures now include `structuredContent`: the same
@@ -35,16 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retryable only when every line has a timestamp. The server gives a line
   without one its own time, so resending a stored write adds a second point;
   for those batches the recovery is `none`.
-
-### Changed
-
-- `INFLUX_MCP_TOOL_PROFILE=readwrite` now advertises the `readonly` tools plus
-  `write_line_protocol`. Previously it exposed every operator tool, including
-  database and token administration.
-- The server refuses to start when `INFLUX_MCP_TOOL_PROFILE` is not
-  `readonly`, `readwrite`, or `operator`. Previously any other value fell back
-  to the full operator tool set. The bundled Codex development profile used
-  `default` and now sets `operator`.
 
 ### Fixed
 

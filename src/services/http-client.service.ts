@@ -1,9 +1,3 @@
-/**
- * HTTP Client Service
- *
- * Simple axios-based HTTP client for making authenticated requests to InfluxDB API
- */
-
 import axios, { AxiosInstance } from "axios";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import { Agent } from "https";
@@ -36,9 +30,6 @@ export class HttpClientService {
     );
   }
 
-  /**
-   * Create authentication headers with appropriate format for InfluxDB type
-   */
   private createAuthHeaders(
     token?: string,
     influxType?: string,
@@ -59,30 +50,16 @@ export class HttpClientService {
     return headers;
   }
 
-  /**
-   * Make a GET request
-   */
   async get<T = any>(url: string, config?: any): Promise<T> {
     const response = await this.axiosInstance.get(url, config);
     return response.data;
   }
 
-  /**
-   * Make a POST request
-   */
   async post<T = any>(url: string, data?: any, config?: any): Promise<T> {
     const response = await this.axiosInstance.post(url, data, config);
     return response.data;
   }
 
-  /**
-   * Make a POST request and read the response body as text.
-   *
-   * The body is streamed so that a connection that fails after the response
-   * began keeps what arrived: the failure is returned as `interruption`
-   * instead of thrown. A non-2xx response still throws, with its body read
-   * into `error.response.data` (parsed when it is JSON).
-   */
   async postText(
     url: string,
     data?: any,
@@ -95,30 +72,26 @@ export class HttpClientService {
         responseType: "stream",
       });
     } catch (error: any) {
-      if (typeof error.response?.data?.on === "function") {
-        const { text } = await readStream(error.response.data);
+      if (isReadableStream(error.response?.data)) {
+        const { text } = await readStreamKeepingPartialText(
+          error.response.data,
+        );
         error.response.data = parseJsonOrText(text);
       }
       throw error;
     }
 
     return {
-      ...(await readStream(response.data)),
+      ...(await readStreamKeepingPartialText(response.data)),
       contentType: response.headers["content-type"],
     };
   }
 
-  /**
-   * Make a PUT request
-   */
   async put<T = any>(url: string, data?: any, config?: any): Promise<T> {
     const response = await this.axiosInstance.put(url, data, config);
     return response.data;
   }
 
-  /**
-   * Make a DELETE request
-   */
   async delete<T = any>(url: string, config?: any): Promise<T> {
     const deleteConfig = {
       ...config,
@@ -138,24 +111,15 @@ export class HttpClientService {
     }
   }
 
-  /**
-   * Make a PATCH request
-   */
   async patch<T = any>(url: string, data?: any, config?: any): Promise<T> {
     const response = await this.axiosInstance.patch(url, data, config);
     return response.data;
   }
 
-  /**
-   * Get the underlying axios instance for advanced usage
-   */
   getAxiosInstance(): any {
     return this.axiosInstance;
   }
 
-  /**
-   * Create a configured instance for InfluxDB API calls
-   */
   static createInfluxClient(
     baseUrl: string,
     token: string,
@@ -165,7 +129,11 @@ export class HttpClientService {
   }
 }
 
-async function readStream(
+function isReadableStream(value: any): boolean {
+  return typeof value?.on === "function";
+}
+
+async function readStreamKeepingPartialText(
   stream: AsyncIterable<Buffer>,
 ): Promise<{ text: string; interruption?: Error }> {
   const chunks: Buffer[] = [];

@@ -4,6 +4,11 @@ import {
   operationErrorDetails,
 } from "./error-resolution.service.js";
 
+const MS_PER_HOUR = 3_600_000;
+const TABLE_LISTING_REQUESTS = 1;
+const SCHEMA_REQUESTS_PER_TABLE = 3;
+const SAMPLE_AND_QUERY_HISTORY_REQUESTS_PER_TABLE = 2;
+
 export function tableMetadata(
   name: string,
   evidence?: Pick<SchemaInfo, "schema_mode" | "deletion">,
@@ -75,24 +80,25 @@ export async function investigateDatabase(
   );
   const tables = allTables.slice(0, args.maxTables);
   const end = new Date();
-  const start = new Date(end.getTime() - args.sampleWindowHours * 3600000);
+  const start = new Date(end.getTime() - args.sampleWindowHours * MS_PER_HOUR);
   const sampleWindow = {
     hours: args.sampleWindowHours,
     start: start.toISOString(),
     end: end.toISOString(),
   };
-  // Reserve the worst case across products: three schema calls, a sample, and
-  // one optional query-history lookup. No cardinality or extra probes run.
+  const requestsPerTable = args.includeSamples
+    ? SCHEMA_REQUESTS_PER_TABLE + SAMPLE_AND_QUERY_HISTORY_REQUESTS_PER_TABLE
+    : SCHEMA_REQUESTS_PER_TABLE;
   const budget = {
-    max: 1 + args.maxTables * (args.includeSamples ? 5 : 3),
-    used: 1,
+    max: TABLE_LISTING_REQUESTS + args.maxTables * requestsPerTable,
+    used: TABLE_LISTING_REQUESTS,
     accounting: "upper_bound_requests",
   };
   const tableDetails = [];
   for (const table of tables) {
     let schema: ReturnType<typeof schemaMetadata> | undefined;
     try {
-      budget.used += 3;
+      budget.used += SCHEMA_REQUESTS_PER_TABLE;
       schema = schemaMetadata(
         await query.getMeasurementSchema(table.name, args.db),
         table.name,
@@ -122,7 +128,7 @@ export async function investigateDatabase(
       continue;
     }
     try {
-      budget.used += 2;
+      budget.used += SAMPLE_AND_QUERY_HISTORY_REQUESTS_PER_TABLE;
       const identifier = table.name.replace(/"/gu, '""');
       const sample = await query.querySqlReadOnly(
         `SELECT * FROM "${identifier}" WHERE time >= '${sampleWindow.start}' AND time <= '${sampleWindow.end}' ORDER BY time DESC`,

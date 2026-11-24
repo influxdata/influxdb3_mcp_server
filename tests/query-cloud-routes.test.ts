@@ -7,11 +7,8 @@ import {
   TestClient,
 } from "./helpers/mcp-client.js";
 
-// Cloud product types point at the fake only to prove nothing is sent: each
-// case is refused before dispatch. Cloud Dedicated's data host is derived from
-// its cluster ID, so its cases stay in query-routing.test.ts.
 describe.skipIf(LIVE)(
-  "[fake-only: the testbench has no Cloud target] Cloud query routes refuse unsupported combinations",
+  "[fake-only: the testbench has no Cloud target] Cloud query routes refuse unsupported combinations before sending anything to the fake",
   () => {
     let fake: FakeInfluxDB | undefined;
     let mcp: TestClient | undefined;

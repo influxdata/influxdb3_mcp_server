@@ -14,17 +14,9 @@ import {
 import { ALL_SCENARIOS, Scenario } from "./fixtures/influxdb-scenarios.js";
 import { P3_METADATA_SCENARIOS } from "./fixtures/p3-metadata-scenarios.js";
 
-// Checks each fake-server scenario against the pinned OpenAPI excerpt for
-// each product it stands for (refresh with
-// scripts/snapshot-protocol-openapi.py). A scenario the spec can't describe
-// must say why in `provenance.outside_spec`; the test then reports it
-// instead of failing, so drift between the spec, the fake, and live servers
-// stays visible. A scenario the spec does describe must not carry a stale
-// `outside_spec`.
-
 type Product = Scenario["provenance"]["products"][number];
 
-const SPECS: Record<Product, any> = {
+const PINNED_OPENAPI_EXCERPT_BY_PRODUCT: Record<Product, any> = {
   core: loadSpec("core"),
   enterprise: loadSpec("enterprise"),
 };
@@ -52,8 +44,7 @@ const SCENARIOS = [
 
 const ajv = new Ajv({ strict: false, allErrors: true });
 
-/** Every way the scenario departs from the spec, empty when it conforms. */
-function specGaps(scenario: Scenario, spec: any): string[] {
+function departuresFromSpec(scenario: Scenario, spec: any): string[] {
   const operation =
     spec.paths[scenario.request.path]?.[scenario.request.method.toLowerCase()];
   if (!operation) {
@@ -101,11 +92,13 @@ function specGaps(scenario: Scenario, spec: any): string[] {
   return gaps;
 }
 
-describe("fake-server scenarios against the pinned OpenAPI specs", () => {
+describe("fake-server scenarios conform to the pinned OpenAPI specs, or report why in provenance.outside_spec", () => {
   it.for(["core", "enterprise"] as const)(
-    "pins the %s spec to a docs-v2 commit",
+    "pins the %s spec to a docs-v2 commit (refreshed by scripts/snapshot-protocol-openapi.py)",
     (product) => {
-      expect(SPECS[product].provenance.commit).toMatch(/^[a-f0-9]{40}$/u);
+      expect(
+        PINNED_OPENAPI_EXCERPT_BY_PRODUCT[product].provenance.commit,
+      ).toMatch(/^[a-f0-9]{40}$/u);
     },
   );
 
@@ -115,7 +108,10 @@ describe("fake-server scenarios against the pinned OpenAPI specs", () => {
     ),
   );
   it.for(cases)("%s", ([, product, scenario], context) => {
-    const gaps = specGaps(scenario, SPECS[product]);
+    const gaps = departuresFromSpec(
+      scenario,
+      PINNED_OPENAPI_EXCERPT_BY_PRODUCT[product],
+    );
     if (gaps.length === 0) {
       expect(scenario.provenance.outside_spec).toBeUndefined();
       return;

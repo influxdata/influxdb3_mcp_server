@@ -1,8 +1,3 @@
-/**
- * Scripted responses for the discovery, access, and recovery tests. They use
- * the scenario type and fake server in `influxdb-scenarios.ts`.
- */
-
 import {
   ROWS_ARRAY_OUTSIDE_SPEC,
   type Scenario,
@@ -17,7 +12,6 @@ const SYNTHETIC: ScenarioProvenance = {
     "Synthetic, from the P2 to P4 specifications. Unconfirmed against a live run.",
 };
 
-/** What each access failure must become in a tool error. */
 export const ACCESS_OUTCOMES = [
   {
     name: "invalid credential",
@@ -72,7 +66,6 @@ function access(
   };
 }
 
-/** Every endpoint the read-only tools call, failing with each access status. */
 export const ACCESS_SCENARIOS: Scenario[] = [
   access(
     "POST",
@@ -173,7 +166,6 @@ export const ACCESS_SCENARIOS: Scenario[] = [
   ),
 ];
 
-/** A 401 whose body repeats the configured token, to check redaction. */
 export const TOKEN_ECHO: Scenario = {
   name: "401 that repeats the token",
   provenance: assumed("Tests redaction; no server is known to do this."),
@@ -192,19 +184,11 @@ const JWT_RUN: ScenarioProvenance = {
     "Testbench run 2026-10-21, Enterprise 3.12.1: a user JWT from basic-auth sign-in. Preview: the smoke-reader role needs --rbac-authoring-disabled=false, which 3.12.1 does not list in serve --help-all.",
 };
 
-/** The database a JWT scenario reads, and one it may not. */
-export const JWT_DB = "smoke";
+export const JWT_READABLE_DB = "smoke";
 export const JWT_DENIED_DB = "host_system";
 export const JWT_MISSING_DB = "no_such_db";
 
-/**
- * What a user JWT got from Enterprise 3.12.1. The server answers a denied
- * database and a missing one alike, and an expired, a malformed and a
- * wrong-node JWT alike, so a test must not expect the MCP server to tell
- * them apart.
- */
 export const JWT_SCENARIOS = {
-  /** Auditor can list databases but not query. */
   auditorDenied: {
     name: "JWT: auditor query denied",
     provenance: JWT_RUN,
@@ -250,7 +234,6 @@ export function accessScenariosFor(status: number): Scenario[] {
   );
 }
 
-/** A query sent to an Enterprise node that does not run the query mode. */
 export const INGEST_NODE_QUERY: Scenario = {
   name: "query on an ingest-only node",
   provenance: live(
@@ -266,7 +249,6 @@ export const INGEST_NODE_QUERY: Scenario = {
 
 const UNDOCUMENTED_STATUS = "The public query spec omits this status.";
 
-/** A sort that ran out of the Enterprise query memory pool. */
 export const ENTERPRISE_SQL_MEMORY_EXHAUSTED: Scenario = {
   name: "enterprise memory exhausted",
   provenance: {
@@ -283,10 +265,12 @@ export const ENTERPRISE_SQL_MEMORY_EXHAUSTED: Scenario = {
   },
 };
 
-/** Failures with no recovery classification, with and without Retry-After. */
-export const RECOVERY_SCENARIOS: Scenario[] = [405, 429, 503, 504].flatMap(
-  (status) =>
-    [undefined, "2"].map(
+const UNCLASSIFIED_FAILURE_STATUSES = [405, 429, 503, 504];
+const RETRY_AFTER_SECONDS = "2";
+
+export const RECOVERY_SCENARIOS: Scenario[] =
+  UNCLASSIFIED_FAILURE_STATUSES.flatMap((status) =>
+    [undefined, RETRY_AFTER_SECONDS].map(
       (wait): Scenario => ({
         name: `${status}-${wait ? "retry-after" : "no-wait"}`,
         provenance: assumed(
@@ -301,14 +285,9 @@ export const RECOVERY_SCENARIOS: Scenario[] = [405, 429, 503, 504].flatMap(
         },
       }),
     ),
-);
+  );
 
-/**
- * A `smoke` database with four tables, one of whose schemas is denied, a
- * denied database, and an empty one. The first match answers, so the
- * specific queries come before the catch-all samples.
- */
-export const DISCOVERY_SCENARIOS: Scenario[] = [
+const SPECIFIC_DISCOVERY_SCENARIOS: Scenario[] = [
   {
     name: "health legacy JSON",
     provenance: {
@@ -395,20 +374,27 @@ export const DISCOVERY_SCENARIOS: Scenario[] = [
       ],
     },
   },
-  ...(["/api/v3/query_sql", "/api/v3/query_influxql"] as const).map(
-    (path): Scenario => ({
-      name: `sample row from ${path}`,
-      provenance: { ...SYNTHETIC, outside_spec: ROWS_ARRAY_OUTSIDE_SPEC },
-      request: { method: "POST", path },
-      response: {
-        status: 200,
-        body: [{ time: "2026-10-15T00:00:00Z", value: 2 }],
-      },
-    }),
-  ),
 ];
 
-/** Sampling `alpha` is denied, and every other sample window is empty. */
+const CATCH_ALL_SAMPLE_ROW_SCENARIOS: Scenario[] = (
+  ["/api/v3/query_sql", "/api/v3/query_influxql"] as const
+).map(
+  (path): Scenario => ({
+    name: `sample row from ${path}`,
+    provenance: { ...SYNTHETIC, outside_spec: ROWS_ARRAY_OUTSIDE_SPEC },
+    request: { method: "POST", path },
+    response: {
+      status: 200,
+      body: [{ time: "2026-10-15T00:00:00Z", value: 2 }],
+    },
+  }),
+);
+
+export const DISCOVERY_SCENARIOS: Scenario[] = [
+  ...SPECIFIC_DISCOVERY_SCENARIOS,
+  ...CATCH_ALL_SAMPLE_ROW_SCENARIOS,
+];
+
 export const SAMPLES_DENIED_OR_EMPTY: Scenario[] = [
   {
     name: "denied sample",

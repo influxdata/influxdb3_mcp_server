@@ -10,15 +10,8 @@ export interface QuerySafetyResult {
   code?: string;
   message?: string;
   fix?: string;
-  /** The query as reported back to the caller, bounded at `maxRows`. */
   normalizedQuery?: string;
-  /**
-   * The query sent to the server. Where the safety layer sets the bound, it
-   * asks for `maxRows + 1` rows; the extra row is the evidence that the
-   * result was capped.
-   */
   executedQuery?: string;
-  /** The caller's own top-level LIMIT, when it is at or below `maxRows`. */
   queryLimit?: number;
   warnings: QueryWarning[];
 }
@@ -40,6 +33,12 @@ const SQL_REJECTED = [
   "REVOKE",
   "TRUNCATE",
 ];
+
+const CAP_EVIDENCE_EXTRA_ROWS = 1;
+
+function rowsRequestedToDetectCap(maxRows: number): number {
+  return maxRows + CAP_EVIDENCE_EXTRA_ROWS;
+}
 
 const INFLUXQL_REJECTED = [
   "DELETE",
@@ -64,9 +63,7 @@ export class QuerySafetyService {
       return this.reject("empty_query", "Query cannot be empty.");
     }
 
-    // Comments, string literals and quoted identifiers are never statement
-    // structure or keywords, so the structural checks run without them.
-    const structure = this.stripQuotedAndComments(trimmed);
+    const structure = this.replaceQuotedTextAndCommentsWithSpaces(trimmed);
 
     if (this.hasMultipleStatements(structure)) {
       return this.reject(
@@ -137,7 +134,10 @@ export class QuerySafetyService {
     if (this.shouldEnforceLimit(firstKeyword)) {
       if (limit === undefined) {
         normalizedQuery = this.appendLimit(statement, maxRows);
-        executedQuery = this.appendLimit(statement, maxRows + 1);
+        executedQuery = this.appendLimit(
+          statement,
+          rowsRequestedToDetectCap(maxRows),
+        );
         warnings.push({
           code: "limit_added",
           message: `Added LIMIT ${maxRows} to enforce a bounded result set.`,
@@ -146,7 +146,7 @@ export class QuerySafetyService {
         const replaceLimit = (value: number) =>
           `${statement.slice(0, limit.valueStart)}${value}${statement.slice(limit.valueEnd)}`;
         normalizedQuery = replaceLimit(maxRows);
-        executedQuery = replaceLimit(maxRows + 1);
+        executedQuery = replaceLimit(rowsRequestedToDetectCap(maxRows));
         warnings.push({
           code: "limit_reduced",
           message: `Reduced LIMIT ${limit.value} to ${maxRows}.`,
@@ -202,12 +202,7 @@ export class QuerySafetyService {
     return withoutTrailing.includes(";");
   }
 
-  /**
-   * Replace each comment, string literal and quoted identifier with a space.
-   * One pass, so a comment marker inside a literal stays inside it and a
-   * quote inside a comment opens nothing.
-   */
-  private stripQuotedAndComments(query: string): string {
+  private replaceQuotedTextAndCommentsWithSpaces(query: string): string {
     let result = "";
     for (let index = 0; index < query.length; ) {
       const character = query[index];

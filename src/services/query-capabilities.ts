@@ -1,19 +1,10 @@
-/**
- * Which formats and options each product supports on each query route.
- *
- * Dispatch consults this table before any request, so an unsupported
- * combination is refused with a stable error code instead of being sent,
- * silently dropped, or mislabeled (#84).
- */
-
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 import type { QueryFormat } from "./query-payload.js";
 import type { QueryLanguage } from "./query-safety.service.js";
 
 interface RouteCapabilities {
   formats: readonly QueryFormat[];
-  /** Whether a per-query `timeoutMs` reaches the server. */
-  timeout: boolean;
+  forwardsPerQueryTimeout: boolean;
 }
 
 const ALL_FORMATS: readonly QueryFormat[] = [
@@ -24,51 +15,65 @@ const ALL_FORMATS: readonly QueryFormat[] = [
   "parquet",
 ];
 
-/** v3 HTTP query API: every format, client-side timeout. */
-const V3_HTTP: RouteCapabilities = { formats: ALL_FORMATS, timeout: true };
-/** Flight SQL through the client library: rows only, no per-query timeout. */
-const FLIGHT: RouteCapabilities = { formats: ["json"], timeout: false };
-/** v1-compatible `/query` HTTP API: parsed JSON only. */
-const V1_HTTP: RouteCapabilities = { formats: ["json"], timeout: true };
+const V3_HTTP_QUERY_API: RouteCapabilities = {
+  formats: ALL_FORMATS,
+  forwardsPerQueryTimeout: true,
+};
+const FLIGHT_SQL_CLIENT: RouteCapabilities = {
+  formats: ["json"],
+  forwardsPerQueryTimeout: false,
+};
+const V1_COMPATIBLE_QUERY_API: RouteCapabilities = {
+  formats: ["json"],
+  forwardsPerQueryTimeout: true,
+};
 
-const CAPABILITIES: Record<
+const ROUTE_CAPABILITIES_BY_PRODUCT: Record<
   InfluxProductType,
   Record<QueryLanguage, RouteCapabilities>
 > = {
-  [InfluxProductType.Core]: { sql: V3_HTTP, influxql: V3_HTTP },
-  [InfluxProductType.Enterprise]: { sql: V3_HTTP, influxql: V3_HTTP },
-  [InfluxProductType.CloudDedicated]: { sql: FLIGHT, influxql: V1_HTTP },
-  [InfluxProductType.CloudServerless]: { sql: FLIGHT, influxql: V1_HTTP },
-  [InfluxProductType.Clustered]: { sql: V1_HTTP, influxql: V1_HTTP },
+  [InfluxProductType.Core]: {
+    sql: V3_HTTP_QUERY_API,
+    influxql: V3_HTTP_QUERY_API,
+  },
+  [InfluxProductType.Enterprise]: {
+    sql: V3_HTTP_QUERY_API,
+    influxql: V3_HTTP_QUERY_API,
+  },
+  [InfluxProductType.CloudDedicated]: {
+    sql: FLIGHT_SQL_CLIENT,
+    influxql: V1_COMPATIBLE_QUERY_API,
+  },
+  [InfluxProductType.CloudServerless]: {
+    sql: FLIGHT_SQL_CLIENT,
+    influxql: V1_COMPATIBLE_QUERY_API,
+  },
+  [InfluxProductType.Clustered]: {
+    sql: V1_COMPATIBLE_QUERY_API,
+    influxql: V1_COMPATIBLE_QUERY_API,
+  },
 };
 
-/**
- * Formats the read-only tools return. Parquet is binary and pretty is a
- * drawn table; neither can be bounded and counted inside a JSON envelope.
- */
-export const READ_ONLY_FORMATS: readonly QueryFormat[] = [
+export const ROW_COUNTABLE_READ_ONLY_FORMATS: readonly QueryFormat[] = [
   "json",
   "jsonl",
   "csv",
 ];
 
-/**
- * Refuse a format or option the route does not support. `allowedFormats`
- * narrows the route's formats further, as the read-only tools do.
- */
 export function assertQuerySupported(
   product: string | undefined,
   route: QueryLanguage,
   options: { format?: QueryFormat; timeoutMs?: number },
-  allowedFormats: readonly QueryFormat[] = ALL_FORMATS,
+  callerAllowedFormats: readonly QueryFormat[] = ALL_FORMATS,
 ): void {
-  // An unknown product is refused by dispatch itself.
-  const capabilities = CAPABILITIES[product as InfluxProductType];
-  if (!capabilities) return;
-  const { formats, timeout } = capabilities[route];
+  const productCapabilities =
+    ROUTE_CAPABILITIES_BY_PRODUCT[product as InfluxProductType];
+  const unknownProductIsRefusedByDispatch = !productCapabilities;
+  if (unknownProductIsRefusedByDispatch) return;
+  const { formats, forwardsPerQueryTimeout } = productCapabilities[route];
   const format = options.format ?? "json";
   const supported = formats.filter((candidate) =>
-    allowedFormats.includes(candidate),
+    callerAllowedFormats.includes(candidate),
   );
   const routeName = route === "sql" ? "SQL" : "InfluxQL";
 
@@ -81,7 +86,7 @@ export function assertQuerySupported(
     throw error;
   }
 
-  if (options.timeoutMs !== undefined && !timeout) {
+  if (options.timeoutMs !== undefined && !forwardsPerQueryTimeout) {
     throw unsupportedOption(
       `timeoutMs is not supported for ${routeName} queries on ${product}, which use Flight; configure the client query timeout instead`,
     );

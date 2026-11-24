@@ -1,9 +1,3 @@
-/**
- * MCP Prompts Definitions
- *
- * Defines reusable prompt templates for InfluxDB operations
- */
-
 import { InfluxDBMasterService } from "../services/influxdb-master.service.js";
 
 export interface McpPrompt {
@@ -32,9 +26,6 @@ export interface McpPrompt {
   }>;
 }
 
-/**
- * Create simple MCP prompts for InfluxDB operations
- */
 export function createPrompts(
   influxService: InfluxDBMasterService,
 ): McpPrompt[] {

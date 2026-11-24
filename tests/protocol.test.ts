@@ -1,10 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createTestClient, TestClient } from "./helpers/mcp-client.js";
 
-// Update this when tools are added or removed.
-// Verified against: src/tools/index.ts createTools() aggregation.
-// Core doesn't support resource tokens, so its operator surface omits
-// list_resource_tokens and create_resource_token.
 const EXPECTED_CORE_TOOL_COUNT = 25;
 
 const EXPECTED_RESOURCE_URIS = [
@@ -47,7 +43,7 @@ describe("MCP protocol compliance", () => {
   });
 
   describe("tools/list", () => {
-    it("returns the expected number of tools", async () => {
+    it("returns the Core operator tool count, which omits the resource token tools Core doesn't support", async () => {
       const result = await testClient.client.listTools();
       expect(result.tools).toHaveLength(EXPECTED_CORE_TOOL_COUNT);
     });

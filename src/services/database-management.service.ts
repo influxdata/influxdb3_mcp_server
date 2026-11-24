@@ -1,9 +1,4 @@
 import { resolveOperationError } from "./error-resolution.service.js";
-/**
- * InfluxDB Database Management Service
- *
- * Handles database lifecycle operations: list, create, delete, update
- */
 
 import { BaseConnectionService } from "./base-connection.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
@@ -28,6 +23,40 @@ export interface CloudServerlessBucketConfig {
   retentionPeriod?: number;
 }
 
+const NANOSECONDS_PER_SECOND = 1_000_000_000;
+const SECONDS_PER_HOUR = 3600;
+const HOURS_PER_DAY = 24;
+
+function warnAboutSettingsCoreEnterpriseIgnores(
+  config: Partial<CloudDedicatedDatabaseConfig>,
+): void {
+  if (
+    config.maxTables !== undefined ||
+    config.maxColumnsPerTable !== undefined
+  ) {
+    console.warn(
+      "Warning: maxTables and maxColumnsPerTable are not supported for Core/Enterprise. Only retentionPeriod is supported.",
+    );
+  }
+}
+
+function formatRetentionAsWholeDaysOrHours(retentionPeriodNs: number): string {
+  const seconds = Math.floor(retentionPeriodNs / NANOSECONDS_PER_SECOND);
+  const hours = seconds / SECONDS_PER_HOUR;
+
+  if (hours < 1) {
+    throw new Error(
+      "retentionPeriod must be at least 1 hour (3600000000000 ns) for Core/Enterprise.",
+    );
+  }
+
+  if (hours % HOURS_PER_DAY === 0) {
+    return `${hours / HOURS_PER_DAY}d`;
+  }
+
+  return `${Math.floor(hours)}h`;
+}
+
 export class DatabaseManagementService {
   private baseService: BaseConnectionService;
 
@@ -35,12 +64,6 @@ export class DatabaseManagementService {
     this.baseService = baseService;
   }
 
-  /**
-   * List all databases (single entrypoint for all product types)
-   * For core/enterprise: GET /api/v3/configure/database?format=json
-   * For cloud-dedicated/clustered: GET /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases
-   * For cloud-serverless: GET /api/v2/buckets (databases are called "buckets" in v2 API)
-   */
   async listDatabases(): Promise<DatabaseInfo[]> {
     this.baseService.validateManagementCapabilities();
 
@@ -61,12 +84,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Create a new database (single entrypoint for all product types)
-   * For core/enterprise: POST /api/v3/configure/database
-   * For cloud-dedicated/clustered: POST /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases
-   * For cloud-serverless: POST /api/v2/buckets (databases are called "buckets" in v2 API)
-   */
   async createDatabase(
     name: string,
     config?: CloudDedicatedDatabaseConfig | CloudServerlessBucketConfig,
@@ -97,12 +114,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Update database configuration (single entrypoint for all product types)
-   * For cloud-dedicated/clustered: PATCH /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
-   * For cloud-serverless: PATCH /api/v2/buckets/{bucketID}
-   * For core/enterprise: PUT /api/v3/configure/database with db and retention_period (humantime duration string)
-   */
   async updateDatabase(
     name: string,
     config:
@@ -142,12 +153,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Delete a database (single entrypoint for all product types)
-   * For core/enterprise: DELETE /api/v3/configure/database?db={name}
-   * For cloud-dedicated/clustered: DELETE /api/v0/accounts/{account_id}/clusters/{cluster_id}/databases/{name}
-   * For cloud-serverless: DELETE /api/v2/buckets/{bucketID} (databases are called "buckets" in v2 API)
-   */
   async deleteDatabase(name: string): Promise<boolean> {
     if (!name) throw new Error("Database name is required");
     this.baseService.validateManagementCapabilities();
@@ -169,9 +174,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * List databases for cloud-dedicated/clustered
-   */
   private async listDatabasesCloudDedicated(): Promise<DatabaseInfo[]> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient(true);
@@ -222,9 +224,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Create database for cloud-dedicated/clustered
-   */
   private async createDatabaseCloudDedicated(
     name: string,
     config?: CloudDedicatedDatabaseConfig,
@@ -262,9 +261,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Update database configuration for cloud-dedicated/clustered
-   */
   private async updateDatabaseCloudDedicated(
     name: string,
     config: Partial<CloudDedicatedDatabaseConfig>,
@@ -300,9 +296,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Delete database for cloud-dedicated/clustered
-   */
   private async deleteDatabaseCloudDedicated(name: string): Promise<boolean> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient(true);
@@ -317,9 +310,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * List databases for core/enterprise
-   */
   private async listDatabasesCoreEnterprise(): Promise<DatabaseInfo[]> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
@@ -371,9 +361,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Create database for core/enterprise
-   */
   private async createDatabaseCoreEnterprise(name: string): Promise<boolean> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
@@ -386,9 +373,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Delete database for core/enterprise
-   */
   private async deleteDatabaseCoreEnterprise(name: string): Promise<boolean> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient();
@@ -401,12 +385,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Update database configuration for core/enterprise
-   * Only supports retentionPeriod. Sends PUT /api/v3/configure/database with db
-   * and retention_period (humantime duration string such as "60d").
-   * Verified against Core 3.9.3; Core requires v3.2.0+ to update retention.
-   */
   private async updateDatabaseCoreEnterprise(
     name: string,
     config: Partial<CloudDedicatedDatabaseConfig>,
@@ -415,15 +393,7 @@ export class DatabaseManagementService {
       const httpClient = this.baseService.getInfluxHttpClient();
       const endpoint = `/api/v3/configure/database`;
 
-      // Warn if unsupported parameters are provided
-      if (
-        config.maxTables !== undefined ||
-        config.maxColumnsPerTable !== undefined
-      ) {
-        console.warn(
-          "Warning: maxTables and maxColumnsPerTable are not supported for Core/Enterprise. Only retentionPeriod is supported.",
-        );
-      }
+      warnAboutSettingsCoreEnterpriseIgnores(config);
 
       if (config.retentionPeriod === undefined) {
         throw new Error(
@@ -433,7 +403,9 @@ export class DatabaseManagementService {
 
       const payload = {
         db: name,
-        retention_period: this.formatRetentionPeriod(config.retentionPeriod),
+        retention_period: formatRetentionAsWholeDaysOrHours(
+          config.retentionPeriod,
+        ),
       };
 
       await httpClient.put(endpoint, payload);
@@ -443,9 +415,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * List databases for cloud-serverless (using buckets from /api/v2)
-   */
   private async listDatabasesCloudServerless(): Promise<DatabaseInfo[]> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient(false);
@@ -524,9 +493,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Create database for cloud-serverless (create bucket via /api/v2)
-   */
   private async createDatabaseCloudServerless(
     name: string,
     config?: CloudServerlessBucketConfig,
@@ -569,32 +535,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Convert a retention period in nanoseconds to a humantime duration string.
-   * Emits whole days when evenly divisible, otherwise whole hours, so a sub-day
-   * value is never rounded down to "0d" (which would mark all data for immediate
-   * deletion). Core/Enterprise accept units h, d, w, mo, y — not s or m.
-   */
-  private formatRetentionPeriod(retentionPeriodNs: number): string {
-    const seconds = Math.floor(retentionPeriodNs / 1_000_000_000);
-    const hours = seconds / 3600;
-
-    if (hours < 1) {
-      throw new Error(
-        "retentionPeriod must be at least 1 hour (3600000000000 ns) for Core/Enterprise.",
-      );
-    }
-
-    if (hours % 24 === 0) {
-      return `${hours / 24}d`;
-    }
-
-    return `${Math.floor(hours)}h`;
-  }
-
-  /**
-   * Delete database for cloud-serverless (delete bucket via /api/v2)
-   */
   private async deleteDatabaseCloudServerless(name: string): Promise<boolean> {
     try {
       const httpClient = this.baseService.getInfluxHttpClient(false);
@@ -624,10 +564,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Update database (bucket) for cloud-serverless via /api/v2
-   * PATCH /api/v2/buckets/{bucketID}
-   */
   private async updateDatabaseCloudServerless(
     name: string,
     config: Partial<CloudServerlessBucketConfig>,
@@ -695,9 +631,6 @@ export class DatabaseManagementService {
     }
   }
 
-  /**
-   * Common error handling for database operations with comprehensive status code handling
-   */
   private handleDatabaseError(error: any, operation: string): never {
     const status = error.response?.status;
     const originalMessage =

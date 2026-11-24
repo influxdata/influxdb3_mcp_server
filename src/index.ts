@@ -1,12 +1,5 @@
 #!/usr/bin/env node
 
-/**
- * Standalone InfluxDB 3 MCP Server
- *
- * Main entry point for the MCP server that provides InfluxDB integration
- * for Claude Desktop and other MCP clients.
- */
-
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { createServer } from "./server/index.js";
 

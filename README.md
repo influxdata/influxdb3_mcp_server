@@ -46,9 +46,13 @@ databases, manages tokens, or runs on the host.
 ### Credentials
 
 Set `INFLUX_DB_TOKEN` to an admin token, a scoped token, or an Enterprise
-user-authentication JWT. The server sends it in a `Bearer` header without
-inspecting it, so the token's permissions decide which databases the tools can
-read.
+user-authentication JWT. The server sends it without inspecting it, so the
+token's permissions decide which databases the tools can read.
+
+The tool profile limits which tools the client sees. It doesn't limit the
+token. With an admin token, the profile and the query checks below are the
+only boundary, so give the server a scoped token or an Enterprise JWT when the
+database should enforce read access too.
 
 ### Query arguments
 
@@ -56,6 +60,38 @@ read.
 A call that gives both names with different values fails with
 `invalid_arguments`. Every argument error is a structured tool error and is
 recorded in telemetry.
+
+### Query checks and bounds
+
+`query_sql` and `query_influxql` run one statement. A trailing semicolon is
+allowed; a second statement fails with `multiple_statements`. The checks skip
+comments, string literals, and quoted identifiers, so a statement inside a
+comment is neither run nor counted.
+
+A SQL query must start with `SELECT`, `SHOW`, `EXPLAIN`, or `WITH`, and an
+InfluxQL query with `SELECT` or `SHOW`. Anything else fails with
+`not_read_only`. A query also fails if one of these words appears outside
+literals and quoted identifiers:
+
+- SQL: `INSERT`, `UPDATE`, `DELETE`, `CREATE`, `ALTER`, `DROP`, `COPY`,
+  `EXPORT`, `ATTACH`, `GRANT`, `REVOKE`, `TRUNCATE`.
+- InfluxQL: `DELETE`, `DROP`, `CREATE`, `ALTER`, `GRANT`, `REVOKE`, and
+  `INTO`, which fails with `select_into`.
+
+Quote a column whose name is one of these words.
+
+`maxRows` defaults to 1000, and the most it accepts is 5000. A `SELECT` or
+`WITH` query without a top-level `LIMIT` gets `LIMIT maxRows` and a
+`limit_added` warning. A larger `LIMIT` is reduced to `maxRows`, with a
+`limit_reduced` warning. A query that fills its own smaller `LIMIT` gets
+`limit_reached`, because more rows may exist. A `SELECT` or `WITH` query that
+never mentions `time` gets `missing_time_predicate`.
+
+Read-only results come back as `json`, `jsonl`, or `csv` on Core and
+Enterprise, and as `json` on Cloud Dedicated, Cloud Serverless, and Clustered.
+`pretty` and `parquet` fail with `unsupported_query_format`. SQL on Cloud
+Dedicated and Cloud Serverless goes over Flight, which doesn't accept
+`timeoutMs`; that fails with `unsupported_query_option`.
 
 ### Discovery
 
@@ -336,8 +372,16 @@ MCP_LOG_FILE=/logs/influxdb-mcp.jsonl
 ```
 
 The telemetry log includes tool name, request ID, query ID, duration, database,
-row count, truncation state, success state, and error code. It does not log API
-tokens, request headers, tool arguments, or query text. Sample harness profiles
+row count, completeness and cap source, success state, and error code. It does
+not log API tokens, request headers, tool arguments, or query text.
+
+On Core and Enterprise, after a successful query the server looks for the same
+query text in `system.queries`. When it finds one, `metadata.query_id` is that
+row's `id`, `query_id_source` is `system.queries.id`, and the row's timings
+and `max_memory` are added to `metadata`. Otherwise, including when the token
+can't read `_internal`, `query_id` is a locally generated UUID with `query_id_source: "local"`, which doesn't appear in
+`system.queries`. The lookup costs one extra query per call, and is skipped on
+the other products. Sample harness profiles
 live in `harness-profiles/`; for approval settings and repeatable E2E prompts,
 see `AGENT_E2E_TESTS.md`.
 

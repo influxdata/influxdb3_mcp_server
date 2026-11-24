@@ -1,7 +1,3 @@
-/**
- * Token Management Tools (Core/Enterprise)
- */
-
 import { z } from "zod";
 import { InfluxDBMasterService } from "../../services/influxdb-master.service.js";
 import { InfluxProductType } from "../../helpers/enums/influx-product-types.enum.js";

@@ -1,7 +1,3 @@
-/**
- * Query and Schema Tools
- */
-
 import {
   investigateDatabase,
   tableMetadata,
@@ -63,7 +59,6 @@ function readOnlyQueryInputSchema(queryDescription: string) {
         minimum: 1,
       },
     },
-    // Claude hosts reject root combinators. Enforce alias pairs in superRefine.
     required: [],
     additionalProperties: false,
   };

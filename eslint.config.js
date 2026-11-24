@@ -46,7 +46,6 @@ export default [
   {
     files: ["**/*.js"],
     rules: {
-      // JavaScript specific overrides
       "@typescript-eslint/no-var-requires": "off",
     },
   },

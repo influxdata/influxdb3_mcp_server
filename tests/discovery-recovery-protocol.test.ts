@@ -103,8 +103,8 @@ describe.skipIf(live)(
             recovery: scenario.recovery,
             retryable: false,
           });
-          // An empty error body must not leave an empty message.
-          expect(result.error.message).toMatch(/: \S/u);
+          const nonEmptyTextAfterPrefix = /: \S/u;
+          expect(result.error.message).toMatch(nonEmptyTextAfterPrefix);
         }
       });
     }
@@ -133,7 +133,8 @@ describe.skipIf(live)(
       if (!("text" in content)) throw new Error("Expected text");
       expect(JSON.parse(content.text).overall.status).toBe("unknown");
     });
-    it("keeps successful tables, stable truncation, recent bounded samples, and warnings", async () => {
+    it("keeps successful tables, stable truncation, recent bounded samples that fetch one extra row to detect capping, and warnings", async () => {
+      const sampleRowsPerTable = 2;
       const client = await connect();
       const result = payload(
         await client.callTool({
@@ -142,7 +143,7 @@ describe.skipIf(live)(
             db: "smoke",
             includeSamples: true,
             maxTables: 3,
-            sampleRowsPerTable: 2,
+            sampleRowsPerTable,
             sampleWindowHours: 48,
           },
         }),
@@ -181,10 +182,12 @@ describe.skipIf(live)(
         r.q?.startsWith("SELECT * FROM"),
       );
       expect(sampleQueries).toHaveLength(2);
-      // A sample of 2 asks for one row more, to tell whether it was capped.
+      const sampleLimitWithCapProbeRow = sampleRowsPerTable + 1;
       for (const request of sampleQueries) {
         expect(request.q).toMatch(
-          /WHERE time >= '.*' AND time <= '.*' ORDER BY time DESC LIMIT 3$/,
+          new RegExp(
+            `WHERE time >= '.*' AND time <= '.*' ORDER BY time DESC LIMIT ${sampleLimitWithCapProbeRow}$`,
+          ),
         );
       }
       expect(result.query_budget.max).toBe(16);
@@ -369,7 +372,9 @@ describe.skipIf(live)(
         fake!.requests.length,
       );
     });
-    it("runs EXPLAIN ANALYZE through query bounds and labels execution", async () => {
+    it("runs EXPLAIN ANALYZE through query bounds, with the server running the diagnostic bounded by the one-row probe, and labels execution", async () => {
+      const maxRows = 2;
+      const limitWithProbeRow = maxRows + 1;
       const client = await connect();
       const result = payload(
         await client.callTool({
@@ -377,15 +382,16 @@ describe.skipIf(live)(
           arguments: {
             db: "smoke",
             q: "EXPLAIN ANALYZE SELECT * FROM metrics",
-            maxRows: 2,
+            maxRows,
           },
         }),
       );
       expect(result.ok).toBe(true);
-      expect(result.q).toMatch(/EXPLAIN ANALYZE .* LIMIT 2$/);
-      // The server runs the diagnostic, bounded with the one-row probe.
+      expect(result.q).toMatch(
+        new RegExp(`EXPLAIN ANALYZE .* LIMIT ${maxRows}$`),
+      );
       expect(fake!.requests.map((r) => r.q)).toContain(
-        "EXPLAIN ANALYZE SELECT * FROM metrics LIMIT 3",
+        `EXPLAIN ANALYZE SELECT * FROM metrics LIMIT ${limitWithProbeRow}`,
       );
       expect(result.warnings).toContainEqual(
         expect.objectContaining({ code: "diagnostic_execution" }),
@@ -414,15 +420,14 @@ describe.skipIf(live)(
   },
 );
 
-// Live Enterprise user JWTs. Each case runs only when its variable is set,
-// so the testbench runner can supply any subset. The smoke-reader role needs
-// --rbac-authoring-disabled=false, which 3.12.1 does not list in
-// serve --help-all: report a failure there as a preview, not a regression.
 const JWT_DB = process.env.INFLUX_TEST_DATABASE || "smoke";
-const jwtCases = [
+const jwtCasesEachRunOnlyWhenItsVariableIsSet = [
   { role: "member", env: "INFLUX_TEST_JWT_MEMBER" },
   { role: "auditor", env: "INFLUX_TEST_JWT_AUDITOR" },
-  { role: "smoke-reader (preview)", env: "INFLUX_TEST_JWT_SMOKE" },
+  {
+    role: "smoke-reader (preview: needs --rbac-authoring-disabled=false, which 3.12.1 serve --help-all does not list; a failure is not a regression)",
+    env: "INFLUX_TEST_JWT_SMOKE",
+  },
 ] as const;
 describe.skipIf(!live)("[live-only] Enterprise 3.12.1 user JWT reads", () => {
   async function connectJwt(token: string) {
@@ -434,7 +439,7 @@ describe.skipIf(!live)("[live-only] Enterprise 3.12.1 user JWT reads", () => {
     });
     return session.client;
   }
-  for (const { role, env } of jwtCases) {
+  for (const { role, env } of jwtCasesEachRunOnlyWhenItsVariableIsSet) {
     it.skipIf(!process.env[env])(`${role}: ${env}`, async () => {
       const client = await connectJwt(process.env[env]!);
       const call = async (name: string, args: Record<string, unknown>) =>
@@ -455,8 +460,9 @@ describe.skipIf(!live)("[live-only] Enterprise 3.12.1 user JWT reads", () => {
         db: JWT_DB,
         q: "SELECT * FROM seed_marker LIMIT 1",
       });
-      if (env === "INFLUX_TEST_JWT_AUDITOR") {
-        // Auditor lists databases but cannot query, and list_tables queries.
+      const auditorCannotQueryAndListTablesQueries =
+        env === "INFLUX_TEST_JWT_AUDITOR";
+      if (auditorCannotQueryAndListTablesQueries) {
         for (const result of [tables, query]) {
           expect(result.ok).toBe(false);
           expect(result.error).toMatchObject({
@@ -534,10 +540,8 @@ describe.skipIf(live)("[fake-only] Enterprise 3.12.1 JWT responses", () => {
     expect(errors[0].message).toBe(errors[1].message);
     expect(errors[0].code).toBe(errors[1].code);
   });
-  // The body does not say whether the JWT expired, is malformed, or went to
-  // a node that does not accept it, so all three stay credential_invalid.
   for (const key of ["expired", "malformed", "wrongNode"] as const) {
-    it(`keeps a 401 for a ${key} JWT as credential_invalid`, async () => {
+    it(`keeps a 401 for a ${key} JWT as credential_invalid, because the body cannot tell expired, malformed, and wrong-node JWTs apart`, async () => {
       const client = await connect([JWT_SCENARIOS[key]]);
       const result = payload(await client.callTool(query(JWT_DB)));
       expect(result.error).toMatchObject({
@@ -551,8 +555,6 @@ describe.skipIf(live)("[fake-only] Enterprise 3.12.1 JWT responses", () => {
     });
   }
 });
-// P3's isolated Core/Enterprise metadata and tombstone cases run in
-// p3-metadata-live.test.ts, with app and admin credentials kept separate.
 describe.skip("[P4] live-only server timeout and backpressure, not yet observed on 3.12.1", () => {
   it("records server-timeout and Retry-After backpressure bodies before classifying recovery", () => {});
 });

@@ -2,8 +2,8 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { DatabaseManagementService } from "../src/services/database-management.service.js";
 import { BaseConnectionService } from "../src/services/base-connection.service.js";
 
-// Retention periods are passed to the tool in nanoseconds.
-const HOUR_NS = 3_600_000_000_000;
+const MINUTE_NS = 60_000_000_000;
+const HOUR_NS = 60 * MINUTE_NS;
 const DAY_NS = 24 * HOUR_NS;
 
 function stubBaseService(type = "core"): BaseConnectionService {
@@ -54,14 +54,11 @@ describe("updateDatabase – Core/Enterprise retention", () => {
     expect(put.mock.calls[0][1].retention_period).toBe("1h");
   });
 
-  it("falls back to whole hours for sub-day, non-day-divisible periods", async () => {
+  it("falls back to whole hours for sub-day, non-day-divisible periods, flooring 90 minutes to 1h", async () => {
     const base = stubBaseService("core");
     const { svc, put } = serviceWithPut(base);
 
-    // 90 minutes -> floors to 1h (never 0d)
-    await svc.updateDatabase("mydb", {
-      retentionPeriod: 90 * 60 * 1_000_000_000,
-    });
+    await svc.updateDatabase("mydb", { retentionPeriod: 90 * MINUTE_NS });
 
     expect(put.mock.calls[0][1].retention_period).toBe("1h");
   });
@@ -71,7 +68,7 @@ describe("updateDatabase – Core/Enterprise retention", () => {
     const { svc } = serviceWithPut(base);
 
     await expect(
-      svc.updateDatabase("mydb", { retentionPeriod: 30 * 60 * 1_000_000_000 }),
+      svc.updateDatabase("mydb", { retentionPeriod: 30 * MINUTE_NS }),
     ).rejects.toThrow(/at least 1 hour/);
   });
 

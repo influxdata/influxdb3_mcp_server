@@ -1,9 +1,3 @@
-/**
- * Master InfluxDB Service
- *
- * Orchestrates all specialized InfluxDB services and provides a unified interface
- */
-
 import {
   BaseConnectionService,
   ConnectionInfo,
@@ -43,11 +37,6 @@ export class InfluxDBMasterService {
     this.contextFileService = new ContextFileService();
   }
 
-  // ===== Connection & Health Methods =====
-
-  /**
-   * Get connection information
-   */
   getConnectionInfo(): ConnectionInfo {
     return this.baseConnection.getConnectionInfo();
   }
@@ -56,9 +45,6 @@ export class InfluxDBMasterService {
     return this.baseConnection.getConfig();
   }
 
-  /**
-   * Ping InfluxDB instance and return version/type info
-   */
   async ping(): Promise<{
     ok: boolean;
     outcome?: "ok" | "unreachable" | "credential_cannot_check";
@@ -69,94 +55,60 @@ export class InfluxDBMasterService {
     return this.baseConnection.ping();
   }
 
-  /**
-   * Get health status
-   */
   async getHealthStatus(): ReturnType<
     BaseConnectionService["getHealthStatus"]
   > {
     return this.baseConnection.getHealthStatus();
   }
 
-  // ===== Query Service Access =====
-
   get query() {
     return this.queryService;
   }
-
-  // ===== Write Service Access =====
 
   get write() {
     return this.writeService;
   }
 
-  // ===== Database Management Service Access =====
-
   get database() {
     return this.databaseService;
   }
-
-  // ===== Token Management Service Access =====
 
   get token() {
     return this.tokenService;
   }
 
-  /**
-   * Get the token management service instance
-   */
   getTokenManagementService() {
     return this.tokenService;
   }
-
-  // ===== Cloud Token Management Service Access =====
 
   get cloudToken() {
     return this.cloudTokenService;
   }
 
-  /**
-   * Get the cloud token management service instance
-   */
   getCloudTokenManagementService() {
     return this.cloudTokenService;
   }
-
-  // ===== Schema Management Service Access =====
 
   get schema() {
     return this.schemaService;
   }
 
-  /**
-   * Get the schema management service instance
-   */
   getSchemaManagementService() {
     return this.schemaService;
   }
-
-  // ===== Help Service Access =====
 
   get help() {
     return this.helpService;
   }
 
-  // ===== Context File Service Access =====
-
   get contextFile() {
     return this.contextFileService;
   }
 
-  /**
-   * Get the context file service instance
-   */
   getContextFileService() {
     return this.contextFileService;
   }
 
-  /**
-   * Get the main client instance (for advanced operations)
-   */
   getClient() {
     return this.baseConnection.getClient();
   }

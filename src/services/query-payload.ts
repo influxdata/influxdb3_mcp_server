@@ -1,17 +1,11 @@
-/**
- * Split a query result into records, whatever its format, so that the
- * read-only tools can apply a row bound and count rows the same way for
- * JSON rows and for CSV or JSONL text.
- */
-
 export type QueryFormat = "json" | "csv" | "parquet" | "jsonl" | "pretty";
 
-/** Use a recognized response media type; older endpoints may omit it. */
 export function returnedQueryFormat(
   contentType: string | undefined,
-  requested: QueryFormat,
+  requestedWhenMediaTypeUnrecognized: QueryFormat,
 ): QueryFormat {
-  switch (contentType?.split(";", 1)[0].trim().toLowerCase()) {
+  const mediaType = contentType?.split(";", 1)[0].trim().toLowerCase();
+  switch (mediaType) {
     case "application/json":
       return "json";
     case "application/jsonl":
@@ -21,17 +15,14 @@ export function returnedQueryFormat(
     case "text/csv":
       return "csv";
     default:
-      return requested;
+      return requestedWhenMediaTypeUnrecognized;
   }
 }
 
 export interface DecodedPayload {
-  /** The format of the payload the server returned, which may differ from the one requested. */
   format: QueryFormat;
-  /** JSON rows, or CSV or JSONL record lines. */
   records: unknown[];
-  /** Build the response's `rows` from a subset of `records`. */
-  render: (records: unknown[]) => any[];
+  renderRows: (keptRecords: unknown[]) => any[];
 }
 
 export function decodePayload(
@@ -45,11 +36,11 @@ export function decodePayload(
   if (returnedJson) return jsonPayload(returnedJson);
 
   if (requested === "csv") {
-    const [header = "", ...records] = splitCsvLines(raw);
+    const [header = "", ...records] = splitCsvRecordsKeepingNewlines(raw);
     return {
       format: "csv",
       records,
-      render: (kept) => [{ value: header + kept.join("") }],
+      renderRows: (kept) => [{ value: header + kept.join("") }],
     };
   }
 
@@ -58,19 +49,19 @@ export function decodePayload(
     return {
       format: "jsonl",
       records,
-      render: (kept) => [{ value: kept.join("") }],
+      renderRows: (kept) => [{ value: kept.join("") }],
     };
   }
 
   return {
     format: requested,
     records: [raw],
-    render: (kept) => kept.map((value) => ({ value })),
+    renderRows: (kept) => kept.map((value) => ({ value })),
   };
 }
 
 function jsonPayload(rows: unknown[]): DecodedPayload {
-  return { format: "json", records: rows, render: (kept) => kept };
+  return { format: "json", records: rows, renderRows: (kept) => kept };
 }
 
 function jsonRows(raw: any): unknown[] {
@@ -90,8 +81,7 @@ function parseJsonArray(text: string): unknown[] | undefined {
   }
 }
 
-/** Lines of a CSV payload, each with its newline; quoted newlines stay inside their record. */
-function splitCsvLines(text: string): string[] {
+function splitCsvRecordsKeepingNewlines(text: string): string[] {
   const lines: string[] = [];
   let start = 0;
   let inQuotes = false;

@@ -1,11 +1,3 @@
-/**
- * `ping()` — version/build header parsing.
- *
- * The `x-influxdb-version` and `x-influxdb-build` response headers are fetched
- * but never parsed, compared, or otherwise used. This pins the current
- * passthrough behavior, independent of any specific InfluxDB version.
- */
-
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { BaseConnectionService } from "../src/services/base-connection.service.js";
 import { InfluxProductType } from "../src/helpers/enums/influx-product-types.enum.js";
@@ -29,8 +21,9 @@ function configFor(type: InfluxProductType): McpServerConfig {
   };
 }
 
-/** Stub `fetch` with a success response and return the recorded calls. */
-function stubFetchOk(headers: Record<string, string> = {}) {
+function stubSuccessfulFetchReturningMock(
+  headers: Record<string, string> = {},
+) {
   const fetchMock = vi.fn().mockResolvedValue({
     ok: true,
     status: 200,
@@ -45,9 +38,9 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("ping – version reporting, current behavior", () => {
+describe("ping – version and build headers pass through unparsed, for any InfluxDB version", () => {
   it("returns the x-influxdb-version header unparsed", async () => {
-    const fetchMock = stubFetchOk({
+    const fetchMock = stubSuccessfulFetchReturningMock({
       "x-influxdb-version": "3.11.0-0.rc.1",
       "x-influxdb-build": "Enterprise",
     });
@@ -65,7 +58,7 @@ describe("ping – version reporting, current behavior", () => {
   });
 
   it('reports build "Other" when only a version header is present', async () => {
-    stubFetchOk({ "x-influxdb-version": "3.11.0" });
+    stubSuccessfulFetchReturningMock({ "x-influxdb-version": "3.11.0" });
 
     const result = await new BaseConnectionService(
       configFor(InfluxProductType.Core),
@@ -75,7 +68,7 @@ describe("ping – version reporting, current behavior", () => {
   });
 
   it("reports no version at all when the header is absent", async () => {
-    stubFetchOk();
+    stubSuccessfulFetchReturningMock();
     const result = await new BaseConnectionService(
       configFor(InfluxProductType.Enterprise),
     ).ping();

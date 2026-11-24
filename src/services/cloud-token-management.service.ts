@@ -1,10 +1,3 @@
-/**
- * InfluxDB Cloud-Dedicated/Clustered Token Management Service
- *
- * Handles database token operations for InfluxDB Cloud-Dedicated and Clustered clusters
- * Uses REST API endpoints instead of SQL queries
- */
-
 import { BaseConnectionService } from "./base-connection.service.js";
 import { InfluxProductType } from "../helpers/enums/influx-product-types.enum.js";
 
@@ -40,10 +33,6 @@ export class CloudTokenManagementService {
     this.baseService = baseService;
   }
 
-  /**
-   * List all database tokens for the cloud-dedicated/clustered cluster
-   * GET /api/v0/accounts/{accountId}/clusters/{clusterId}/tokens
-   */
   async listTokens(): Promise<CloudTokenInfo[]> {
     this.baseService.validateOperationSupport("list_cloud_tokens", [
       InfluxProductType.CloudDedicated,
@@ -64,10 +53,6 @@ export class CloudTokenManagementService {
     }
   }
 
-  /**
-   * Get a specific token by ID
-   * GET /api/v0/accounts/{accountId}/clusters/{clusterId}/tokens/{tokenId}
-   */
   async getToken(tokenId: string): Promise<CloudTokenInfo> {
     this.baseService.validateOperationSupport("get_cloud_token", [
       InfluxProductType.CloudDedicated,
@@ -88,10 +73,6 @@ export class CloudTokenManagementService {
     }
   }
 
-  /**
-   * Create a new database token
-   * POST /api/v0/accounts/{accountId}/clusters/{clusterId}/tokens
-   */
   async createToken(request: CreateCloudTokenRequest): Promise<CloudTokenInfo> {
     this.baseService.validateOperationSupport("create_cloud_token", [
       InfluxProductType.CloudDedicated,
@@ -112,10 +93,6 @@ export class CloudTokenManagementService {
     }
   }
 
-  /**
-   * Update an existing token
-   * PATCH /api/v0/accounts/{accountId}/clusters/{clusterId}/tokens/{tokenId}
-   */
   async updateToken(
     tokenId: string,
     request: UpdateCloudTokenRequest,
@@ -142,10 +119,6 @@ export class CloudTokenManagementService {
     }
   }
 
-  /**
-   * Delete a token
-   * DELETE /api/v0/accounts/{accountId}/clusters/{clusterId}/tokens/{tokenId}
-   */
   async deleteToken(tokenId: string): Promise<boolean> {
     this.baseService.validateOperationSupport("delete_cloud_token", [
       InfluxProductType.CloudDedicated,
@@ -166,9 +139,6 @@ export class CloudTokenManagementService {
     }
   }
 
-  /**
-   * Helper method to create permissions for specific databases and actions
-   */
   createPermissions(
     databases: string[],
     actions: ("read" | "write")[],
@@ -187,9 +157,6 @@ export class CloudTokenManagementService {
     return permissions;
   }
 
-  /**
-   * Common error handling for token operations
-   */
   private handleTokenError(error: any, operation: string): never {
     const status = error.response?.status;
     const originalMessage =

@@ -30,21 +30,17 @@ export async function createTestClient(
 
   await client.connect(transport);
 
-  const close = async () => {
-    try {
-      await client.close();
-    } catch {
-      // Server process may already be gone
-    }
-  };
-
-  return { client, close };
+  return { client, close: () => closeEvenIfServerExited(client) };
 }
 
-/**
- * Call a structured tool, check its response against the envelope schema,
- * and return the parsed envelope.
- */
+async function closeEvenIfServerExited(client: Client): Promise<void> {
+  try {
+    await client.close();
+  } catch {
+    return;
+  }
+}
+
 export async function callTool(
   test: TestClient,
   name: string,
@@ -56,7 +52,6 @@ export async function callTool(
   return { body, isError: result.isError === true };
 }
 
-/** Parse the JSON envelope a structured tool returns in its text content. */
 export function toolJson<T = any>(result: unknown): T {
   const content = (result as { content: Array<{ type: string; text: string }> })
     .content;

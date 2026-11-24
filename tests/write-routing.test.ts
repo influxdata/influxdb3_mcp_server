@@ -1,26 +1,3 @@
-/**
- * Write-path routing by product type.
- *
- * Establishes which endpoint and transport each product type uses to write.
- *
- * InfluxDB 3.11's release notes (Core/Enterprise-scoped) document a write
- * 400→503 change for a stopped node, on the **legacy v1/v2 write endpoint**
- * (`/api/v2/write`) that Core/Enterprise also expose for backward
- * compatibility. This server never calls that endpoint for Core/Enterprise —
- * it always uses `POST /api/v3/write_lp` — so the documented change does not
- * reach this server's Core/Enterprise write path. The separate `Clustered`
- * product (InfluxDB Clustered, the self-hosted sibling to Cloud Dedicated —
- * not a multi-node Enterprise deployment) also posts to `/api/v2/write`
- * below, but that's a separate, unrelated fact: `Clustered` is a different
- * product on its own release train, not covered by these Core/Enterprise
- * release notes at all. What v3 itself returns for a stopped node is
- * untested here — it needs a live instance with a node stopped mid-write.
- *
- * These are regression tests, not acceptance criteria: they assert what the
- * code does today and must keep doing. If one fails, the routing changed and
- * needs re-auditing against the 3.11 release notes.
- */
-
 import { describe, it, expect, vi } from "vitest";
 import { WriteService } from "../src/services/write.service.js";
 import { InfluxProductType } from "../src/helpers/enums/influx-product-types.enum.js";
@@ -60,12 +37,15 @@ describe("write routing – Core and Enterprise use the v3 endpoint", () => {
   it.each([
     ["core", InfluxProductType.Core],
     ["enterprise", InfluxProductType.Enterprise],
-  ])("%s posts to /api/v3/write_lp, never /api/v2/write", async (_l, type) => {
-    const { url } = await postFor(type);
+  ])(
+    "%s posts to /api/v3/write_lp, never the legacy /api/v2/write whose stopped-node status changed in 3.11",
+    async (_l, type) => {
+      const { url } = await postFor(type);
 
-    expect(url).toMatch(/^\/api\/v3\/write_lp\?/);
-    expect(url).not.toContain("/api/v2/write");
-  });
+      expect(url).toMatch(/^\/api\/v3\/write_lp\?/);
+      expect(url).not.toContain("/api/v2/write");
+    },
+  );
 
   it("sends db, precision, accept_partial and no_sync as query parameters", async () => {
     const { url } = await postFor(InfluxProductType.Core);
@@ -78,10 +58,6 @@ describe("write routing – Core and Enterprise use the v3 endpoint", () => {
   });
 
   it("defaults accept_partial to true, so partial-write bodies are reachable", async () => {
-    // Because the server opts into partial writes, a rejection may arrive as
-    // a partial-write body rather than a whole-batch refusal — see
-    // `CORE_400_DUPLICATE_TAG_UNDER_PARTIAL_DATA` in write-error-core.test.ts,
-    // which is exactly this shape.
     const { url } = await postFor(InfluxProductType.Core);
 
     expect(new URLSearchParams(url.split("?")[1]).get("accept_partial")).toBe(

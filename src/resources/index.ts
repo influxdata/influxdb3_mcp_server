@@ -1,9 +1,3 @@
-/**
- * MCP Resources Definitions
- *
- * Defines resources that provide read-only data access
- */
-
 import { assessHealth } from "../services/health-assessment.service.js";
 import { InfluxDBMasterService } from "../services/influxdb-master.service.js";
 
@@ -16,9 +10,6 @@ export interface McpResource {
   }>;
 }
 
-/**
- * Create all MCP resources for InfluxDB data access
- */
 export function createResources(
   influxService: InfluxDBMasterService,
 ): McpResource[] {
