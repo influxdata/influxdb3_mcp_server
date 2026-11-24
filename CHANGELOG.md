@@ -58,6 +58,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and `/api/v2/write`, which `write_line_protocol` uses, doesn't create one.
   The message points to `query_sql`, which needs no mapping, and says how
   to create a default mapping (`retention_policy` is required).
+- `query_influxql` on Cloud Dedicated, Cloud Serverless, and Clustered
+  returned the whole v1 `/query` body as one row, so `row_count` was always
+  1, an empty result counted as data, and `max_rows` capped nothing. Each
+  value in each series is now a row, shaped like the rows Core and
+  Enterprise return: `iox::measurement`, the series tags, then the columns.
 - A write that rejected several lines reported only the first. The error
   message now lists up to five, and the envelope lists up to 100.
 - `write_line_protocol` error text adds a second line saying what to do

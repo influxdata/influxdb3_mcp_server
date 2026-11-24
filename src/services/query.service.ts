@@ -41,6 +41,42 @@ export function v1StatementErrors(body: unknown): string[] {
   return errors;
 }
 
+interface V1Series {
+  name?: string;
+  tags?: Record<string, unknown>;
+  columns?: string[];
+  values?: unknown[][];
+}
+
+/**
+ * Rows from a v1 `/query` body, one per value in every series, in the shape
+ * Core and Enterprise return from `/api/v3/query_influxql`: the measurement
+ * as `iox::measurement`, then the series tags, then the columns. A statement
+ * with no `series` contributes no rows.
+ */
+export function v1SeriesRows(body: unknown): Record<string, unknown>[] {
+  const results = (body as { results?: unknown })?.results;
+  if (!Array.isArray(results)) return [];
+  const rows: Record<string, unknown>[] = [];
+  for (const result of results) {
+    const series: V1Series[] = Array.isArray(result?.series)
+      ? result.series
+      : [];
+    for (const { name, tags, columns = [], values = [] } of series) {
+      for (const value of values) {
+        rows.push({
+          ...(name !== undefined && { "iox::measurement": name }),
+          ...tags,
+          ...Object.fromEntries(
+            columns.map((column, index) => [column, value[index]]),
+          ),
+        });
+      }
+    }
+  }
+  return rows;
+}
+
 export interface QueryResult {
   results?: any[];
   data?: any;
@@ -472,8 +508,8 @@ export class QueryService {
       return decodePayload(raw, options.format);
     }
 
-    const raw = await this.executeInfluxqlQuery(query, database, options);
-    return decodePayload(raw, options.format);
+    const v1Body = await this.executeInfluxqlQuery(query, database, options);
+    return decodePayload(v1SeriesRows(v1Body), options.format);
   }
 
   private async findQueryHistoryMetadata(
