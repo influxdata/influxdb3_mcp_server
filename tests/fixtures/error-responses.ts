@@ -119,7 +119,8 @@ export const SERVERLESS_SDK_404_NONEXISTENT_BUCKET: SdkErrorShape = {
 
 /**
  * Cloud Serverless v1 `/query` on a bucket with no DBRP mapping: HTTP 200 with
- * the error in `results[0].error` (claim 20261123-0039).
+ * the error in `results[0].error` (claim 20261123-0039). A default mapping with
+ * a `retention_policy` makes the bucket readable (claims 20261123-0040 to 0042).
  */
 export const SERVERLESS_V1_QUERY_200_BUCKET_WITHOUT_DBRP = {
   results: [{ statement_id: 0, error: "database not found: mybucket" }],

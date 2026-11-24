@@ -56,7 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - On Cloud Serverless, `database not found` from InfluxQL is
   `influxql_bucket_not_mapped`. `/query` needs a DBRP mapping for the bucket,
   and `/api/v2/write`, which `write_line_protocol` uses, doesn't create one.
-  The message points to `query_sql`, which needs no mapping.
+  The message points to `query_sql`, which needs no mapping, and says how
+  to create a default mapping (`retention_policy` is required).
 - A write that rejected several lines reported only the first. The error
   message now lists up to five, and the envelope lists up to 100.
 - `write_line_protocol` error text adds a second line saying what to do

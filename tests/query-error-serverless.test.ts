@@ -130,6 +130,9 @@ describe("v1 /query statement errors returned with HTTP 200", () => {
     expect(error.message).toContain("database not found: mybucket");
     expect(error.message).toMatch(/DBRP mapping for bucket 'mybucket'/);
     expect(error.message).toMatch(/query_sql/);
+    expect(error.message).toMatch(/POST \/api\/v2\/dbrps/);
+    expect(error.message).toMatch(/retention_policy .*\(required\)/);
+    expect(error.message).toMatch(/default: true/);
   });
 
   it("Cloud Serverless: leaves an HTTP error that isn't about the mapping as it is", async () => {
