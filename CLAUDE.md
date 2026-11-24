@@ -44,8 +44,10 @@ src/services/                   ← Domain logic
   query-safety.service.ts       ← Read-only statement checks and row bounds
   query-capabilities.ts         ← Formats and options each product's query route accepts
   query-payload.ts              ← Splits JSON, JSONL, or CSV results into countable records
+  v1-query.ts                   ← v1 /query: statement errors sent with HTTP 200, series → rows
   investigation.service.ts      ← describe_table and investigate_database
   write.service.ts              ← Line protocol writes
+  line-protocol.ts              ← Line protocol parsing (records, explicit timestamps)
   error-resolution.service.ts   ← Turns any thrown error into an OperationError envelope
   telemetry.service.ts          ← Tool-call telemetry lines (stderr or file)
   database-management.service.ts
@@ -66,8 +68,8 @@ src/helpers/enums/              ← InfluxProductType enum
 
 - **Product-type branching**: Many operations behave differently per product type. `BaseConnectionService` separates data-plane vs management-plane hosts. `validateOperationSupport()` gates tools to supported product types. Auth headers differ (`Token` for cloud-serverless, `Bearer` for others).
 - **Dual-plane architecture for cloud-dedicated/clustered**: Data operations use the cluster host (`{cluster_id}.a.influxdb.io`), management operations use `console.influxdata.com`. The `clustered` type uses dummy IDs for compatibility with cloud-dedicated handlers.
-- **Tool structure**: Each tool in `src/tools/categories/` exports a `createXTools(influxService)` function returning `McpTool[]`. Each tool has both a JSON Schema `inputSchema` (for MCP protocol) and a `zodSchema` (for runtime validation in `server/index.ts`). Keep these in sync.
-- **Error resolution**: Query, write, and database reads throw through `error-resolution.service.ts`, which normalizes axios errors and the client library's `HttpError` into one `OperationError` (`code`, `recovery`, `status`, and for writes `fix` and `write`). Add a new status or server message there, not in a service. Token management, Cloud Dedicated token management, and database create/update/delete still format errors themselves.
+- **Tool structure**: Each tool in `src/tools/categories/` exports a `createXTools(influxService)` function returning `McpTool[]`. Each tool declares `minimumProfile`, the smallest `INFLUX_MCP_TOOL_PROFILE` that advertises it. Each tool has both a JSON Schema `inputSchema` (for MCP protocol) and a `zodSchema` (for runtime validation in `server/index.ts`). Keep these in sync.
+- **Error resolution**: Query, write, and database reads throw through `error-resolution.service.ts`, which normalizes axios errors and the client library's `HttpError` into one `OperationError` (`code`, `recovery`, `status`, `retry_after_ms`, `timeout_origin`, and for writes `fix` and `write`). Status labels and 401/403/404 codes come from one table for queries and writes. Add a new status or server message there, not in a service. Token management, Cloud Dedicated token management, and database create/update/delete still format errors themselves.
 - **All logging goes to stderr** (`console.error`/`console.warn`), since stdout is the MCP stdio transport.
 
 ## Conventions
