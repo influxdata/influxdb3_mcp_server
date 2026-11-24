@@ -9,6 +9,7 @@ export function createWriteTools(
   return [
     {
       name: "write_line_protocol",
+      minimumProfile: "readwrite",
       description: `Write data to InfluxDB using line protocol format (all versions). Supports single records or batches.
 
 Line Protocol Syntax:

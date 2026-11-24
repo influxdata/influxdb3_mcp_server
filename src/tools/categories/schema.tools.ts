@@ -8,6 +8,7 @@ export function createServerlessExplicitSchemaTools(
   return [
     {
       name: "serverless_list_schemas",
+      minimumProfile: "operator",
       description:
         "List all measurement schemas in a Cloud Serverless bucket. Only available for buckets with explicit schema type. Shows schema names, column definitions, and metadata.",
       inputSchema: {
@@ -59,6 +60,7 @@ export function createServerlessExplicitSchemaTools(
 
     {
       name: "serverless_get_schema",
+      minimumProfile: "operator",
       description:
         "Get detailed information about a specific measurement schema in a Cloud Serverless bucket. Shows column definitions, data types, and schema metadata.",
       inputSchema: {
@@ -115,6 +117,7 @@ export function createServerlessExplicitSchemaTools(
 
     {
       name: "serverless_create_schema",
+      minimumProfile: "operator",
       description:
         "Create a new measurement schema in a Cloud Serverless bucket with explicit schema type. Define columns with their types (tag, field, timestamp) and data types.",
       inputSchema: {
@@ -217,6 +220,7 @@ export function createServerlessExplicitSchemaTools(
 
     {
       name: "serverless_update_schema",
+      minimumProfile: "operator",
       description:
         "Add new columns to an existing measurement schema in a Cloud Serverless bucket. IMPORTANT: You can only ADD new columns, not modify existing ones. The endpoint requires ALL columns (existing + new) to be sent. Use get_schema first to retrieve current columns, then include them along with new columns in this update.",
       inputSchema: {

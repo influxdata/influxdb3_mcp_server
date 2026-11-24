@@ -8,6 +8,7 @@ export function createHelpTools(
   return [
     {
       name: "load_database_context",
+      minimumProfile: "readonly",
       description:
         "Check for and load custom database context if available. Always check this first as it can significantly speed up analysis and clarify data nuances. User-provided context is optional but when present, it contains valuable information about database structure, business context, or personal notes that can guide more accurate analysis.",
       inputSchema: {
@@ -73,6 +74,7 @@ Context is optional - proceed with database exploration using available tools.`,
 
     {
       name: "get_help",
+      minimumProfile: "readonly",
       description:
         "Get help and troubleshooting guidance for InfluxDB operations. Supports specific categories or keyword search.",
       inputSchema: {

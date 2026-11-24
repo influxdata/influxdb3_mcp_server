@@ -8,6 +8,7 @@ export function createHealthTools(service: InfluxDBMasterService): McpTool[] {
   return [
     {
       name: "health_check",
+      minimumProfile: "readonly",
       description:
         "Check health and ping separately. Any successful endpoint confirms health. A credential denied health access does not imply its permitted databases are unavailable. Client initialization alone does not prove connectivity.",
       inputSchema: {

@@ -45,13 +45,7 @@ export class InfluxDBMasterService {
     return this.baseConnection.getConfig();
   }
 
-  async ping(): Promise<{
-    ok: boolean;
-    outcome?: "ok" | "unreachable" | "credential_cannot_check";
-    version?: string;
-    build?: string;
-    message?: string;
-  }> {
+  async ping(): ReturnType<BaseConnectionService["ping"]> {
     return this.baseConnection.ping();
   }
 

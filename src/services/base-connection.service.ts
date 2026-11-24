@@ -12,6 +12,15 @@ export interface ConnectionInfo {
   type?: string;
 }
 
+export type ProbeOutcome = "ok" | "unreachable" | "credential_cannot_check";
+export type HealthOutcome = ProbeOutcome | "endpoint_absent";
+
+function failedProbeOutcome(status: number): ProbeOutcome {
+  return status === 401 || status === 403
+    ? "credential_cannot_check"
+    : "unreachable";
+}
+
 export class BaseConnectionService {
   private client: InfluxDBClient | null = null;
   private config: McpServerConfig;
@@ -240,7 +249,7 @@ export class BaseConnectionService {
 
   async ping(): Promise<{
     ok: boolean;
-    outcome?: "ok" | "unreachable" | "credential_cannot_check";
+    outcome?: ProbeOutcome;
     version?: string;
     build?: string;
     cluster_uuid?: string;
@@ -271,12 +280,9 @@ export class BaseConnectionService {
         return {
           ok: false,
           ...clusterIdentity,
-          outcome:
-            response.status === 401 || response.status === 403
-              ? "credential_cannot_check"
-              : "unreachable",
+          outcome: failedProbeOutcome(response.status),
           message:
-            response.status === 401 || response.status === 403
+            failedProbeOutcome(response.status) === "credential_cannot_check"
               ? "This credential cannot check ping; permitted database reads may still work."
               : `Ping failed with status ${response.status}`,
         };
@@ -292,11 +298,7 @@ export class BaseConnectionService {
   async getHealthStatus(): Promise<{
     status: string;
     checks?: any[];
-    outcome?:
-      | "ok"
-      | "unreachable"
-      | "credential_cannot_check"
-      | "endpoint_absent";
+    outcome?: HealthOutcome;
   }> {
     const url = this.getDataHost();
     if (!url || !this.client) {
@@ -329,15 +331,10 @@ export class BaseConnectionService {
       } else if (response.status === 404) {
         return { status: "unknown", outcome: "endpoint_absent" };
       } else {
+        const outcome = failedProbeOutcome(response.status);
         return {
-          status:
-            response.status === 401 || response.status === 403
-              ? "unknown"
-              : "fail",
-          outcome:
-            response.status === 401 || response.status === 403
-              ? "credential_cannot_check"
-              : "unreachable",
+          status: outcome === "credential_cannot_check" ? "unknown" : "fail",
+          outcome,
         };
       }
     } catch (_error) {

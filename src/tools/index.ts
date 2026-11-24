@@ -11,6 +11,13 @@ import { createHealthTools } from "./categories/health.tools.js";
 
 export interface McpTool {
   name: string;
+  /** The smallest INFLUX_MCP_TOOL_PROFILE that advertises this tool. */
+  minimumProfile: ToolProfile;
+  /**
+   * Arguments the schema no longer lists but the handler still receives, so
+   * it can refuse them with a specific error instead of "unexpected field".
+   */
+  refusedLegacyArguments?: string[];
   description: string;
   inputSchema: Record<string, any>;
   zodSchema: z.ZodSchema;
@@ -21,24 +28,10 @@ export interface McpTool {
   }>;
 }
 
-const READONLY_TOOLS = new Set([
-  "load_database_context",
-  "get_help",
-  "health_check",
-  "list_databases",
-  "query_sql",
-  "query_influxql",
-  "list_tables",
-  "describe_table",
-  "investigate_database",
-]);
-
-const READWRITE_TOOLS = new Set([...READONLY_TOOLS, "write_line_protocol"]);
-
-const PROFILE_ALLOWLISTS: Record<ToolProfile, Set<string> | undefined> = {
-  readonly: READONLY_TOOLS,
-  readwrite: READWRITE_TOOLS,
-  operator: undefined,
+const PROFILE_RANK: Record<ToolProfile, number> = {
+  readonly: 0,
+  readwrite: 1,
+  operator: 2,
 };
 
 export function createTools(influxService: InfluxDBMasterService): McpTool[] {
@@ -52,11 +45,8 @@ export function createTools(influxService: InfluxDBMasterService): McpTool[] {
     ...createHealthTools(influxService),
   ];
 
-  const profile = influxService.getConfig().tools?.profile ?? "operator";
-  const allowlist = PROFILE_ALLOWLISTS[profile];
-  if (allowlist === undefined && profile !== "operator") {
-    throw new Error(`Unknown MCP tool profile: ${profile}`);
-  }
-
-  return allowlist ? tools.filter((tool) => allowlist.has(tool.name)) : tools;
+  const profile = influxService.getConfig().tools.profile;
+  return tools.filter(
+    (tool) => PROFILE_RANK[tool.minimumProfile] <= PROFILE_RANK[profile],
+  );
 }

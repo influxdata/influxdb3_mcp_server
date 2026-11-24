@@ -114,6 +114,7 @@ export function createQueryTools(
   return [
     {
       name: "query_sql",
+      minimumProfile: "readonly",
       description:
         "Run one bounded, read-only SQL query against an InfluxDB 3 database. Accepts database as an alias for db and query as an alias for q; differing pairs are rejected. Defaults to JSON output and returns structured rows, warnings, and query metadata. Core and Enterprise also return jsonl or csv; Cloud Dedicated, Cloud Serverless, and Clustered return only JSON. Your answer must report metadata.completeness, the cap when capped, warnings, and row_count; see READING QUERY RESULTS in get_help. In SQL, quoted identifiers are exact column names; if a quoted selector contains *, treat it as wildcard intent, call describe_table, expand matching fields explicitly, then retry one bounded query_sql. Use query_influxql regex only when the user explicitly asks for InfluxQL or regex field selection.",
       inputSchema: readOnlyQueryInputSchema("Read-only SQL query to run"),
@@ -139,6 +140,7 @@ export function createQueryTools(
 
     {
       name: "query_influxql",
+      minimumProfile: "readonly",
       description:
         "Run one bounded, read-only InfluxQL query against an InfluxDB 3 database. Accepts database as an alias for db and query as an alias for q; differing pairs are rejected. Defaults to JSON output and returns structured rows, warnings, and query metadata. Core and Enterprise also return jsonl or csv; Cloud Dedicated, Cloud Serverless, and Clustered return only JSON. Your answer must report metadata.completeness, the cap when capped, warnings, and row_count; see READING QUERY RESULTS in get_help. Rejects SELECT INTO and destructive statements. Prefer query_sql for SQL prompts; use InfluxQL regex field selection only when the user explicitly asks for InfluxQL or regex field matching. For regex field selection, write SELECT /pattern/ FROM m; a type suffix such as /pattern/::field fails to parse.",
       inputSchema: readOnlyQueryInputSchema("Read-only InfluxQL query to run"),
@@ -164,6 +166,7 @@ export function createQueryTools(
 
     {
       name: "list_tables",
+      minimumProfile: "readonly",
       description:
         "List tables, also called measurements, in an InfluxDB database.",
       inputSchema: {
@@ -204,6 +207,7 @@ export function createQueryTools(
 
     {
       name: "describe_table",
+      minimumProfile: "readonly",
       description:
         "Describe table schema using InfluxDB metadata. Unknown tag/field roles are returned as category=unknown instead of guessed. Use this before retrying SQL queries that fail on quoted wildcard or unknown-field selectors; expand matching fields explicitly and run one bounded query_sql.",
       inputSchema: {
@@ -248,6 +252,8 @@ export function createQueryTools(
 
     {
       name: "investigate_database",
+      minimumProfile: "readonly",
+      refusedLegacyArguments: ["includeCardinality"],
       description:
         "Discover tables and schemas in a database, optionally sampling recent rows from each table with bounded reads.",
       inputSchema: {
@@ -318,6 +324,7 @@ export function createQueryTools(
 
     {
       name: "execute_query",
+      minimumProfile: "operator",
       description: `Deprecated since 2.0.0. Use query_sql for SQL queries. execute_query remains available for compatibility with existing clients.
 
 Execute a SQL query against an InfluxDB database (all versions). Returns results in the specified format (defaults to JSON). On Cloud Dedicated, Cloud Serverless, and Clustered, this tool supports only JSON output. For bounded reads that report completeness, use query_sql.
@@ -397,6 +404,7 @@ Cloud Dedicated/Clustered & Cloud Serverless (v3) Requirements:
 
     {
       name: "get_measurements",
+      minimumProfile: "operator",
       description:
         "Get a list of all measurements (tables) in a database/bucket (all versions). Uses the InfluxDB information_schema.columns to discover tables.",
       inputSchema: {
@@ -449,6 +457,7 @@ Cloud Dedicated/Clustered & Cloud Serverless (v3) Requirements:
 
     {
       name: "get_measurement_schema",
+      minimumProfile: "operator",
       description:
         "Get the schema (column information) for a specific measurement/table (all versions). Shows column names, types, and categories (time/tag/field).",
       inputSchema: {

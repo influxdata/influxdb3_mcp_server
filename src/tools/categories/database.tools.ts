@@ -9,6 +9,7 @@ export function createDatabaseTools(
   return [
     {
       name: "create_database",
+      minimumProfile: "operator",
       description:
         "Create a new database in InfluxDB. Database names must follow InfluxDB naming rules: alphanumeric characters, dashes (-), underscores (_), and forward slashes (/) are allowed. Must start with a letter or number. Maximum 64 characters. For Cloud Dedicated/Clustered: maxTables, maxColumnsPerTable, retentionPeriod. For Cloud Serverless: description, retentionPeriod.",
       inputSchema: {
@@ -138,6 +139,7 @@ export function createDatabaseTools(
 
     {
       name: "update_database",
+      minimumProfile: "operator",
       description:
         "Update database configuration for InfluxDB. For Cloud Dedicated/Clustered: modify maxTables, maxColumnsPerTable, and retentionPeriod. For Cloud Serverless: modify bucket name, description, and retentionPeriod. For Core/Enterprise: modify retentionPeriod only (Core requires v3.2.0+).",
       inputSchema: {
@@ -261,6 +263,7 @@ export function createDatabaseTools(
 
     {
       name: "delete_database",
+      minimumProfile: "operator",
       description:
         "Delete a database from InfluxDB. Use the exact database name as returned by the list_databases tool.",
       inputSchema: {
@@ -306,6 +309,7 @@ export function createDatabaseTools(
 
     {
       name: "list_databases",
+      minimumProfile: "readonly",
       description:
         "List databases visible to this credential. Visibility completeness and permissions to read individual databases remain unknown unless independently observed.",
       inputSchema: {
