@@ -48,7 +48,7 @@ describe("handleWriteError preserves the InfluxDB error body, resolving data[].e
   it("403: the InfluxDB body survives", async () => {
     const message = await coreWriteError(CORE_403_UNAUTHORIZED);
 
-    expect(message).toMatch(/^Access denied: /);
+    expect(message).toMatch(/^Access denied or not found: /);
     expect(message).toContain("the request was not authorized");
   });
 

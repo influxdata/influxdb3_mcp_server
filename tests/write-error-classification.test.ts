@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
-  hasExplicitTimestamp,
   operationErrorDetails,
   resolveWriteError,
 } from "../src/services/error-resolution.service.js";
+import { hasExplicitTimestamp } from "../src/services/line-protocol.js";
 import {
   ENT_400_EXPLICIT_SCHEMA_UNDECLARED_FIELD_ON_LINE_2,
   ENT_400_EXPLICIT_SCHEMA_UNDECLARED_TABLE,
@@ -109,7 +109,7 @@ describe("resolveWriteError", () => {
     );
     expect(error.code).toBe("not_found_or_denied");
     expect(error.recovery).toBe("none");
-    expect(error.message).toMatch(/^Access denied: /);
+    expect(error.message).toMatch(/^Access denied or not found: /);
     expect(error.write).toBeUndefined();
   });
 

@@ -1,11 +1,12 @@
 import { RequestTimedOutError } from "@influxdata/influxdb3-client";
+import { hasExplicitTimestamp, lineProtocolRecords } from "./line-protocol.js";
 
-export interface NormalizedError {
+interface NormalizedError {
   status: number | undefined;
   body: unknown;
 }
 
-export function normalizeError(error: any): NormalizedError {
+function normalizeError(error: any): NormalizedError {
   if (error?.response) {
     return { status: error.response.status, body: error.response.data };
   }
@@ -15,7 +16,7 @@ export function normalizeError(error: any): NormalizedError {
   return { status: undefined, body: undefined };
 }
 
-export function resolveErrorMessage(body: unknown, fallback: string): string {
+function resolveErrorMessage(body: unknown, fallback: string): string {
   if (body && typeof body === "object") {
     const data = body as Record<string, unknown>;
 
@@ -53,7 +54,7 @@ export interface RejectedLine {
   original_line?: string;
 }
 
-export function everyRejectedLine(body: unknown): RejectedLine[] {
+function everyRejectedLine(body: unknown): RejectedLine[] {
   if (!body || typeof body !== "object") return [];
   const data = (body as Record<string, unknown>).data;
   if (!data || typeof data !== "object") return [];
@@ -97,10 +98,7 @@ function responseHeader(error: any, name: string): string | undefined {
  * a JSON body whose `message` lists each rejected line, plus a top-level
  * `line` (claims 20261123-0037, 0038).
  */
-export function everyV2PartialWriteLine(
-  error: any,
-  body: unknown,
-): RejectedLine[] {
+function everyV2PartialWriteLine(error: any, body: unknown): RejectedLine[] {
   if (!body || typeof body !== "object") return [];
   const { message, line } = body as Record<string, unknown>;
   if (typeof message !== "string") return [];
@@ -166,18 +164,54 @@ export function redactErrorDetails(value: unknown): unknown {
   return value;
 }
 
+export interface OperationErrorOptions {
+  recovery?: Recovery;
+  status?: number;
+  retryAfterMs?: number;
+  timeoutOrigin?: "client";
+  fix?: string;
+  write?: WriteOutcome;
+}
+
 export class OperationError extends Error {
+  readonly recovery: Recovery;
+  readonly status?: number;
+  readonly retry_after_ms?: number;
+  readonly timeout_origin?: "client";
+  readonly fix?: string;
+  readonly write?: WriteOutcome;
+
   constructor(
     message: string,
     readonly code: string,
-    readonly recovery: Recovery = "none",
-    readonly status?: number,
-    readonly retry_after_ms?: number,
-    readonly timeout_origin?: "client",
+    private readonly options: OperationErrorOptions = {},
   ) {
     super(redactCredentials(message));
+    this.recovery = options.recovery ?? "none";
+    this.status = options.status;
+    this.retry_after_ms = options.retryAfterMs;
+    this.timeout_origin = options.timeoutOrigin;
+    this.fix = options.fix;
+    this.write = options.write;
+  }
+
+  withCode(code: string): OperationError {
+    return new OperationError(this.message, code, this.options);
   }
 }
+
+const STATUS_LABEL: Partial<Record<number, string>> = {
+  400: "Bad request",
+  401: "Unauthorized",
+  403: "Access denied or not found",
+  404: "Not found",
+  405: "Method not allowed",
+  413: "Request entity too large",
+  422: "Unprocessable entity",
+  429: "Too many requests",
+  503: "Service temporarily unavailable",
+  504: "Gateway timeout",
+};
 
 const ACCESS_FAILURE_BY_STATUS: Partial<
   Record<number, { code: string; recovery: Recovery }>
@@ -233,14 +267,7 @@ export function resolveOperationError(
 ): OperationError {
   if (error instanceof OperationError) {
     return fallback === "metadata_unavailable" && error.code === "query_failed"
-      ? new OperationError(
-          error.message,
-          fallback,
-          error.recovery,
-          error.status,
-          error.retry_after_ms,
-          error.timeout_origin,
-        )
+      ? error.withCode(fallback)
       : error;
   }
   const { status, body } = normalizeError(error);
@@ -248,14 +275,6 @@ export function resolveOperationError(
     body,
     error instanceof Error ? error.message : "Operation failed",
   );
-  const prefix: Record<number, string> = {
-    400: "Bad request",
-    401: "Unauthorized",
-    403: "Access denied or not found",
-    404: "Not found",
-    405: "Method not allowed",
-    422: "Unprocessable entity",
-  };
   const access =
     status === undefined ? undefined : ACCESS_FAILURE_BY_STATUS[status];
   const clientTimeout = clientStoppedWaiting(error);
@@ -268,16 +287,15 @@ export function resolveOperationError(
   );
   const recovery: Recovery = access?.recovery ?? signature?.recovery ?? "none";
   const label =
-    signature?.replacementMessagePrefix ??
-    (status ? prefix[status] || "Query failed" : "Query failed");
-  return new OperationError(
-    `${label}: ${message}`,
-    code,
+    (signature?.replacementMessagePrefix ??
+      (status !== undefined && STATUS_LABEL[status])) ||
+    "Query failed";
+  return new OperationError(`${label}: ${message}`, code, {
     recovery,
     status,
-    retryAfterMs(error),
-    clientTimeout ? "client" : undefined,
-  );
+    retryAfterMs: retryAfterMs(error),
+    timeoutOrigin: clientTimeout ? "client" : undefined,
+  });
 }
 
 export function operationErrorDetails(error: unknown, fallback: string) {
@@ -314,21 +332,6 @@ export interface WriteOutcome {
   rejected_lines_truncated: boolean;
 }
 
-export class WriteOperationError extends OperationError {
-  constructor(
-    message: string,
-    code: string,
-    recovery: Recovery,
-    status: number | undefined,
-    retryAfterMs: number | undefined,
-    readonly fix?: string,
-    readonly write?: WriteOutcome,
-    timeoutOrigin?: "client",
-  ) {
-    super(message, code, recovery, status, retryAfterMs, timeoutOrigin);
-  }
-}
-
 function retryAfterMs(error: unknown): number | undefined {
   const value = responseHeader(error, "retry-after");
   if (value === undefined) return undefined;
@@ -338,38 +341,41 @@ function retryAfterMs(error: unknown): number | undefined {
   return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined;
 }
 
-function lineProtocolRecords(lineProtocol: string): string[] {
-  return lineProtocol
-    .split("\n")
-    .filter((line) => line.trim() !== "" && !line.trim().startsWith("#"));
+interface RejectedLines {
+  lines: RejectedLine[];
+  serverStoresValidLines: boolean;
 }
 
-function unquotedUnescapedSections(line: string): string[] {
-  const sections: string[] = [];
-  let current = "";
-  let inQuotedFieldValue = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === "\\" && i + 1 < line.length) {
-      current += char + line[i + 1];
-      i++;
-    } else if (char === '"') {
-      inQuotedFieldValue = !inQuotedFieldValue;
-      current += char;
-    } else if (char === " " && !inQuotedFieldValue) {
-      if (current !== "") sections.push(current);
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-  if (current !== "") sections.push(current);
-  return sections;
+function rejectedLinesOf(error: unknown, body: unknown): RejectedLines {
+  const v3 = everyRejectedLine(body);
+  if (v3.length > 0) return { lines: v3, serverStoresValidLines: false };
+  const v2 = everyV2PartialWriteLine(error, body);
+  return { lines: v2, serverStoresValidLines: v2.length > 0 };
 }
 
-export function hasExplicitTimestamp(line: string): boolean {
-  const sections = unquotedUnescapedSections(line.trim());
-  return sections.length >= 3 && /^-?\d+$/u.test(sections[sections.length - 1]);
+function writeOutcome(
+  rejected: RejectedLines,
+  submitted: number,
+  acceptPartial: boolean | undefined,
+): WriteOutcome | undefined {
+  const { lines } = rejected;
+  if (lines.length === 0) return undefined;
+  const rejectedCount = new Set(
+    lines.map((line, index) => line.line_number ?? `#${index}`),
+  ).size;
+  return {
+    ...(acceptPartial !== undefined && { accept_partial: acceptPartial }),
+    stored: inferStoredLines(
+      rejected.serverStoresValidLines ? true : acceptPartial,
+      rejectedCount,
+      submitted,
+    ),
+    stored_source: "inferred",
+    lines_submitted: submitted,
+    lines_rejected: rejectedCount,
+    rejected_lines: lines.slice(0, REJECTED_LINES_LIMIT),
+    rejected_lines_truncated: lines.length > REJECTED_LINES_LIMIT,
+  };
 }
 
 function inferStoredLines(
@@ -402,76 +408,37 @@ function clientStoppedWaiting(error: unknown): boolean {
   );
 }
 
-const WRITE_PREFIXES: Record<number, string> = {
-  400: "Bad request",
-  401: "Unauthorized",
-  403: "Access denied",
-  404: "Not found",
-  413: "Request entity too large",
-  422: "Unprocessable entity",
-  429: "Too many requests, retry the write",
-  503: "Service temporarily unavailable, retry the write",
-  504: "Gateway timeout",
-};
-
 export function resolveWriteError(
   error: any,
   database: string,
   request: { lineProtocol: string; acceptPartial?: boolean },
-): WriteOperationError {
+): OperationError {
   const { status, body } = normalizeError(error);
   const detail = resolveErrorMessage(
     body,
-    error instanceof Error ? error.message : String(error),
+    typeof error?.message === "string" ? error.message : String(error),
   );
-  const message =
-    status !== undefined && status in WRITE_PREFIXES
-      ? `${WRITE_PREFIXES[status]}: ${detail}`
-      : `Failed to write data to database '${database}': ${detail}`;
+  const label = status !== undefined && STATUS_LABEL[status];
+  const message = label
+    ? `${label}: ${detail}`
+    : `Failed to write data to database '${database}': ${detail}`;
   const retryAfter = retryAfterMs(error);
   const timeoutOrigin =
     status === undefined && clientStoppedWaiting(error) ? "client" : undefined;
 
-  const v3Rejected = everyRejectedLine(body);
-  const v2Rejected =
-    v3Rejected.length === 0 ? everyV2PartialWriteLine(error, body) : [];
-  const serverReportedPartialWrite = v2Rejected.length > 0;
-  const rejected = serverReportedPartialWrite ? v2Rejected : v3Rejected;
   const records = lineProtocolRecords(request.lineProtocol);
-  const submitted = records.length;
-  const rejectedCount = new Set(
-    rejected.map((line, index) => line.line_number ?? `#${index}`),
-  ).size;
-  const stored = inferStoredLines(
-    serverReportedPartialWrite ? true : request.acceptPartial,
-    rejectedCount,
-    submitted,
-  );
-  const write: WriteOutcome | undefined =
-    rejected.length === 0
-      ? undefined
-      : {
-          ...(request.acceptPartial !== undefined && {
-            accept_partial: request.acceptPartial,
-          }),
-          stored,
-          stored_source: "inferred",
-          lines_submitted: submitted,
-          lines_rejected: rejectedCount,
-          rejected_lines: rejected.slice(0, REJECTED_LINES_LIMIT),
-          rejected_lines_truncated: rejected.length > REJECTED_LINES_LIMIT,
-        };
+  const rejected = rejectedLinesOf(error, body);
+  const write = writeOutcome(rejected, records.length, request.acceptPartial);
+  const stored = write?.stored ?? "unknown";
   const fail = (code: string, recovery: Recovery, fix?: string) =>
-    new WriteOperationError(
-      message,
-      code,
+    new OperationError(message, code, {
       recovery,
       status,
-      retryAfter,
+      retryAfterMs: retryAfter,
+      timeoutOrigin,
       fix,
       write,
-      timeoutOrigin,
-    );
+    });
   const resend =
     stored === "some"
       ? "Lines that aren't listed in write.rejected_lines were written; resend only the rejected lines."
@@ -479,15 +446,17 @@ export function resolveWriteError(
         ? "Nothing from this request was written; resend the whole batch."
         : "Check which lines were stored before resending.";
 
-  if (status === 401) return fail("credential_invalid", "renew_credential");
-  if (status === 403) {
+  const access =
+    status === undefined ? undefined : ACCESS_FAILURE_BY_STATUS[status];
+  if (access) {
     return fail(
-      "not_found_or_denied",
-      "none",
-      "The token can't write to this database, or the database isn't visible to it. Don't retry with the same token.",
+      access.code,
+      access.recovery,
+      status === 403
+        ? "The token can't write to this database, or the database isn't visible to it. Don't retry with the same token."
+        : undefined,
     );
   }
-  if (status === 404) return fail("not_found", "none");
   const outcomeUnknown = (whatHappened: string) =>
     records.every(hasExplicitTimestamp)
       ? fail(
@@ -546,7 +515,9 @@ export function resolveWriteError(
     );
   }
   if (
-    rejected.some((line) => /uses explicit schemas/u.test(line.error_message))
+    rejected.lines.some((line) =>
+      /uses explicit schemas/u.test(line.error_message),
+    )
   ) {
     return fail(
       "write_schema_not_declared",
@@ -554,7 +525,7 @@ export function resolveWriteError(
       `The database uses explicit schemas. Check the table and column names with describe_table. If they're right, an operator must declare them (POST /api/v3/configure/table); this server has no tool for that. ${resend}`,
     );
   }
-  if (rejected.length > 0) {
+  if (rejected.lines.length > 0) {
     return fail(
       "write_lines_rejected",
       "none",

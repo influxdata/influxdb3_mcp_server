@@ -703,8 +703,7 @@ export class QueryService {
         throw new OperationError(
           `${error.message}. Either bucket '${database}' doesn't exist, or it has no DBRP mapping: Cloud Serverless answers InfluxQL through the v1 /query endpoint, which needs one. Check the name with list_databases. Writes through /api/v2/write, which write_line_protocol uses, don't create one. Read the same data with query_sql, which needs no mapping. Or create a default DBRP mapping for the bucket with POST /api/v2/dbrps: database '${database}', a retention_policy such as 'autogen' (required), and default: true.`,
           "influxql_bucket_not_mapped",
-          "none",
-          error.status,
+          { status: error.status },
         );
       }
       throw error;
