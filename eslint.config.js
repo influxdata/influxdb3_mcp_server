@@ -5,7 +5,7 @@ import tsparser from "@typescript-eslint/parser";
 export default [
   js.configs.recommended,
   {
-    files: ["**/*.ts", "**/*.js"],
+    files: ["**/*.ts", "**/*.js", "**/*.mjs"],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
@@ -20,6 +20,7 @@ export default [
         __filename: "readonly",
         global: "readonly",
         fetch: "readonly",
+        URL: "readonly",
         URLSearchParams: "readonly",
       },
     },
@@ -53,6 +54,7 @@ export default [
     ignores: [
       "build/**",
       "node_modules/**",
+      ".claude/worktrees/**",
       "*.config.js",
       "*.config.mjs",
       "*.config.cjs",
