@@ -9,7 +9,7 @@ import {
   SERVERLESS_SDK_404_NONEXISTENT_BUCKET,
   SERVERLESS_AXIOS_400_INVALID_QUERY,
   SERVERLESS_AXIOS_404_NONEXISTENT_BUCKET,
-  SERVERLESS_AXIOS_INFLUXQL_BUCKET_WITHOUT_DBRP,
+  SERVERLESS_V1_QUERY_200_BUCKET_WITHOUT_DBRP,
 } from "./fixtures/error-responses.js";
 
 function stubBaseService(type: InfluxProductType): BaseConnectionService {
@@ -101,35 +101,41 @@ describe("handleQueryError – Serverless {code,message} via axios path", () => 
   });
 });
 
-describe("Cloud Serverless InfluxQL on a bucket without a DBRP mapping", () => {
-  function serviceWhoseQueryEndpointFails(error: AxiosErrorShape) {
-    const base = stubBaseService(InfluxProductType.CloudServerless);
-    vi.mocked(base.getInfluxHttpClient).mockReturnValue({
-      get: vi.fn().mockRejectedValue(error),
-    } as any);
+describe("v1 /query statement errors returned with HTTP 200", () => {
+  function serviceWhoseQueryEndpointAnswers(
+    type: InfluxProductType,
+    answer: { body?: unknown; error?: unknown },
+  ) {
+    const base = stubBaseService(type);
+    const get =
+      answer.error === undefined
+        ? vi.fn().mockResolvedValue(answer.body)
+        : vi.fn().mockRejectedValue(answer.error);
+    vi.mocked(base.getInfluxHttpClient).mockReturnValue({ get } as any);
     return new QueryService(base);
   }
 
-  it("says the bucket needs a DBRP mapping and that query_sql reads it", async () => {
-    const svc = serviceWhoseQueryEndpointFails(
-      SERVERLESS_AXIOS_INFLUXQL_BUCKET_WITHOUT_DBRP,
+  it("Cloud Serverless: says the bucket needs a DBRP mapping and that query_sql reads it", async () => {
+    const svc = serviceWhoseQueryEndpointAnswers(
+      InfluxProductType.CloudServerless,
+      { body: SERVERLESS_V1_QUERY_200_BUCKET_WITHOUT_DBRP },
     );
 
     const error = await svc
-      .executeInfluxqlQuery("SELECT * FROM m", "mybucket")
+      .executeInfluxqlQuery("SELECT count(v) FROM dup", "mybucket")
       .catch((thrown) => thrown);
 
     expect(error.code).toBe("influxql_bucket_not_mapped");
     expect(error.recovery).toBe("none");
-    expect(error.status).toBe(404);
-    expect(error.message).toContain("database not found");
+    expect(error.message).toContain("database not found: mybucket");
     expect(error.message).toMatch(/DBRP mapping for bucket 'mybucket'/);
     expect(error.message).toMatch(/query_sql/);
   });
 
-  it("leaves other InfluxQL errors as they are", async () => {
-    const svc = serviceWhoseQueryEndpointFails(
-      SERVERLESS_AXIOS_404_NONEXISTENT_BUCKET,
+  it("Cloud Serverless: leaves an HTTP error that isn't about the mapping as it is", async () => {
+    const svc = serviceWhoseQueryEndpointAnswers(
+      InfluxProductType.CloudServerless,
+      { error: SERVERLESS_AXIOS_404_NONEXISTENT_BUCKET },
     );
 
     const error = await svc
@@ -140,17 +146,53 @@ describe("Cloud Serverless InfluxQL on a bucket without a DBRP mapping", () => {
     expect(error.message).not.toMatch(/DBRP/);
   });
 
-  it("doesn't change Cloud Dedicated's InfluxQL errors", async () => {
-    const base = stubBaseService(InfluxProductType.CloudDedicated);
-    vi.mocked(base.getInfluxHttpClient).mockReturnValue({
-      get: vi
-        .fn()
-        .mockRejectedValue(SERVERLESS_AXIOS_INFLUXQL_BUCKET_WITHOUT_DBRP),
-    } as any);
-    const error = await new QueryService(base)
-      .executeInfluxqlQuery("SELECT * FROM m", "mybucket")
-      .catch((thrown) => thrown);
+  it.each([
+    ["Cloud Dedicated", InfluxProductType.CloudDedicated],
+    ["Clustered", InfluxProductType.Clustered],
+  ])(
+    "%s: raises a statement error as a failed query, not as one row",
+    async (_product, type) => {
+      const svc = serviceWhoseQueryEndpointAnswers(type, {
+        body: SERVERLESS_V1_QUERY_200_BUCKET_WITHOUT_DBRP,
+      });
 
-    expect(error.code).not.toBe("influxql_bucket_not_mapped");
+      const error = await svc
+        .executeInfluxqlQuery("SELECT * FROM m", "mybucket")
+        .catch((thrown) => thrown);
+
+      expect(error.code).toBe("query_failed");
+      expect(error.message).toBe("database not found: mybucket");
+    },
+  );
+
+  it("Cloud Dedicated: SHOW MEASUREMENTS fails instead of returning an empty list", async () => {
+    const svc = serviceWhoseQueryEndpointAnswers(
+      InfluxProductType.CloudDedicated,
+      { body: SERVERLESS_V1_QUERY_200_BUCKET_WITHOUT_DBRP },
+    );
+
+    const error = await svc.getMeasurements("mybucket").catch((t) => t);
+
+    expect(error.code).toBe("metadata_unavailable");
+    expect(error.message).toContain("database not found");
+  });
+
+  it("returns a body without statement errors unchanged", async () => {
+    const body = {
+      results: [
+        {
+          statement_id: 0,
+          series: [{ name: "m", columns: ["time", "v"], values: [[1, 2]] }],
+        },
+      ],
+    };
+    const svc = serviceWhoseQueryEndpointAnswers(
+      InfluxProductType.CloudDedicated,
+      { body },
+    );
+
+    await expect(
+      svc.executeInfluxqlQuery("SELECT * FROM m", "mybucket"),
+    ).resolves.toEqual(body);
   });
 });
