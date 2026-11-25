@@ -8,13 +8,14 @@
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/influxdata/influxdb3_mcp_server)](https://archestra.ai/mcp-catalog/influxdata__influxdb3_mcp_server)
 
 Use this Model Context Protocol (MCP) server to connect your MCP client to InfluxDB.
-The server provides tools, resources, and prompts for InfluxDB 3 Core, InfluxDB 3 Enterprise, InfluxDB Cloud Dedicated, InfluxDB Clustered, and InfluxDB Cloud Serverless.
+The server provides tools, resources, and prompts for InfluxDB 3 Core, InfluxDB 3 Enterprise, InfluxDB 3 Cloud, InfluxDB Cloud Dedicated, InfluxDB Clustered, and InfluxDB Cloud Serverless.
+For what each product was tested with, see [Product coverage](#product-coverage).
 
 ---
 
 ## Prerequisites
 
-- **InfluxDB 3 Instance**: URL and token (Core/Enterprise/Cloud Serverless) or Cluster ID and tokens (Cloud Dedicated/Clustered)
+- **InfluxDB 3 Instance**: URL and token (Core, Enterprise, InfluxDB 3 Cloud, or Cloud Serverless), cluster ID and tokens (Cloud Dedicated), or URL and tokens (Clustered)
 - **Node.js**: 22.23.4 or a later 22.x, 24.22.1 or a later 24.x, or 26.12.1 or
   newer (for npm/npx usage)
 - **pnpm**: use the version pinned in `package.json` for local development.
@@ -81,18 +82,29 @@ literals and quoted identifiers:
 
 Quote a column whose name is one of these words.
 
-`maxRows` defaults to 1000, and the most it accepts is 5000. A `SELECT` or
-`WITH` query without a top-level `LIMIT` gets `LIMIT maxRows` and a
-`limit_added` warning. A larger `LIMIT` is reduced to `maxRows`, with a
-`limit_reduced` warning. A query that fills its own smaller `LIMIT` gets
-`limit_reached`, because more rows may exist. A `SELECT` or `WITH` query that
-never mentions `time` gets `missing_time_predicate`.
+`maxRows` defaults to 1000. The most it accepts is 5000.
+Each query also gets these checks:
+
+- **No limit:** a `SELECT` or `WITH` query without a top-level `LIMIT`
+  gets `LIMIT maxRows` and a `limit_added` warning.
+- **A larger limit:** a `LIMIT` above `maxRows` is reduced to `maxRows`,
+  with a `limit_reduced` warning.
+- **A full limit:** a query that fills its own smaller `LIMIT` gets `limit_reached`,
+  because more rows might exist.
+- **No time filter:** a `SELECT` or `WITH` query that never mentions `time`
+  gets `missing_time_predicate`.
 
 Read-only results come back as `json`, `jsonl`, or `csv` on Core and
 Enterprise, and as `json` on Cloud Dedicated, Cloud Serverless, and Clustered.
 `pretty` and `parquet` fail with `unsupported_query_format`. SQL on Cloud
 Dedicated and Cloud Serverless goes over Flight, which doesn't accept
 `timeoutMs`; that fails with `unsupported_query_option`.
+
+SQL results on Cloud Dedicated and Cloud Serverless have millisecond timestamps,
+because the InfluxDB 3 JavaScript client library (`@influxdata/influxdb3-client`) converts timestamps to milliseconds.
+The `time` column is an ISO 8601 string.
+Any other timestamp column, such as a `date_bin` result, is a number of epoch milliseconds.
+An integer too large to represent exactly as a JSON number is a string.
 
 ### Discovery
 
@@ -127,6 +139,10 @@ When a call fails, read `error.code`, `error.recovery`, and `error.retryable`:
 - A query that runs out of server memory has `recovery: "narrow"`.
 - A query sent to an Enterprise ingest-only node has
   `recovery: "change_endpoint"`.
+- An InfluxQL query to a Cloud Serverless bucket without a DBRP mapping fails
+  with `influxql_bucket_not_mapped`. Cloud Serverless answers InfluxQL only
+  for a bucket that has a mapping. Use `query_sql`, which needs no mapping, or
+  create one with `POST /api/v2/dbrps`.
 - Other server failures have `recovery: "none"`.
 
 `EXPLAIN ANALYZE` runs the query within the same bounds and adds a
@@ -189,35 +205,43 @@ logging full query text by default.
 
 ## Tools
 
-| Tool Name                     | Description                                                                                           | Availability              |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------- |
-| `load_database_context`       | Load optional custom database context and documentation                                               | All versions              |
-| `get_help`                    | Get help and troubleshooting guidance for InfluxDB operations                                         | All versions              |
-| `write_line_protocol`         | Write data using InfluxDB line protocol                                                               | All versions              |
-| `create_database`             | Create a new database (with cloud-specific config options)                                            | All versions              |
-| `update_database`             | Update database configuration (retention for all; maxTables/maxColumns for Cloud Dedicated/Clustered) | All versions              |
-| `delete_database`             | Delete a database by name (irreversible)                                                              | All versions              |
-| `execute_query`               | Deprecated since 2.0.0. Use `query_sql`. Retained for compatibility                                   | All versions              |
-| `query_sql`                   | Run bounded read-only SQL with structured response metadata                                           | All versions              |
-| `query_influxql`              | Run bounded read-only InfluxQL with structured response metadata                                      | All versions              |
-| `get_measurements`            | List all measurements (tables) in a database                                                          | All versions              |
-| `get_measurement_schema`      | Get schema (columns/types) for a measurement/table                                                    | All versions              |
-| `list_tables`                 | List tables, also called measurements, in a database                                                  | All versions              |
-| `describe_table`              | Describe table schema with conservative column categories                                             | All versions              |
-| `investigate_database`        | Run high-level read-only database discovery and sampling                                              | All versions              |
-| `create_admin_token`          | Create a named admin token with an optional expiration                                                | Core/Enterprise only      |
-| `list_admin_tokens`           | List all admin tokens (with optional filtering)                                                       | Core/Enterprise only      |
-| `create_resource_token`       | Create a resource token for specific DBs and permissions                                              | Enterprise only           |
-| `list_resource_tokens`        | List all resource tokens (with filtering and ordering)                                                | Enterprise only           |
-| `delete_token`                | Delete a token by name                                                                                | Core/Enterprise only      |
-| `regenerate_operator_token`   | Regenerate the operator token (dangerous/irreversible)                                                | Core/Enterprise only      |
-| `cloud_list_database_tokens`  | List all database tokens for Cloud-Dedicated/Clustered cluster                                        | Cloud Dedicated/Clustered |
-| `cloud_get_database_token`    | Get details of a specific database token by ID                                                        | Cloud Dedicated/Clustered |
-| `cloud_create_database_token` | Create a new database token for Cloud-Dedicated/Clustered cluster                                     | Cloud Dedicated/Clustered |
-| `cloud_update_database_token` | Update an existing database token                                                                     | Cloud Dedicated/Clustered |
-| `cloud_delete_database_token` | Delete a database token from Cloud-Dedicated/Clustered cluster                                        | Cloud Dedicated/Clustered |
-| `list_databases`              | List all available databases in the instance                                                          | All versions              |
-| `health_check`                | Check InfluxDB connection and health status                                                           | All versions              |
+| Tool Name                     | Description                                                                                           | Availability                               |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `load_database_context`       | Load optional custom database context and documentation                                               | All versions                               |
+| `get_help`                    | Get help and troubleshooting guidance for InfluxDB operations                                         | All versions                               |
+| `write_line_protocol`         | Write data using InfluxDB line protocol                                                               | All versions                               |
+| `create_database`             | Create a new database (with cloud-specific config options)                                            | All versions                               |
+| `update_database`             | Update database configuration (retention for all; maxTables/maxColumns for Cloud Dedicated/Clustered) | All versions                               |
+| `delete_database`             | Delete a database by name (irreversible)                                                              | All versions                               |
+| `execute_query`               | Deprecated since 2.0.0. Use `query_sql`. Retained for compatibility                                   | All versions                               |
+| `query_sql`                   | Run bounded read-only SQL with structured response metadata                                           | All versions                               |
+| `query_influxql`              | Run bounded read-only InfluxQL with structured response metadata                                      | All versions                               |
+| `get_measurements`            | List all measurements (tables) in a database                                                          | All versions                               |
+| `get_measurement_schema`      | Get schema (columns/types) for a measurement/table                                                    | All versions                               |
+| `list_tables`                 | List tables, also called measurements, in a database                                                  | All versions                               |
+| `describe_table`              | Describe table schema with conservative column categories                                             | All versions                               |
+| `investigate_database`        | Run high-level read-only database discovery and sampling                                              | All versions                               |
+| `create_admin_token`          | Create a named admin token with an optional expiration                                                | Core/Enterprise only                       |
+| `list_admin_tokens`           | List all admin tokens (with optional filtering)                                                       | Core/Enterprise only                       |
+| `create_resource_token`       | Create a resource token for specific DBs and permissions                                              | Enterprise only                            |
+| `list_resource_tokens`        | List all resource tokens (with filtering and ordering)                                                | Enterprise only                            |
+| `delete_token`                | Delete a token by name                                                                                | Core/Enterprise only                       |
+| `regenerate_operator_token`   | Regenerate the operator token (dangerous/irreversible)                                                | Core/Enterprise only, not InfluxDB 3 Cloud |
+| `cloud_list_database_tokens`  | List all database tokens for Cloud-Dedicated/Clustered cluster                                        | Cloud Dedicated/Clustered                  |
+| `cloud_get_database_token`    | Get details of a specific database token by ID                                                        | Cloud Dedicated/Clustered                  |
+| `cloud_create_database_token` | Create a new database token for Cloud-Dedicated/Clustered cluster                                     | Cloud Dedicated/Clustered                  |
+| `cloud_update_database_token` | Update an existing database token                                                                     | Cloud Dedicated/Clustered                  |
+| `cloud_delete_database_token` | Delete a database token from Cloud-Dedicated/Clustered cluster                                        | Cloud Dedicated/Clustered                  |
+| `list_databases`              | List all available databases in the instance                                                          | All versions                               |
+| `health_check`                | Check InfluxDB connection and health status                                                           | All versions                               |
+
+"All versions" includes InfluxDB 3 Cloud, which uses the Enterprise tools.
+On InfluxDB 3 Cloud:
+
+- `health_check`, `list_databases`, `list_tables`, `describe_table`, and `query_sql` were tested.
+- `regenerate_operator_token` isn't available. InfluxData manages the operator token, and customers can't use it.
+- `create_admin_token`, `list_admin_tokens`, `delete_token`, `create_resource_token`, and `list_resource_tokens`
+  depend on your role's permissions in InfluxDB 3 Cloud. They haven't been tested.
 
 ---
 
@@ -261,6 +285,43 @@ INFLUX_DB_INSTANCE_URL=http://localhost:8181/
 INFLUX_DB_TOKEN=your_influxdb_token_here
 INFLUX_DB_PRODUCT_TYPE=core
 ```
+
+#### InfluxDB 3 Cloud
+
+InfluxDB 3 Cloud is the fully managed, cloud-hosted version of InfluxDB 3 Enterprise,
+so set `INFLUX_DB_PRODUCT_TYPE=enterprise`.
+You must provide:
+
+- `INFLUX_DB_INSTANCE_URL`, your instance URL.
+  Find it on the instance **Overview** page in the Admin UI.
+  The instance host ends in `enterprise.influxdb.io`.
+  The Admin UI URL (`console.influxdata.com`) isn't the instance URL.
+- `INFLUX_DB_TOKEN`, a resource token scoped to the databases the agent needs
+- `INFLUX_DB_PRODUCT_TYPE` (`enterprise`)
+
+Example `.env`:
+
+```env
+INFLUX_DB_INSTANCE_URL=https://your_instance_host.enterprise.influxdb.io
+INFLUX_DB_TOKEN=your_resource_token_here
+INFLUX_DB_PRODUCT_TYPE=enterprise
+```
+
+A token scoped to databases can read those databases, but it can't do everything:
+
+- InfluxDB 3 Cloud has no `/health` endpoint.
+  `health_check` reports `/health` as `endpoint_absent` and decides health from `/ping`.
+  A database-scoped token can be denied `/ping`.
+  `health_check` then reports `credential_cannot_check`, even when the instance is reachable.
+- `describe_table` returns a `catalog_metadata_unavailable` warning,
+  because the token can't read the catalog.
+
+To confirm a connection with a database-scoped token, call `list_tables` or `query_sql`.
+
+For tool availability, see [Tools](#tools).
+To create an instance and tokens, see
+[Get started with InfluxDB 3 Cloud](https://docs.influxdata.com/influxdb3/cloud/get-started/)
+and [Manage tokens](https://docs.influxdata.com/influxdb3/cloud/admin/tokens/).
 
 #### InfluxDB Cloud Serverless
 
@@ -530,25 +591,27 @@ Use `host.docker.internal` as the InfluxDB URL so the MCP server container can r
 
 ### Run Cloud Serverless integration tests
 
-The Cloud Serverless test command accepts Claire's `INFLUXDB3_CLOUD_*` variables
-and maps them to the MCP server's runtime variables.
+The Cloud Serverless test command needs these variables:
+
+- `INFLUX_DB_INSTANCE_URL`
+- `INFLUX_DB_TOKEN`
+- `INFLUX_TEST_DATABASE`, the bucket the tests use
+- `INFLUX_TEST_ORG` (optional)
+
 The command sets `INFLUX_TEST_ENABLED=true` and `INFLUX_DB_PRODUCT_TYPE=cloud-serverless`.
 
-For local tests with 1Password, store only `op://` references in
-`~/.config/claire/cloud-serverless.env`:
+To keep the token out of files, store only `op://` references in an env file
+and run the tests through 1Password.
+The token then exists only in the test process environment.
 
 ```env
-INFLUXDB3_CLOUD_URL=op://VAULT/ITEM/hostname
-INFLUXDB3_CLOUD_TOKEN=op://VAULT/ITEM/token
-INFLUXDB3_CLOUD_BUCKET=op://VAULT/ITEM/bucket
-INFLUXDB3_CLOUD_ORG=op://VAULT/ITEM/org
+INFLUX_DB_INSTANCE_URL=op://VAULT/ITEM/hostname
+INFLUX_DB_TOKEN=op://VAULT/ITEM/token
+INFLUX_TEST_DATABASE=op://VAULT/ITEM/bucket
 ```
 
-Run the live tests through 1Password so the token exists only in the test
-process environment:
-
 ```bash
-op run --env-file ~/.config/claire/cloud-serverless.env -- \
+op run --env-file /path/to/cloud-serverless.env -- \
   pnpm run test:integration:cloud-serverless
 ```
 
@@ -635,6 +698,25 @@ limit is 30 seconds on Core, Enterprise, and Clustered, and the client
 library's default of 10 seconds on Cloud Dedicated and Cloud Serverless.
 
 Other write errors aren't retryable.
+
+Cloud Dedicated and Cloud Serverless store the valid lines of a batch
+and reject the rest.
+The error is `write_lines_rejected`, and `write.rejected_lines` lists the rejected lines.
+Resend only those lines.
+When the server's message doesn't name the rejected lines, `write.stored` is `unknown`.
+Check which rows arrived before you resend.
+The `acceptPartial` and `noSync` parameters apply only to Core and Enterprise.
+Other products ignore them.
+
+### Product coverage
+
+2.1.0 was tested against these products:
+
+- **InfluxDB 3 Core and Enterprise 3.12.3:** the live test suite, and agent evals for reads and writes.
+  See [InfluxDB 3.12 compatibility](#influxdb-312-compatibility).
+- **InfluxDB Cloud Dedicated and Cloud Serverless:** agent evals for SQL and InfluxQL reads and for a write followed by a read.
+- **InfluxDB 3 Cloud:** agent evals for `health_check`, `list_databases`, `list_tables`, and `query_sql`, with an admin token and with a read-only token.
+- **InfluxDB Clustered:** not tested against a live cluster.
 
 ### InfluxDB 3.12 compatibility
 

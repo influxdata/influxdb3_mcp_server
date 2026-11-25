@@ -116,6 +116,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     column, such as a `date_bin` result, is a number of epoch milliseconds.
     The `query_sql` description says so. Full precision is tracked in
     [#165](https://github.com/influxdata/influxdb3_mcp_server/issues/165).
+- Credential redaction no longer garbles error text. It treated any word
+  after "token" or "bearer" as a credential, so the 403 write advice "The
+  token can't write to this database" reached the agent as "The token
+  [REDACTED]'t write to this database". The same rule garbled server messages
+  such as "Invalid token provided". Only a value of 20 or more characters
+  after `Bearer` or `Token` is now redacted. Configured token values are
+  still redacted wherever they appear.
 
 ### Known issues
 

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   operationErrorDetails,
+  redactCredentials,
   resolveWriteError,
 } from "../src/services/error-resolution.service.js";
 import { hasExplicitTimestamp } from "../src/services/line-protocol.js";
@@ -111,6 +112,7 @@ describe("resolveWriteError", () => {
     expect(error.recovery).toBe("none");
     expect(error.message).toMatch(/^Access denied or not found: /);
     expect(error.write).toBeUndefined();
+    expect(redactCredentials(error.fix ?? "")).toBe(error.fix);
   });
 
   it("asks for a new credential on a 401", () => {
@@ -404,5 +406,28 @@ describe("write_line_protocol error response", () => {
     });
     const writes = fake.requests.filter((r) => r.path === "/api/v3/write_lp");
     expect(writes).toHaveLength(1);
+  });
+});
+
+describe("redactCredentials", () => {
+  it("redacts a credential after Bearer or Token", () => {
+    expect(
+      redactCredentials(
+        "Authorization: Bearer apiv3_abcdefghijklmnopqrstuvwxyz0123",
+      ),
+    ).toBe("Authorization: Bearer [REDACTED]");
+    expect(
+      redactCredentials("sent Token abcDEF0123456789abcDEF0123456789=="),
+    ).toBe("sent Token [REDACTED]");
+  });
+
+  it("leaves prose that follows the word token unchanged", () => {
+    for (const prose of [
+      "The token can't write to this database.",
+      "Core/Enterprise data operations require token in configuration",
+      "Invalid token provided",
+    ]) {
+      expect(redactCredentials(prose)).toBe(prose);
+    }
   });
 });

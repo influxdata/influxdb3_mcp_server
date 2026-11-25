@@ -157,7 +157,12 @@ export function redactCredentials(message: string): string {
     const secret = process.env[name];
     if (secret) result = result.split(secret).join("[REDACTED]");
   }
-  return result.replace(/\b(Bearer|Token)\s+[^\s,;"']+/giu, "$1 [REDACTED]");
+  // Credentials are long. Requiring 20 characters keeps prose such as
+  // "token can't" or "token in configuration" intact.
+  return result.replace(
+    /\b(Bearer|Token)\s+[^\s,;"']{20,}/giu,
+    "$1 [REDACTED]",
+  );
 }
 
 export function redactErrorDetails(value: unknown): unknown {
