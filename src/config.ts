@@ -45,7 +45,7 @@ export function loadConfig(): McpServerConfig {
     },
     server: {
       name: "influxdb-mcp-server",
-      version: "2.0.1",
+      version: "2.1.0",
     },
     tools: {
       profile: (process.env.INFLUX_MCP_TOOL_PROFILE ||
