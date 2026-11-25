@@ -129,6 +129,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - For InfluxDB Clustered, the MCP server's HTTP client skips Transport Layer
   Security (TLS) certificate verification. An intermediary could impersonate
   the server and intercept credentials or data.
+- For InfluxDB Clustered, `query_sql` sends SQL to the v1 `/query` endpoint,
+  which takes InfluxQL. Clustered hasn't been tested against a live cluster
+  ([#166](https://github.com/influxdata/influxdb3_mcp_server/issues/166)).
+- The `cloud_*_database_token` tools are listed on every product, but work
+  only on Cloud Dedicated and Clustered
+  ([#168](https://github.com/influxdata/influxdb3_mcp_server/issues/168)).
+- The token-management tools haven't been tested on InfluxDB 3 Cloud
+  ([#167](https://github.com/influxdata/influxdb3_mcp_server/issues/167)).
 
 ## [2.0.1]
 
