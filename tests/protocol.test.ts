@@ -121,6 +121,9 @@ describe("MCP protocol compliance", () => {
       expect(toolsByName.get("describe_table")).toContain(
         "quoted wildcard or unknown-field selectors",
       );
+      expect(toolsByName.get("query_sql")).toContain(
+        "On Cloud Dedicated and Cloud Serverless, timestamps have millisecond precision",
+      );
     });
 
     it("describes aliases, output, and formats the same way on both query tools", async () => {

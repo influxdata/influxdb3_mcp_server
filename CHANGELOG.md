@@ -101,6 +101,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Unsupported precision". The server passed the long precision name
   (`second`) to the InfluxDB 3 client library, which accepts only `ns`, `us`,
   `ms`, and `s`. It now converts the name, as the Cloud Serverless path does.
+- `query_sql` on Cloud Dedicated and Cloud Serverless dropped integer
+  results such as `COUNT(*)`, and returned `ok: true` with an empty row.
+  The server read results with the client library's `queryPoints()`, which
+  drops a computed Int64 column
+  ([influxdb3-js#979](https://github.com/InfluxCommunity/influxdb3-js/issues/979)).
+  It now uses `query()`, and rows are flat, as on Core and Enterprise:
+  - Integers are numbers, or strings when too large to represent exactly.
+  - `time` is an ISO 8601 string.
+  - Before, rows were the library's point objects, with `_time`, `_tags`,
+    and `_fields` as `[type, value]` pairs.
+  - The library gives timestamps in milliseconds, so they have millisecond
+    precision. Only the `time` column becomes a string. Any other timestamp
+    column, such as a `date_bin` result, is a number of epoch milliseconds.
+    The `query_sql` description says so. Full precision is tracked in
+    [#165](https://github.com/influxdata/influxdb3_mcp_server/issues/165).
 
 ### Known issues
 

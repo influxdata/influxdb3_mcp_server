@@ -55,14 +55,14 @@ describe("query routing options", () => {
     ["cloud-serverless", InfluxProductType.CloudServerless],
   ])("%s forwards params to the Flight client", async (_name, type) => {
     const base = stubBaseService(type);
-    const client = { queryPoints: vi.fn().mockReturnValue(emptyAsyncResult()) };
+    const client = { query: vi.fn().mockReturnValue(emptyAsyncResult()) };
     vi.mocked(base.getClient).mockReturnValue(client as any);
 
     await new QueryService(base).executeQuery(QUERY, DATABASE, {
       params: PARAMS,
     });
 
-    expect(client.queryPoints).toHaveBeenCalledWith(QUERY, DATABASE, {
+    expect(client.query).toHaveBeenCalledWith(QUERY, DATABASE, {
       type: "sql",
       params: PARAMS,
     });
@@ -74,7 +74,7 @@ describe("query routing options", () => {
   ])("%s rejects per-query timeout explicitly", async (_name, type) => {
     const base = stubBaseService(type);
     vi.mocked(base.getClient).mockReturnValue({
-      queryPoints: vi.fn().mockReturnValue(emptyAsyncResult()),
+      query: vi.fn().mockReturnValue(emptyAsyncResult()),
     } as any);
 
     await expect(

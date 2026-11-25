@@ -39,7 +39,7 @@ function sdkClientThrowing(error: SdkErrorShape) {
     },
   };
   return {
-    queryPoints: vi.fn().mockReturnValue(throwingIterable),
+    query: vi.fn().mockReturnValue(throwingIterable),
     write: vi.fn(),
     close: vi.fn(),
   };

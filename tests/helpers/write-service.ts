@@ -25,7 +25,7 @@ export function httpClientRecording() {
 export function sdkClientThrowing(error: unknown) {
   return {
     write: vi.fn().mockRejectedValue(error),
-    queryPoints: vi.fn(),
+    query: vi.fn(),
     close: vi.fn(),
   };
 }
@@ -33,7 +33,7 @@ export function sdkClientThrowing(error: unknown) {
 export function sdkClientRecording() {
   return {
     write: vi.fn().mockResolvedValue(undefined),
-    queryPoints: vi.fn(),
+    query: vi.fn(),
     close: vi.fn(),
   };
 }
