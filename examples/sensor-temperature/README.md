@@ -19,7 +19,7 @@ Configure your MCP client with the repository's `example-npx.mcp.json`, replacin
 `<YOUR_INFLUXDB_OPERATOR_TOKEN>` with `apiv3_sensor_demo`. Or build this checkout
 with `pnpm install && pnpm run build` and use `example-local.mcp.json` after
 replacing its absolute entrypoint path. Both examples select the `readonly`
-tool profile. The npx example pins server version 2.0.1.
+tool profile. The npx example pins server version 2.1.0.
 
 Ask the agent:
 

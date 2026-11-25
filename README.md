@@ -7,7 +7,8 @@
 
 [![Trust Score](https://archestra.ai/mcp-catalog/api/badge/quality/influxdata/influxdb3_mcp_server)](https://archestra.ai/mcp-catalog/influxdata__influxdb3_mcp_server)
 
-Model Context Protocol (MCP) server for InfluxDB 3 integration. Provides tools, resources, and prompts for interacting with InfluxDB 3 Core and Enterprise, plus InfluxDB Cloud Dedicated, InfluxDB Clustered, and InfluxDB Cloud Serverless via MCP clients.
+Use this Model Context Protocol (MCP) server to connect your MCP client to InfluxDB.
+The server provides tools, resources, and prompts for InfluxDB 3 Core, InfluxDB 3 Enterprise, InfluxDB Cloud Dedicated, InfluxDB Clustered, and InfluxDB Cloud Serverless.
 
 ---
 
@@ -28,7 +29,7 @@ release listed above. Node.js 20 is end of life and has no fixed release.
 
 ---
 
-## Migrating to 2.0
+## Migrate to 2.0
 
 Version 2.0 changes query result envelopes, health-check output, argument errors,
 and telemetry. Clients that parse these responses must follow the
@@ -37,7 +38,7 @@ Read `metadata.completeness`, caps, and warnings before treating query results
 as a complete answer. Discovery metadata states its source and leaves
 unavailable values unknown. Tool names and configured profiles remain available.
 
-## Read-only Agent Workflows
+## Read-only agent workflows
 
 Set `INFLUX_MCP_TOOL_PROFILE=readonly` to give an MCP client tools that explore
 and query data. The profile leaves out every tool that writes data, administers
@@ -63,8 +64,8 @@ recorded in telemetry.
 
 ### Query checks and bounds
 
-`query_sql` and `query_influxql` run one statement. A trailing semicolon is
-allowed; a second statement fails with `multiple_statements`. The checks skip
+`query_sql` and `query_influxql` run one statement. You can include a trailing semicolon.
+A second statement fails with `multiple_statements`. The checks skip
 comments, string literals, and quoted identifiers, so a statement inside a
 comment is neither run nor counted.
 
@@ -101,15 +102,15 @@ with separate health and ping outcomes. A scoped token can be denied both checks
 and still read its databases.
 
 `investigate_database` keeps each table's result even when another table fails,
-and reports how many tables it saw and whether it stopped early. Samples come
-from a time window, 24 hours by default; set `sampleWindowHours` to change it.
+and reports how many tables it saw and whether it stopped early. The tool samples from a 24-hour window by default.
+Set `sampleWindowHours` to change the window.
 An empty window doesn't mean the table is empty.
 On Core and Enterprise, `describe_table` and investigation use
 `system.influxdb_schema` for authoritative column roles.
 They also read schema mode and deletion status from the `_internal` catalog
 when the same credential permits it, reporting `source: "server"` and the
-catalog table name. Unavailable values stay `unknown`; catalog denial does
-not discard readable column metadata or samples.
+catalog table name. Unavailable values stay `unknown`.
+If the catalog denies access, the tools keep readable column metadata and samples.
 Without authoritative deletion metadata, a table name with a timestamp-shaped
 suffix gets an advisory `possibly_deleted` warning and stays listed.
 Cardinality estimates aren't supported yet.
@@ -186,7 +187,7 @@ logging full query text by default.
 
 ---
 
-## Available Tools
+## Tools
 
 | Tool Name                     | Description                                                                                           | Availability              |
 | ----------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------- |
@@ -220,7 +221,7 @@ logging full query text by default.
 
 ---
 
-## Available Resources
+## Resources
 
 | Resource Name      | Description                                             |
 | ------------------ | ------------------------------------------------------- |
@@ -231,7 +232,7 @@ logging full query text by default.
 
 ---
 
-## Available Prompts
+## Prompts
 
 | Prompt Name      | Description                                       |
 | ---------------- | ------------------------------------------------- |
@@ -241,11 +242,11 @@ logging full query text by default.
 
 ---
 
-## Setup & Integration Guide
+## Set up the server
 
-### 1. Environment Variables
+### 1. Set environment variables
 
-#### For Core/Enterprise InfluxDB:
+#### InfluxDB 3 Core and Enterprise
 
 You must provide:
 
@@ -261,7 +262,7 @@ INFLUX_DB_TOKEN=your_influxdb_token_here
 INFLUX_DB_PRODUCT_TYPE=core
 ```
 
-#### For Cloud Serverless InfluxDB:
+#### InfluxDB Cloud Serverless
 
 You must provide:
 
@@ -277,7 +278,7 @@ INFLUX_DB_TOKEN=your_influxdb_token_here
 INFLUX_DB_PRODUCT_TYPE=cloud-serverless
 ```
 
-#### For Cloud Dedicated InfluxDB:
+#### InfluxDB Cloud Dedicated
 
 You must provide `INFLUX_DB_PRODUCT_TYPE=cloud-dedicated` and `INFLUX_DB_CLUSTER_ID`, plus one of these token combinations:
 
@@ -308,7 +309,7 @@ INFLUX_DB_TOKEN=your_database_token_here
 INFLUX_DB_MANAGEMENT_TOKEN=your_management_token_here
 ```
 
-#### For Clustered InfluxDB:
+#### InfluxDB Clustered
 
 You must provide `INFLUX_DB_PRODUCT_TYPE=clustered` and `INFLUX_DB_INSTANCE_URL`, plus one of these token combinations:
 
@@ -337,7 +338,7 @@ INFLUX_DB_TOKEN=your_database_token_here
 INFLUX_DB_MANAGEMENT_TOKEN=your_management_token_here
 ```
 
-See corresponding `env.<instancetype>.example` for examples and detailed info.
+See the corresponding `env.<instancetype>.example` file for configuration examples and details.
 
 #### Optional MCP tool profile and telemetry
 
@@ -387,19 +388,19 @@ see `AGENT_E2E_TESTS.md`.
 
 ---
 
-### 2. Integration with MCP Clients
+### 2. Configure your MCP client
 
-#### A. Local (pnpm install & run)
+#### Run locally with pnpm
 
-1. **Install dependencies:**
+1. Install dependencies.
    ```bash
    pnpm install
    ```
-2. **Build the server:**
+2. Build the server.
    ```bash
    pnpm run build
    ```
-3. **Configure your MCP client** to use the built server. Example (see `example-local.mcp.json`):
+3. Configure your MCP client to use the built server. See [the local configuration example](example-local.mcp.json).
    ```json
    {
      "mcpServers": {
@@ -417,29 +418,31 @@ see `AGENT_E2E_TESTS.md`.
    }
    ```
 
-#### B. Local (npx, no install/build required)
+#### Run locally with npx
 
-1. **Run the published 2.0.1 release with npx:**
-   ```json
-   {
-     "mcpServers": {
-       "influxdb": {
-         "command": "npx",
-         "args": ["-y", "@influxdata/influxdb3-mcp-server@2.0.1"],
-         "env": {
-           "INFLUX_DB_INSTANCE_URL": "http://localhost:8181/",
-           "INFLUX_DB_TOKEN": "<YOUR_INFLUXDB_TOKEN>",
-           "INFLUX_DB_PRODUCT_TYPE": "core",
-           "INFLUX_MCP_TOOL_PROFILE": "readonly"
-         }
-       }
-     }
-   }
-   ```
+After version 2.1.0 is published, configure your MCP client to run it with `npx`.
+This method requires no separate install or build step.
 
-#### C. Docker
+```json
+{
+  "mcpServers": {
+    "influxdb": {
+      "command": "npx",
+      "args": ["-y", "@influxdata/influxdb3-mcp-server@2.1.0"],
+      "env": {
+        "INFLUX_DB_INSTANCE_URL": "http://localhost:8181/",
+        "INFLUX_DB_TOKEN": "<YOUR_INFLUXDB_TOKEN>",
+        "INFLUX_DB_PRODUCT_TYPE": "core",
+        "INFLUX_MCP_TOOL_PROFILE": "readonly"
+      }
+    }
+  }
+}
+```
 
-Before running the Docker integration, you must build the Docker image:
+#### Run with Docker
+
+Build the Docker image before running the Docker integration.
 
 ```bash
 # Option 1: Use docker compose (recommended)
@@ -511,7 +514,7 @@ Use `host.docker.internal` as the InfluxDB URL so the MCP server container can r
 
 ---
 
-## Example Usage
+## Usage examples
 
 - Use your MCP client to call tools, resources, or prompts as described above.
 - **Custom Context**: Edit the provided `context/database-context.md` file or remove it and create your own context file with "context" in the name (`.json`, `.txt`, `.md`) to provide database documentation. Use the `load_database_context` tool or `load-context` prompt to access it.
@@ -563,9 +566,9 @@ GitHub Actions runs the same command with the existing URL and token secrets
 from the `cloud-serverless` environment. The workflow selects the
 `mcp-ci-tests` bucket explicitly.
 
-### Database Retention Policy Examples
+### Database retention policy examples
 
-#### Core/Enterprise - Set 90-day Retention
+#### Set 90-day retention on Core or Enterprise
 
 ```typescript
 // Set 90-day retention policy on Enterprise instance
@@ -575,7 +578,7 @@ await mcp.update_database({
 });
 ```
 
-#### Cloud Dedicated - Update Multiple Settings
+#### Update multiple settings on Cloud Dedicated
 
 ```typescript
 // Update retention, maxTables, and maxColumnsPerTable
@@ -587,7 +590,7 @@ await mcp.update_database({
 });
 ```
 
-#### Common Retention Periods
+#### Common retention periods
 
 | Duration | Nanoseconds            |
 | -------- | ---------------------- |
@@ -599,7 +602,7 @@ await mcp.update_database({
 
 ---
 
-## Support & Troubleshooting
+## Support and troubleshooting
 
 - Use the `get_help` tool for built-in help and troubleshooting.
 - For connection issues, check your environment variables and InfluxDB instance status.
@@ -607,21 +610,19 @@ await mcp.update_database({
 
 ### Write errors
 
-`write_line_protocol` surfaces InfluxDB's own error text, not a generic
-message. If InfluxDB rejects a write — a duplicate tag key, an
-unauthenticated token, a payload over the size limit — the tool error
-includes the specific reason, for example:
+When InfluxDB rejects a write, `write_line_protocol` includes the reason from InfluxDB.
+Common reasons include a duplicate tag key, an unauthenticated token, and a payload that exceeds the size limit.
+The following message shows a duplicate tag key.
 
-```
+```text
 Bad request: invalid line protocol - multiple instances of 'region' tag found
 ```
 
 A failed write also has `error.code` and `error.recovery`. These have
 `recovery: "retry"`:
 
-- `429` and `503` are `write_unavailable`: the server rejected the write, so
-  nothing was stored.
-- A refused connection is `write_connection_refused`: nothing was written.
+- HTTP 429 and 503 return `write_unavailable`. The server refused the write and stored nothing.
+- A refused connection returns `write_connection_refused`. The server stored nothing.
 
 A `504`, a connection that closes before a reply, or a write the server
 doesn't answer in time is `write_outcome_unknown`: the write may or may not have been stored. It has
@@ -646,7 +647,7 @@ as `write_outcome_unknown`.
 ### InfluxDB 3.11 compatibility
 
 Verified against InfluxDB 3.11.5 Core and Enterprise, including a
-multi-node Enterprise cluster). Core and Enterprise write through
+multi-node Enterprise cluster. Core and Enterprise write through
 `POST /api/v3/write_lp`, which 3.11's write-availability changes for the
 legacy `/api/v2/write` endpoint do not affect; only `clustered` calls
 `/api/v2/write`. Query and schema-discovery tools behave the same whether
@@ -664,12 +665,13 @@ resource-token tools for Core connections.
 
 ---
 
-## Publishing to the MCP Registry
+## Publish to the MCP Registry
 
 Stable GitHub releases publish the npm package first, then register
 `io.github.influxdata/influxdb3-mcp-server` in the
 [official MCP Registry](https://modelcontextprotocol.io/registry/about).
-The registry stores metadata; clients install the server from npm.
+The registry stores metadata.
+Clients install the server from npm.
 GitHub OIDC authenticates the release job using `id-token: write`, so no
 additional registry secret is needed. Releases marked as prereleases or with
 `-` in their tag skip registry publishing.
@@ -722,8 +724,8 @@ Metadata validation checks the registry description; the smoke test checks that
 the published package initializes and advertises tools. Keep the release-note
 verification checklist unchecked until the corresponding checks pass.
 
-If registry publishing fails after npm succeeds, rerun only the failed registry
-job; rerunning the successful npm job would try to publish an existing version.
+If registry publishing fails after npm succeeds, rerun only the failed registry job.
+Rerunning the successful npm job would try to publish an existing version.
 
 ## License
 

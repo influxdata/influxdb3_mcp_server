@@ -1,25 +1,27 @@
 # Changelog
 
-All notable changes to the official InfluxDB 3 MCP Server will be documented in this file.
+This changelog records all notable changes to the official InfluxDB 3 MCP Server.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.0]
 
 ### Added
 
-- `write_line_protocol` failures now include `structuredContent`: the same
-  error envelope the query tools return (`ok: false`, `error.code`,
-  `error.recovery`, `error.retryable`, `error.fix`, `error.status`, and
-  `error.retry_after_ms` when the server sends `Retry-After`). The text
-  content keeps its `Error: <message>` format. A second text block holds the
-  envelope as JSON, for clients that don't pass `structuredContent` to the
-  model.
-- When a write rejects specific lines, the envelope adds a `write` object:
-  `rejected_lines` (every line number and error, up to 100), and `stored`,
-  which says whether the other lines were written (`some`), nothing was
-  (`none`), or it can't be told (`unknown`).
+- When `write_line_protocol` fails, `structuredContent` uses the same error
+  envelope as the query tools.
+  It includes `ok: false`, `error.code`, `error.recovery`,
+  `error.retryable`, `error.fix`, and `error.status`.
+  When the server sends `Retry-After`, the envelope includes `error.retry_after_ms`.
+  The first text block keeps its `Error: <message>` format, followed by a
+  line that says what to do next. A second text block holds the envelope as
+  JSON, for clients that don't pass `structuredContent` to the model.
+- When a write rejects specific lines, the envelope includes a `write` object.
+  Its `rejected_lines` field lists line numbers and errors for up to 100 lines.
+  Its `stored` field reports whether the server wrote the other lines
+  (`some`), wrote nothing (`none`), or gave too little information to tell
+  (`unknown`).
 - Cloud Dedicated and Cloud Serverless partial writes get the same `write`
   object. Both products store the valid lines of an `/api/v2/write` batch
   and return a `400` with `influxdata-partial-write: true`, naming each
@@ -29,17 +31,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `unknown`, because the rejected lines can't be told apart from the stored ones.
 - The `acceptPartial` and `noSync` descriptions of `write_line_protocol` say
   that only Core and Enterprise use them.
-- Write error codes: `write_lines_rejected`, `write_schema_not_declared`
-  (Enterprise explicit schema mode), `write_node_not_ingest` (a node without
-  ingest mode), `write_unavailable` (429 or 503: the server refused the
-  write, retryable), `write_connection_refused` (nothing was written,
-  retryable), `write_outcome_unknown` (a connection closed or reset before
-  a reply, a client timeout, or a 504: the write may have been stored), `write_too_large` (413), and
-  `write_failed`. A 401 is `credential_invalid` and a 403 is
-  `not_found_or_denied`, as on the query path. `write_outcome_unknown` is
-  retryable only when every line has a timestamp. The server gives a line
-  without one its own time, so resending a stored write adds a second point;
-  for those batches the recovery is `none`.
+- Write failures return the following error codes.
+  - `write_lines_rejected`
+  - `write_schema_not_declared` for Enterprise explicit schema mode.
+  - `write_node_not_ingest` for a node without ingest mode.
+  - `write_unavailable` for HTTP 429 or 503. The server refused the write, so you can retry it.
+  - `write_connection_refused` when the connection fails with a refusal. The server stored nothing, so you can retry the write.
+  - `write_outcome_unknown` for a connection that closes or resets before a reply, a client timeout, or HTTP 504.
+    The server might have stored the write.
+    Retry only when every line has a timestamp.
+    The server assigns its own time to each line without a timestamp, so resending a stored write adds a second point.
+    For batches with missing timestamps, the recovery is `none`.
+  - `write_too_large` for HTTP 413.
+  - `write_failed`
+
+  As with query errors, HTTP 401 returns `credential_invalid` and HTTP 403 returns `not_found_or_denied`.
+
 - `health_check` and the status resource report `ping.cluster_uuid` when the
   server sends a `cluster-uuid` header, including on a 403 from a
   database-scoped token. It shows which cluster a run reached.
@@ -66,13 +73,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   error with HTTP 200, in `results[].error`. `query_influxql` returned that
   body as one row, and schema discovery returned an empty list. Both now
   fail with the server's error.
-- On Cloud Serverless, `database not found` from InfluxQL is
-  `influxql_bucket_not_mapped`. The same error means the bucket doesn't
-  exist or has no DBRP mapping, which `/query` needs and `/api/v2/write`,
-  which `write_line_protocol` uses, doesn't create. The message says to
-  check the name with `list_databases`, points to `query_sql`, which needs
-  no mapping, and says how to create a default mapping (`retention_policy`
-  is required).
+- On Cloud Serverless, an InfluxQL `database not found` error returns
+  `influxql_bucket_not_mapped`.
+  Either the bucket doesn't exist or it lacks a database and retention
+  policy (DBRP) mapping.
+  The `/query` endpoint requires a mapping.
+  The `/api/v2/write` endpoint that `write_line_protocol` uses doesn't
+  create one.
+  The error suggests checking the bucket name with `list_databases` or
+  using `query_sql`, which requires no mapping.
+  It also explains how to create a default mapping with the required
+  `retention_policy`.
 - `query_influxql` on Cloud Dedicated, Cloud Serverless, and Clustered
   returned the whole v1 `/query` body as one row, so `row_count` was always
   1, an empty result counted as data, and `max_rows` capped nothing. Each
@@ -90,6 +101,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "Unsupported precision". The server passed the long precision name
   (`second`) to the InfluxDB 3 client library, which accepts only `ns`, `us`,
   `ms`, and `s`. It now converts the name, as the Cloud Serverless path does.
+
+### Known issues
+
+- For InfluxDB Clustered, the MCP server's HTTP client skips Transport Layer
+  Security (TLS) certificate verification. An intermediary could impersonate
+  the server and intercept credentials or data.
 
 ## [2.0.1]
 
@@ -516,7 +533,7 @@ job. The npm version has already been published and cannot be republished.
 - **Help Service**: In-memory help content for optimal LLM performance
 - **Health Monitoring**: Real-time status checking with detailed diagnostics
 
-### Technical Details
+### Technical details
 
 - Built with @modelcontextprotocol/sdk v1.12.1
 - Uses @influxdata/influxdb3-client for InfluxDB connectivity
