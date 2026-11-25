@@ -182,11 +182,10 @@ export class QueryService {
     assertQuerySupported(connectionInfo.type, "sql", options);
     switch (connectionInfo.type) {
       case InfluxProductType.CloudDedicated:
-        return this.executeCloudDedicatedQuery(query, database, options);
+      case InfluxProductType.CloudServerless:
+        return this.executeFlightSqlQuery(query, database, options);
       case InfluxProductType.Clustered:
         return this.executeV1Query(query, database, options);
-      case InfluxProductType.CloudServerless:
-        return this.executeCloudServerlessQuery(query, database, options);
       case InfluxProductType.Core:
       case InfluxProductType.Enterprise:
         return this.executeCoreEnterpriseQuery(query, database, {
@@ -634,7 +633,7 @@ export class QueryService {
     }
   }
 
-  private async executeCloudDedicatedQuery(
+  private async executeFlightSqlQuery(
     query: string,
     database: string,
     options: {
@@ -647,13 +646,13 @@ export class QueryService {
     try {
       const client = this.baseService.getClient();
       if (!client) throw new Error("InfluxDB client not initialized");
-      const result = client.queryPoints(query, database, {
+      const result = client.query(query, database, {
         type: "sql",
         ...(params !== undefined && { params }),
       });
-      const rows: any[] = [];
+      const rows: Record<string, unknown>[] = [];
       for await (const row of result) {
-        rows.push(row);
+        rows.push(jsonSafeFlightRow(row));
       }
       return rows;
     } catch (error: any) {
@@ -707,33 +706,6 @@ export class QueryService {
         );
       }
       throw error;
-    }
-  }
-
-  private async executeCloudServerlessQuery(
-    query: string,
-    database: string,
-    options: {
-      params?: Record<string, unknown> | unknown[];
-      timeoutMs?: number;
-    },
-  ): Promise<any> {
-    const params = this.flightParams(options);
-
-    try {
-      const client = this.baseService.getClient();
-      if (!client) throw new Error("InfluxDB client not initialized");
-      const result = client.queryPoints(query, database, {
-        type: "sql",
-        ...(params !== undefined && { params }),
-      });
-      const rows: any[] = [];
-      for await (const row of result) {
-        rows.push(row);
-      }
-      return rows;
-    } catch (error: any) {
-      throw resolveOperationError(error);
     }
   }
 
@@ -844,7 +816,7 @@ export class QueryService {
       if (Array.isArray(result)) {
         return result
           .map((row: any) => ({
-            name: serverlessFieldValue(row, "table_name"),
+            name: row.table_name,
           }))
           .filter((item: any) => item.name);
       }
@@ -1126,8 +1098,8 @@ export class QueryService {
       if (Array.isArray(result)) {
         const columns = result
           .map((row: any): SchemaInfo["columns"][number] => {
-            const columnName = serverlessFieldValue(row, "column_name");
-            const dataType = serverlessFieldValue(row, "data_type");
+            const columnName = row.column_name;
+            const dataType = row.data_type;
 
             let category: "time" | "tag" | "field" | "unknown" = "unknown";
             let categoryConfidence: "high" | "low" = "low";
@@ -1173,8 +1145,32 @@ function parseFinishedJsonBody(text: string): { value: unknown } | undefined {
   }
 }
 
-function serverlessFieldValue(row: any, fieldName: string): any {
-  return row._fields?.[fieldName]?.[1];
+/**
+ * A row from the client library's Flight `query()`, made safe for JSON.
+ * Int64 and UInt64 values arrive as `bigint`: they become numbers when
+ * exact, and strings otherwise. The library gives timestamps as epoch
+ * milliseconds, so `time` becomes an ISO 8601 string.
+ */
+function jsonSafeFlightRow(
+  row: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(row).map(([name, value]) => [
+      name,
+      jsonSafeFlightValue(name, value),
+    ]),
+  );
+}
+
+function jsonSafeFlightValue(name: string, value: unknown): unknown {
+  if (typeof value === "bigint") {
+    const asNumber = Number(value);
+    return Number.isSafeInteger(asNumber) ? asNumber : value.toString();
+  }
+  if (name === "time" && typeof value === "number") {
+    return new Date(value).toISOString();
+  }
+  return value;
 }
 
 function wholeElementsOfUnfinishedJsonArray(text: string): any[] {
