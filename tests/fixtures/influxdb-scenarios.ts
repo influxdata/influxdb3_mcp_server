@@ -7,7 +7,7 @@ export interface ScenarioProvenance {
 }
 
 export interface ScenarioRequest {
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "DELETE";
   path: string;
   db?: string;
   q?: RegExp;
